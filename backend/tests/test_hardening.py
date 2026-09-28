@@ -365,9 +365,9 @@ def test_login_failures_expire_after_window(api, monkeypatch):
 
 def test_demo_accounts_flag_follows_server_setting(api, monkeypatch):
     client, _ = api
-    assert client.get("/api/system/info").json()["demoAccounts"] is True
+    assert client.get("/api/config/public").json()["demoModeEnabled"] is True
     monkeypatch.setattr(api_module.settings, "seed_demo_data", False)
-    assert client.get("/api/system/info").json()["demoAccounts"] is False
+    assert client.get("/api/config/public").json()["demoModeEnabled"] is False
 
 
 # ---------------------------------------------------------------- 6. 보존 기간

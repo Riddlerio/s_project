@@ -1,20 +1,25 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProfile } from '../api/play'
-import { login } from '../api/therapist'
+import { demoLogin, login } from '../api/therapist'
 import { setToken } from '../therapist/auth'
-import { useDemoAccounts } from '../shared/useDemoAccounts'
+import { useDemoMode } from '../shared/useDemoMode'
 
 export default function PlayEntry() {
   const [code, setCode] = useState('')
-  const demoAccounts = useDemoAccounts()
+  const demoMode = useDemoMode()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  async function enter() {
+  async function enter(demo = false) {
     try {
-      const username = code.trim().toUpperCase()
-      const result = await login(username, password)
+      let username = code.trim().toUpperCase()
+      let result: { csrfToken: string; role: string }
+      if (demo) {
+        const demoResult = await demoLogin('STUDENT')
+        username = demoResult.username
+        result = demoResult
+      } else result = await login(username, password)
       if (result.role !== 'STUDENT') throw new Error('아동 계정이 아닙니다')
       setToken(result.csrfToken)
       await getProfile(username)
@@ -25,7 +30,7 @@ export default function PlayEntry() {
   return <main className="child-screen"><h1>호야와 모험하기</h1><p>계정으로 로그인해 주세요.</p>
     <label>아이디<input value={code} onChange={e => setCode(e.target.value)} maxLength={12} /></label>
     <label>비밀번호<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-    <button onClick={enter}>모험 시작</button>{error && <p role="alert">{error}</p>}
-    {demoAccounts && <p className="small">DEMO 서버입니다. 샘플 아동 계정: HERO01 / speechhero <button type="button" onClick={() => { setCode('HERO01'); setPassword('speechhero') }}>DEMO 계정으로 채우기</button></p>}
+    <button onClick={() => { void enter() }}>모험 시작</button>{error && <p role="alert">{error}</p>}
+    {demoMode && <p className="small">DEMO 서버입니다. <button type="button" onClick={() => { void enter(true) }}>DEMO 아동으로 시작</button></p>}
   </main>
 }

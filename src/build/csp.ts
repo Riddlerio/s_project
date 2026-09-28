@@ -1,22 +1,12 @@
 /**
  * 프로덕션 빌드의 index.html에 넣는 Content-Security-Policy.
  * 개발 서버(Vite HMR·React Refresh)는 inline script와 websocket이 필요하므로 build에서만 적용한다.
- * frame-ancestors는 meta 태그로 적용되지 않으므로 배포 서버 헤더로 설정해야 한다(README 참고).
+ * 정의는 shared/frontend_csp.json 하나이며, FastAPI 정적 서비스(app/static_site.py)가 같은 정책에
+ * frame-ancestors 'none'을 더해 HTTP 헤더로 보낸다. frame-ancestors는 meta 태그로는 적용되지 않는다.
  */
-export const PRODUCTION_CSP = [
-  "default-src 'self'",
-  "script-src 'self'",
-  // React style 속성과 three.js/R3F가 요소에 직접 넣는 style 때문에 필요하다.
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
-  "worker-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ')
+import cspConfig from '../../shared/frontend_csp.json'
+
+export const PRODUCTION_CSP = cspConfig.directives.join('; ')
 
 export function cspMetaTag(policy = PRODUCTION_CSP): string {
   return `<meta http-equiv="Content-Security-Policy" content="${policy}"/>`

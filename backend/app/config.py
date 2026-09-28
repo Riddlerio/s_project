@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     login_max_failures_username: int = 10
     login_max_failures_ip: int = 30
     content_security_policy: str = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    # 프로덕션에서 빌드된 프런트엔드(dist) 경로. 비어 있으면 API만 서비스한다.
+    frontend_dist: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

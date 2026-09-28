@@ -1,6 +1,12 @@
 from dataclasses import dataclass, replace
 
 
+# 쉼 후 재개(RE_ONSET)에서 한 발화 안의 쉼으로 인정하는 범위(ms). 상한은 그 라운드의 발화 종료 유예보다
+# 짧아야 한다. 그보다 길게 쉬면 브라우저가 발화를 끝내므로 서버도 한 발화 안의 쉼으로 인정하지 않는다.
+RE_ONSET_PAUSE_MS = (300, 2200)
+RE_ONSET_END_HOLD_MS = 2500
+
+
 @dataclass(frozen=True)
 class RoundDefinition:
     id: str
@@ -40,7 +46,7 @@ GAME_ROUNDS = {
         _round("sky_climb", 1, "구름 위로", "소리를 내며 첫 구름에 올라가자!", "발성 시작·짧은 지속", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "SUSTAIN", 1000),
         _round("sky_climb", 2, "높이 날기", "소리를 길게 이어 보자!", "목표 음 독립 지속", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 4, "SUSTAIN", 1500),
         _round("sky_climb", 3, "바람 조절", "바람을 고르게 불어 줘!", "발성 강도 유지 참고", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 3, "ENERGY_BAND", 1500),
-        _round("sky_climb", 4, "쉬고 다시", "잠깐 쉬었다가 다시 날아 보자!", "쉼 후 재개", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 5, "RE_ONSET", 1000, 2500),
+        _round("sky_climb", 4, "쉬고 다시", "잠깐 쉬었다가 다시 날아 보자!", "쉼 후 재개", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 5, "RE_ONSET", 1000, RE_ONSET_END_HOLD_MS),
         _round("sky_climb", 5, "정상 도착", "마지막 구름까지 길게 날아가자!", "최장 지속 관찰", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 6, "SUSTAIN", 2500),
     ),
     "monster_adventure": (

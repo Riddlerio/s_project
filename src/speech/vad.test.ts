@@ -41,7 +41,9 @@ describe('쉼 후 재개 라운드의 발화 종료 유예', () => {
     expect(feed(vad, 1100, 2300, -60).some(event => event.type === 'VOICE_END')).toBe(false)
     expect(feed(vad, 2300, 3400, -20).some(event => event.type === 'VOICE_END')).toBe(false)
     const end = feed(vad, 3400, 6200, -60).find(event => event.type === 'VOICE_END')
-    expect(end?.durationMs).toBeGreaterThan(5000)
+    // 두 발성과 그 사이 쉼을 포함하고, 끝의 종료 유예 무음은 길이에 넣지 않는다.
+    expect(end?.durationMs).toBe(3400)
+    expect(end?.meanRmsDb).toBe(-20)
   })
 
   it('유예보다 긴 쉼은 발화를 끝내고, 이후 소리는 새 발화로 시작한다', () => {

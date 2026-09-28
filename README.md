@@ -25,7 +25,7 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 ## 구조와 음성 처리
 
-브라우저 `src/child`가 마이크 입력의 음량과 발성 시간을 감지합니다. Magic Beam의 실제 마이크 입력은 고주파 에너지와 스펙트럼 중심으로 마찰음 구간을 찾고 연속 발성 길이를 서버에 보냅니다. 신호 대 잡음비가 낮거나 발화가 너무 짧으면 평가를 보류하고 다시 듣기를 안내합니다. 이 임계값은 기기별 보정과 실제 아동 음성 검증이 필요합니다. 발화 끝 판단 전 기다리는 시간은 기본 700ms입니다. Sky Climb R4(쉬었다가 다시)는 2.5초, Magic Beam R4(리듬 펄스)는 1.2초로 늘려 자연스러운 쉼이 한 발화 안에서 측정되게 합니다. 실제 모드에서는 Web Speech API가 한국어 인식 문장을 만들고, DEMO 모드에서는 `DemoRecognizer`가 같은 인터페이스로 문장을 만듭니다. 서버는 문장을 정규화하고 한글 음소로 변환한 뒤 목표와 정렬하여 근사 점수와 재시도 패턴을 계산합니다. `TrainingPolicy`는 치료사가 정한 목표 범위 안에서 다음 항목·힌트·보상 시점을 정하고, 정규화된 `GameEvent`가 몬스터 타워와 마법 빔에 전달됩니다. 발화·분석·결정·이벤트는 SQLite에 저장되고 치료사 대시보드에 표시됩니다.
+브라우저 `src/child`가 마이크 입력의 음량과 발성 시간을 감지합니다. Magic Beam의 실제 마이크 입력은 고주파 에너지와 스펙트럼 중심으로 마찰음 구간을 찾고 연속 발성 길이를 서버에 보냅니다. 신호 대 잡음비가 낮거나 발화가 너무 짧으면 평가를 보류하고 다시 듣기를 안내합니다. 이 임계값은 기기별 보정과 실제 아동 음성 검증이 필요합니다. 발화 끝 판단 전 기다리는 시간은 기본 700ms입니다. Sky Climb R4(쉬었다가 다시)는 2.5초, Magic Beam R4(리듬 펄스)는 1.2초로 늘려 자연스러운 쉼이 한 발화 안에서 측정되게 합니다. Sky Climb R4는 한 발화 안의 가장 긴 쉼이 300~2200ms일 때만 "쉬었다가 다시"로 인정합니다. 상한은 발화 종료 유예(2.5초)보다 짧아, 그보다 길게 쉬면 브라우저가 발화를 나누고 서버도 한 발화 안의 쉼으로 인정하지 않습니다. 평균 음량·SNR은 발성 frame으로만 계산하고, 잡음 기준은 시작 전 1초 무음에서 구하며, 발화 길이에는 끝의 종료 유예 무음을 넣지 않습니다. 쉼이나 긴 유예 때문에 정상 발성이 음질 불량이 되지 않게 하기 위해서입니다. 실제 모드에서는 Web Speech API가 한국어 인식 문장을 만들고, DEMO 모드에서는 `DemoRecognizer`가 같은 인터페이스로 문장을 만듭니다. 서버는 문장을 정규화하고 한글 음소로 변환한 뒤 목표와 정렬하여 근사 점수와 재시도 패턴을 계산합니다. `TrainingPolicy`는 치료사가 정한 목표 범위 안에서 다음 항목·힌트·보상 시점을 정하고, 정규화된 `GameEvent`가 몬스터 타워와 마법 빔에 전달됩니다. 발화·분석·결정·이벤트는 SQLite에 저장되고 치료사 대시보드에 표시됩니다.
 
 치료사 추천은 관찰·근거·신뢰도·제안을 보여 줍니다. 수락이나 수정 때만 새 목표 버전이 만들어지고, 거절은 사유와 함께 기록됩니다. 추천 자체가 목표를 자동 변경하지 않습니다.
 
@@ -63,7 +63,7 @@ cd backend
 npm.cmd run dev
 ```
 
-브라우저에서 `http://127.0.0.1:5173`을 엽니다. `SEED_DEMO_DATA=true`일 때만 데모 치료사 계정 `demo / speechhero`와 첫 아동 계정 `HERO01 / speechhero`가 만들어지고, 로그인 화면에 DEMO 안내와 "DEMO 계정으로 채우기" 버튼이 나타납니다. 입력칸은 미리 채워지지 않습니다. 프런트엔드 개발 서버는 `/api`를 백엔드로 전달합니다. 새 아동 등록 시 생성되는 임시 비밀번호는 치료사에게 한 번만 표시됩니다. 기존 DB의 계정은 `cd backend; .venv\Scripts\python.exe -m scripts.provision_account <아이디> <STUDENT|THERAPIST|ADMIN> --child-id <ID>` 형식으로 생성할 수 있습니다. 치료사 계정은 `--therapist-id`를 사용합니다.
+브라우저에서 `http://127.0.0.1:5173`을 엽니다. `SEED_DEMO_DATA=true`일 때만 샘플 치료사·아동 계정이 만들어지고, 로그인 화면에 "DEMO 치료사로 시작"·"DEMO 아동으로 시작" 버튼이 나타납니다. 이 버튼은 `POST /api/auth/demo-login`으로 서버가 샘플 계정 세션을 만들게 하며, 비밀번호는 프런트엔드 코드·API 응답·브라우저 저장소 어디에도 없습니다. `SEED_DEMO_DATA=false`이면 `demo-login`은 404이고, 기존 DB에 남아 있는 샘플 계정(샘플 치료사, `is_seed` 아동)은 비밀번호가 맞아도 로그인할 수 없으며 이전에 만든 세션도 거부됩니다. 로컬 스크립트용 샘플 비밀번호는 `backend/app/seed.py`에만 있습니다. 프런트엔드 개발 서버는 `/api`를 백엔드로 전달합니다. 새 아동 등록 시 생성되는 임시 비밀번호는 치료사에게 한 번만 표시됩니다. 기존 DB의 계정은 `cd backend; .venv\Scripts\python.exe -m scripts.provision_account <아이디> <STUDENT|THERAPIST|ADMIN> --child-id <ID>` 형식으로 생성할 수 있습니다. 치료사 계정은 `--therapist-id`를 사용합니다.
 
 ## 사용 방법
 
@@ -84,7 +84,7 @@ backend\.venv\Scripts\python.exe -m pytest backend -q
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
-pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다(`backend/test-temp/`는 추적하지 않습니다). 2026-09-28 hardening 검증에서는 백엔드 132개 테스트, 프런트엔드 33개 테스트, 타입 검사와 빌드가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
+pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다(`backend/test-temp/`는 추적하지 않습니다). 2026-09-28 hardening 검증에서는 백엔드 184개 테스트, 프런트엔드 44개 테스트, 타입 검사와 빌드(dist 자격 증명 검사 포함)가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
 
 ## 환경 변수와 API
 
@@ -92,7 +92,20 @@ pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backe
 
 주요 경로는 `/api/auth/login`, `/api/auth/logout`, `/api/me/home`, `/api/activities`, `/api/activities/{id}/utterances`, `/api/sessions/{id}/timeline`, `/api/sessions/{id}/clinical-summary`, `/api/observations/{id}/decision`입니다. 로그인은 HttpOnly·SameSite 쿠키를 설정하고 응답의 CSRF 값을 이후 변경 요청의 `X-CSRF-Token` 헤더에 사용합니다. 역할과 아동 배정은 서버 DB가 결정합니다. `/api/system/info`와 `http://127.0.0.1:8000/docs`에서 API 정보를 확인할 수 있습니다.
 
-API의 모든 응답(403·413 같은 조기 거부 포함)에는 `Cache-Control: no-store`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Content-Security-Policy`(기본 `default-src 'none'; frame-ancestors 'none'`, `CONTENT_SECURITY_POLICY`로 변경)가 붙습니다. 프로덕션 빌드의 `index.html`에는 `script-src 'self'` 중심의 CSP meta 태그가 들어갑니다. 개발 서버에는 넣지 않습니다. meta 태그로는 `frame-ancestors`가 적용되지 않으므로, 정적 파일을 서비스하는 배포 서버에서 `Content-Security-Policy`의 `frame-ancestors 'none'`과 `X-Frame-Options: DENY` 헤더를 설정해야 합니다.
+API의 모든 응답(403·413 같은 조기 거부 포함)에는 `Cache-Control: no-store`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Content-Security-Policy`(기본 `default-src 'none'; frame-ancestors 'none'`, `CONTENT_SECURITY_POLICY`로 변경)가 붙습니다. 프로덕션 빌드의 `index.html`에는 `script-src 'self'` 중심의 CSP meta 태그가 들어갑니다. 개발 서버에는 넣지 않습니다. meta 태그로는 `frame-ancestors`가 적용되지 않으므로 화면 응답에도 HTTP 헤더가 필요합니다. 아래 공식 production 경로에서는 FastAPI가 화면(`/`, `/play/...`, `/therapist/...`, `/assets/...`)에도 `shared/frontend_csp.json` 정책에 `frame-ancestors 'none'`을 더한 CSP와 `X-Frame-Options: DENY`·`nosniff`·`Referrer-Policy`를 HTTP 헤더로 붙입니다.
+
+### Production 실행 (공식 경로)
+
+API와 화면을 uvicorn 하나로 같은 origin에서 서비스합니다. HTTPS는 앞단 TLS 종료(리버스 프록시 등)에서 처리하고, 헤더는 그대로 전달합니다.
+
+```powershell
+npm.cmd run build
+cd backend
+$env:FRONTEND_DIST = "..\dist"; $env:SEED_DEMO_DATA = "false"; $env:COOKIE_SECURE = "true"; $env:CORS_ORIGINS = "https://<서비스 주소>"
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+`npm.cmd run build`는 빌드 뒤 `scripts/check-dist.mjs`로 `dist`에 샘플 계정 문자열이 없는지 검사하고, 있으면 실패합니다. `FRONTEND_DIST`가 비어 있으면 API만 서비스합니다. 확장자가 없는 경로는 SPA이므로 `index.html`을 돌려주고, 없는 정적 파일과 `/api/...`는 404입니다.
 
 ## 프로젝트 구조
 

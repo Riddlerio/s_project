@@ -1,4 +1,5 @@
 from ..pronunciation.audio_quality import assess_audio_quality
+from .rounds import RE_ONSET_PAUSE_MS
 from ..speech.pipeline import AnalysisResult, acoustic_number, analyze
 from ..speech.g2p import SimpleKoreanG2P
 from ..speech.normalization import normalize
@@ -44,8 +45,11 @@ def evaluate_round(round_def, item: dict, transcript: str | None, acoustic: dict
     elif rule == "ENERGY_BAND":
         passed = 0.35 <= acoustic_number(acoustic, "energyMean01", -1) <= 0.75 and run >= target
     elif rule == "RE_ONSET":
-        # "쉬었다가 다시": 목표 길이의 발성 구간 두 개 이상과 그 사이의 실제 쉼이 필요하다.
-        passed = sum(segment >= target for segment in segments) >= 2 and 300 <= acoustic_number(acoustic, "pauseTotalMs") <= 4000
+        # "쉬었다가 다시": 목표 길이의 발성 구간 두 개 이상과, 한 발화 안에서 인정되는 길이의 쉼이 필요하다.
+        # 가장 긴 쉼 기준이며, 이전 클라이언트가 maxPauseMs를 보내지 않으면 전체 쉼 길이로 판단한다.
+        low, high = RE_ONSET_PAUSE_MS
+        pause = acoustic_number(acoustic, "maxPauseMs", acoustic_number(acoustic, "pauseTotalMs"))
+        passed = sum(segment >= target for segment in segments) >= 2 and low <= pause <= high
     else:
         passed = run >= 0.8 * target
     tags = []

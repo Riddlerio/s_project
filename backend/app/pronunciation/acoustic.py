@@ -28,6 +28,7 @@ class AcousticSummary(ApiModel):
     sustain_segments_ms: list[Number] | None = Field(default=None, max_length=30)
     pause_count: StrictInt | None = Field(default=None, ge=0, le=100)
     pause_total_ms: Number | None = Field(default=None, ge=0, le=60000)
+    max_pause_ms: Number | None = Field(default=None, ge=0, le=60000)
     interruption_count: StrictInt | None = Field(default=None, ge=0, le=100)
     energy_mean01: Number | None = Field(default=None, ge=0, le=1)
     energy_std01: Number | None = Field(default=None, ge=0, le=1)

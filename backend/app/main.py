@@ -17,13 +17,15 @@ from .enums import LEVEL_ORDER
 from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginFailure, Child, GameEvent, ProgressMetric, SpeechAnalysis,
                      Therapist, TherapistFeedback, TherapistRule, TrainingDecision, TrainingGoal,
                      TrainingPlan, TrainingSession, Utterance, now)
-from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
+from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, DemoLoginInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
                       RecommendationDecisionInput, StartInput, UtteranceInput)
 from .security import hash_password, hash_token, verify_dummy_password, verify_password
 from .maintenance import purge_expired_transcripts, retention_loop
 from .auth import COOKIE_NAME, create_session, current_account, require_student, require_therapist, require_admin
 from .seed import seed
-from .session_state import activity_state, legacy_state
+from .demo import demo_account, is_demo_account
+from . import static_site
+from .session_state import activity_state, completion_state, legacy_state, state_guard
 from .speech.pipeline import analyze
 from .training.plan_generator import generate_plan
 from .training.policy import decide
@@ -91,11 +93,16 @@ async def limit_body(request: Request, call_next):
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store"
+    path = request.url.path
+    frontend = static_site.is_frontend_path(path)
+    # 해시가 붙은 빌드 파일만 오래 캐시한다. HTML과 API 응답은 저장하지 않는다.
+    response.headers["Cache-Control"] = ("public, max-age=31536000, immutable"
+                                         if frontend and path.startswith("/assets/") and response.status_code == 200 else "no-store")
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = settings.content_security_policy
+    # API는 아무것도 불러오지 않는 정책, 화면(HTML·정적 파일)은 React/Vite/three.js가 동작하는 정책이다. 둘 다 framing 금지.
+    response.headers["Content-Security-Policy"] = static_site.FRONTEND_CSP if frontend else settings.content_security_policy
     return response
 
 
@@ -200,7 +207,6 @@ def create_goal(db, child, values, source="manual", recommendation_id=None):
 def system_info():
     return {"version": "0.2.0", "modes": ["real", "demo"], "analysisMethod": "baseline_acoustic_and_asr_v2",
             "pronunciationProvider": "BASELINE", "clinicalValidation": False,
-            "demoAccounts": settings.seed_demo_data,
             "notice": "Web Speech API 사용 시 브라우저 제공업체 서버로 음성이 전송될 수 있습니다. 원본 음성은 이 서버에 저장하지 않습니다."}
 
 
@@ -222,6 +228,9 @@ def login(body: LoginInput, request: Request, response: Response, db: Session = 
     user = db.scalar(select(Account).where(Account.username == body.username))
     valid = (verify_password(body.password, user.password_salt, user.password_hash) if user
              else verify_dummy_password(body.password))
+    # DEMO 모드가 꺼져 있으면 기존 DB에 남은 샘플 계정도 비밀번호와 관계없이 로그인할 수 없다.
+    if valid and not settings.seed_demo_data and is_demo_account(db, user):
+        valid = False
     if not valid:
         for key in keys.values():
             db.add(LoginFailure(key_hash=key))
@@ -231,12 +240,33 @@ def login(body: LoginInput, request: Request, response: Response, db: Session = 
         raise HTTPException(401, "로그인 정보가 올바르지 않습니다")
     # 성공하면 해당 아이디 기준 실패만 지운다. IP 기준 실패는 창이 지날 때까지 남긴다.
     db.execute(delete(LoginFailure).where(LoginFailure.key_hash.in_([keys["user"], keys["pair"]])))
+    return start_cookie_session(db, response, user, "LOGIN_SUCCESS")
+
+
+def start_cookie_session(db, response: Response, user: Account, action: str) -> dict:
     token, csrf = create_session(db, user)
-    db.add(AuditEvent(actor_id=user.id, action="LOGIN_SUCCESS", resource_id=user.id, result="SUCCESS"))
+    db.add(AuditEvent(actor_id=user.id, action=action, resource_id=user.id, result="SUCCESS"))
     db.commit()
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=settings.cookie_secure,
                         samesite="strict", max_age=12 * 3600, path="/api")
     return {"role": user.role, "csrfToken": csrf}
+
+
+@app.get("/api/config/public")
+def public_config():
+    return {"demoModeEnabled": settings.seed_demo_data}
+
+
+@app.post("/api/auth/demo-login")
+def demo_login(body: DemoLoginInput, response: Response, db: Session = Depends(get_db)):
+    """DEMO 모드에서만 샘플 계정 세션을 만든다. 비밀번호는 브라우저로 전달하지 않는다."""
+    if not settings.seed_demo_data:
+        raise HTTPException(404)
+    user = demo_account(db, body.role)
+    if user is None:
+        raise HTTPException(404)
+    result = start_cookie_session(db, response, user, "DEMO_LOGIN")
+    return {**result, "username": user.username}
 
 
 @app.post("/api/auth/logout", status_code=204)
@@ -366,6 +396,7 @@ def start(body: StartInput, db: Session = Depends(get_db), account: Account | No
 
 
 @app.post("/api/play/sessions/{session_id}/utterances")
+@state_guard
 def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
     session = play_session(db, session_id, account)
     if session.status != "active":
@@ -429,14 +460,15 @@ def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(
 
 
 @app.post("/api/play/sessions/{session_id}/complete")
+@state_guard
 def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
     session = play_session(db, session_id, account)
     child = db.get(Child, session.child_id)
+    state = completion_state(session)
     if session.status == "completed":
         return session.summary_json
     goal = db.get(TrainingGoal, session.goal_id)
-    state = session.runtime_state if isinstance(session.runtime_state, dict) else {}
-    stage_index = state["stageIndex"] if type(state.get("stageIndex")) is int else 0
+    stage_index = state.get("stageIndex", 0)
     metric = recompute(db, session, goal, body.elapsed_sec)
     if not state.get("activityGame"):
         recommend(db, session, goal, metric)
@@ -532,6 +564,7 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
 
 
 @app.get("/api/activities/{session_id}")
+@state_guard
 def current_activity(session_id: str, db: Session = Depends(get_db), account: Account = Depends(require_student)):
     session = play_session(db, session_id, account)
     state = activity_state(session)
@@ -547,6 +580,7 @@ def current_activity(session_id: str, db: Session = Depends(get_db), account: Ac
 
 
 @app.post("/api/activities/{session_id}/utterances")
+@state_guard
 def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account = Depends(require_student)):
     session = play_session(db, session_id, account)
     state = activity_state(session)
@@ -920,3 +954,9 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
     rule.active, rule.deactivated_reason = False, "therapist"
     db.commit()
     return public(rule, ["id", "rule_type", "params", "active"])
+
+
+# 반드시 마지막에 등록한다. 위의 /api 경로가 먼저 일치하고, 나머지 GET만 프로덕션 SPA로 간다.
+@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+def frontend(path: str):
+    return static_site.serve(settings.frontend_dist, path)

@@ -2,6 +2,8 @@ import { api } from './client'
 import type { Progress } from '../shared/types'
 
 export const login = (username: string, password: string) => api<{ csrfToken: string; role: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+/** 서버가 DEMO 모드일 때만 샘플 계정 세션을 만든다. 비밀번호를 주고받지 않는다. */
+export const demoLogin = (role: 'THERAPIST' | 'STUDENT') => api<{ csrfToken: string; role: string; username: string }>('/auth/demo-login', { method: 'POST', body: JSON.stringify({ role }) })
 export const overview = (token: string) => api<any>('/dashboard/overview', {}, token)
 export const childDetail = (id: string, token: string) => api<any>(`/children/${id}`, {}, token)
 export const progress = (id: string, token: string) => api<Progress>(`/children/${id}/progress`, {}, token)

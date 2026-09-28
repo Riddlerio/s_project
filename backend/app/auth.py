@@ -6,7 +6,9 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .db import get_db
+from .demo import is_demo_account
 from .models import Account, AuditEvent, Child, CookieSession, Therapist, now
 from .security import hash_token
 
@@ -24,7 +26,8 @@ def current_account(request: Request, db: Session = Depends(get_db)) -> Account:
         if not supplied or not hmac.compare_digest(hash_token(supplied), row.csrf_hash):
             raise HTTPException(403, "CSRF 검증 실패")
     account = db.get(Account, row.account_id)
-    if account is None:
+    # DEMO 모드를 끈 뒤에는 이전에 만든 샘플 계정 세션도 쓸 수 없다.
+    if account is None or (not settings.seed_demo_data and is_demo_account(db, account)):
         raise HTTPException(401, "로그인이 필요합니다")
     return account
 
