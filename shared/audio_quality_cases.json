@@ -1,0 +1,15 @@
+[
+  {"noiseFloorDb": -60, "meanRmsDb": -52.01, "durationMs": 900, "clippingRatio": 0, "level": "POOR"},
+  {"noiseFloorDb": -60, "meanRmsDb": -52, "durationMs": 900, "clippingRatio": 0, "level": "FAIR"},
+  {"noiseFloorDb": -60, "meanRmsDb": -45.01, "durationMs": 900, "clippingRatio": 0, "level": "FAIR"},
+  {"noiseFloorDb": -60, "meanRmsDb": -45, "durationMs": 900, "clippingRatio": 0, "level": "GOOD"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 900, "clippingRatio": 0.0099, "level": "GOOD"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 900, "clippingRatio": 0.01, "level": "POOR"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 299, "clippingRatio": 0, "level": "POOR"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 300, "clippingRatio": 0, "level": "GOOD"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 8000, "clippingRatio": 0, "level": "GOOD"},
+  {"noiseFloorDb": -60, "meanRmsDb": -40, "durationMs": 8001, "clippingRatio": 0, "level": "POOR"},
+  {"noiseFloorDb": -34.9, "meanRmsDb": -15, "durationMs": 900, "clippingRatio": 0, "level": "FAIR"},
+  {"noiseFloorDb": -35, "meanRmsDb": -15, "durationMs": 900, "clippingRatio": 0, "level": "GOOD"},
+  {"noiseFloorDb": null, "meanRmsDb": -20, "durationMs": 900, "clippingRatio": 0, "level": "UNKNOWN"}
+]

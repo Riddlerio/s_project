@@ -1,7 +1,7 @@
 import { api } from './client'
 import type { Progress } from '../shared/types'
 
-export const login = (username: string, password: string) => api<{ token: string; therapist: { id: string; displayName: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+export const login = (username: string, password: string) => api<{ csrfToken: string; role: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
 export const overview = (token: string) => api<any>('/dashboard/overview', {}, token)
 export const childDetail = (id: string, token: string) => api<any>(`/children/${id}`, {}, token)
 export const progress = (id: string, token: string) => api<Progress>(`/children/${id}/progress`, {}, token)

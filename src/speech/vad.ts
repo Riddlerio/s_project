@@ -1,7 +1,8 @@
-export interface VadFrame { tMs: number; rmsDb: number; hfRatio: number }
-export type VadEvent = { type: 'VOICE_START' | 'VOICE_CONTINUE' | 'VOICE_END'; tMs: number; rmsDb?: number; durationMs?: number; voicedMs?: number; meanRmsDb?: number; peakRmsDb?: number; meanHfRatio?: number }
+import { isFrication } from './fricativeDetector'
+export interface VadFrame { tMs: number; rmsDb: number; hfRatio: number; peakDb?: number; spectralCentroidHz?: number; zcr?: number; clippingRatio?: number }
+export type VadEvent = { type: 'VOICE_START' | 'VOICE_CONTINUE' | 'VOICE_END'; tMs: number; rmsDb?: number; durationMs?: number; voicedMs?: number; meanRmsDb?: number; peakRmsDb?: number; meanHfRatio?: number; meanCentroidHz?: number; fricationMs?: number; clippingRatio?: number; noiseFloorDb?: number }
 export interface VadConfig { startMarginDb: number; endMarginDb: number; minStartDbFloor: number; startHoldMs: number; endHoldMs: number; continueEveryMs: number; maxUtteranceMs: number }
-export const DEFAULT_VAD: VadConfig = { startMarginDb: 12, endMarginDb: 6, minStartDbFloor: -50, startHoldMs: 60, endHoldMs: 250, continueEveryMs: 100, maxUtteranceMs: 8000 }
+export const DEFAULT_VAD: VadConfig = { startMarginDb: 12, endMarginDb: 6, minStartDbFloor: -50, startHoldMs: 60, endHoldMs: 700, continueEveryMs: 100, maxUtteranceMs: 8000 }
 
 export class VadStateMachine {
   state: 'silence' | 'maybe_voice' | 'voice' | 'maybe_silence' = 'silence'
@@ -31,7 +32,14 @@ export class VadStateMachine {
       if (frame.tMs - this.voiceStart >= this.config.maxUtteranceMs || (this.state === 'maybe_silence' && frame.tMs - this.silenceStart >= this.config.endHoldMs)) {
         const voiced = this.frames.filter(f => f.rmsDb >= end)
         const durationMs = frame.tMs - this.voiceStart
-        result.push({ type: 'VOICE_END', tMs: frame.tMs, durationMs, voicedMs: voiced.length * 20, meanRmsDb: this.frames.reduce((n, f) => n + f.rmsDb, 0) / this.frames.length, peakRmsDb: Math.max(...this.frames.map(f => f.rmsDb)), meanHfRatio: this.frames.reduce((n, f) => n + f.hfRatio, 0) / this.frames.length })
+        result.push({ type: 'VOICE_END', tMs: frame.tMs, durationMs, voicedMs: voiced.length * 20,
+          meanRmsDb: this.frames.reduce((n, f) => n + f.rmsDb, 0) / this.frames.length,
+          peakRmsDb: Math.max(...this.frames.map(f => f.peakDb ?? f.rmsDb)),
+          meanHfRatio: this.frames.reduce((n, f) => n + f.hfRatio, 0) / this.frames.length,
+          meanCentroidHz: this.frames.reduce((n, f) => n + (f.spectralCentroidHz ?? 0), 0) / this.frames.length,
+          fricationMs: this.frames.filter(f => isFrication(f, this.noiseFloor)).length * 20,
+          clippingRatio: this.frames.reduce((n, f) => n + (f.clippingRatio ?? 0), 0) / this.frames.length,
+          noiseFloorDb: this.noiseFloor })
         this.state = 'silence'; this.frames = []
       }
     }

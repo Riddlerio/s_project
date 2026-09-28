@@ -37,7 +37,8 @@ describe('마법 빔과 음성 입력', () => {
     state = beamTransition(state, { type: 'VOICE_START' }); expect(state.phase).toBe('VOICE_DETECTED')
     state = beamTransition(state, { type: 'VOICE_CONTINUE', voicedMs: 900 }); expect(state.phase).toBe('BEAM_ACTIVE')
     state = beamTransition(state, { type: 'VOICE_END', voicedMs: 1700 }); expect(state.voicedMs).toBe(1700)
-    state = beamTransition(state, { type: 'RESULT', success: true }); expect(state.success).toBe(true)
+    state = beamTransition(state, { type: 'RESULT', outcome: 'SUCCESS' }); expect(state.success).toBe(true)
+    state = beamTransition(state, { type: 'RESULT', outcome: 'UNCERTAIN' }); expect(state.phase).toBe('READY')
   })
   it('데모 인식기는 첫 단어를 재시도하고 이후 성공시킨다', async () => {
     const recognizer = new DemoRecognizer()
@@ -52,6 +53,7 @@ describe('마법 빔과 음성 입력', () => {
     frame(0, -20); frame(20, -60); expect(vad.state).toBe('silence')
     frame(100, -20); expect(frame(180, -20).some(e => e.type === 'VOICE_START')).toBe(true)
     expect(frame(300, -20).some(e => e.type === 'VOICE_CONTINUE')).toBe(true)
-    frame(320, -60); expect(frame(600, -60).some(e => e.type === 'VOICE_END')).toBe(true)
+    frame(320, -60); expect(frame(600, -60).some(e => e.type === 'VOICE_END')).toBe(false)
+    expect(frame(1020, -60).some(e => e.type === 'VOICE_END')).toBe(true)
   })
 })
