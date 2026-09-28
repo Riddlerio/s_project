@@ -1,0 +1,21 @@
+export type SpeechGameSignal =
+  | { type: 'VOICE_START' }
+  | { type: 'VOICE_CONTINUE'; energy01: number }
+  | { type: 'VOICE_END' }
+  | { type: 'TARGET_SUCCESS' }
+  | { type: 'TARGET_RETRY' }
+  | { type: 'UNCERTAIN' }
+  | { type: 'NO_SPEECH' }
+
+export type GameKind = 'magic_beam' | 'sky_climb' | 'monster_adventure' | 'conversation_quest'
+export type HoyaAction = 'IDLE' | 'LISTENING' | 'TALKING' | 'CHARGE' | 'BEAM' | 'RELEASE' | 'FLY' | 'LAND' | 'CAST' | 'ATTACK' | 'WALK_TO' | 'PICK_UP' | 'PUT_IN_BAG' | 'WAVE' | 'CHEER' | 'ENCOURAGE'
+
+export function mapSignalToHoya(game: GameKind, signal: SpeechGameSignal): HoyaAction {
+  if (signal.type === 'UNCERTAIN' || signal.type === 'NO_SPEECH') return 'LISTENING'
+  if (signal.type === 'TARGET_RETRY') return 'ENCOURAGE'
+  if (signal.type === 'TARGET_SUCCESS') return game === 'monster_adventure' ? 'ATTACK' : game === 'conversation_quest' ? 'PICK_UP' : game === 'sky_climb' ? 'LAND' : 'CHEER'
+  if (game === 'magic_beam') return signal.type === 'VOICE_START' ? 'CHARGE' : signal.type === 'VOICE_CONTINUE' ? 'BEAM' : 'RELEASE'
+  if (game === 'sky_climb') return signal.type === 'VOICE_START' ? 'CHARGE' : signal.type === 'VOICE_CONTINUE' ? 'FLY' : 'LAND'
+  if (game === 'monster_adventure') return signal.type === 'VOICE_START' ? 'CHARGE' : signal.type === 'VOICE_CONTINUE' ? 'CAST' : 'RELEASE'
+  return signal.type === 'VOICE_START' ? 'LISTENING' : signal.type === 'VOICE_CONTINUE' ? 'WALK_TO' : 'IDLE'
+}

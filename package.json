@@ -1,0 +1,29 @@
+{
+  "name": "speech-hero",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^8.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^2.15.3",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.6",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.8.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

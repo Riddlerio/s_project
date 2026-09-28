@@ -1,0 +1,56 @@
+"""시연 데이터가 있는 로컬 서버의 쿠키 인증·5라운드 API를 확인한다."""
+
+import sys
+
+import httpx
+
+
+def main(base_url: str) -> None:
+    with httpx.Client(base_url=base_url, timeout=20) as client:
+        assert client.get("/api/system/info").status_code == 200
+        assert client.get("/api/dashboard/overview").status_code == 401
+        login = client.post("/api/auth/login", json={"username": "HERO01", "password": "speechhero"})
+        login.raise_for_status()
+        assert login.json()["role"] == "STUDENT"
+        csrf = {"X-CSRF-Token": login.json()["csrfToken"]}
+        assert client.get("/api/me/home").status_code == 200
+        assert client.get("/api/dashboard/overview").status_code == 403
+        assert client.post("/api/me/character/tap").status_code == 403
+        assert client.post("/api/me/character/tap", headers=csrf).status_code == 200
+
+        started = client.post("/api/activities", headers=csrf, json={"game": "magic_beam", "mode": "demo"})
+        started.raise_for_status()
+        data = started.json()
+        assert len(data["rounds"]) == 5
+        item = data["firstItem"]
+        for index in range(1, 6):
+            response = client.post(f"/api/activities/{data['sessionId']}/utterances", headers=csrf,
+                                   json={"roundIndex": index, "itemId": item["itemId"], "attemptIndex": 1,
+                                         "acoustic": {"durationMs": 5000, "voicedMs": 4000, "activeMs": 4000,
+                                                      "bestRunMs": 4000, "fricationMs": 4000,
+                                                      "sustainSegmentsMs": [1600, 1600, 1600],
+                                                      "onsetFricationMs": 500, "voicedAfterFricationMs": 300}})
+            response.raise_for_status()
+            result = response.json()
+            assert any(event["type"] == "ROUND_CLEAR" for event in result["events"])
+            item = result["nextItem"]
+        assert result["sessionComplete"]
+        complete = client.post(f"/api/play/sessions/{data['sessionId']}/complete", headers=csrf,
+                               json={"elapsedSec": 300})
+        complete.raise_for_status()
+
+        therapist = client.post("/api/auth/login", json={"username": "demo", "password": "speechhero"})
+        therapist.raise_for_status()
+        assert therapist.json()["role"] == "THERAPIST"
+        timeline = client.get(f"/api/sessions/{data['sessionId']}/timeline")
+        timeline.raise_for_status()
+        assert {row["round_index"] for row in timeline.json()["observations"]} == {1, 2, 3, 4, 5}
+        print("[OK] 쿠키 인증, CSRF, 역할 접근, 5라운드, 임상 관찰")
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000")
+    except Exception as exc:
+        print(f"[FAIL] {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
