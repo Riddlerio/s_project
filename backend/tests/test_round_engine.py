@@ -143,7 +143,8 @@ def test_rejected_observation_is_excluded_from_verified_metric(api):
     assert client.post(f"/api/observations/{observation['id']}/decision", headers=therapist,
                        json={"action": "reject", "note": "잡음"}).status_code == 200
     summary = client.get(f"/api/sessions/{started['sessionId']}/clinical-summary").json()
-    assert summary["rounds"][0]["n"] == 1
+    assert summary["rounds"][0]["totalObservedN"] == 1
+    assert summary["rounds"][0]["evaluableN"] == 1
     assert summary["rounds"][0]["verifiedN"] == 0
     assert summary["rounds"][0]["verifiedRate"] is None
 
@@ -163,7 +164,8 @@ def test_demo_observation_is_visible_but_excluded_from_clinical_rate(api):
     client.post(f"/api/observations/{observation_id}/decision", headers=therapist,
                 json={"action": "confirm", "note": "데모 확인"}).raise_for_status()
     summary = client.get(f"/api/sessions/{started['sessionId']}/clinical-summary", headers=therapist).json()
-    assert summary["rounds"][0]["n"] == 0
+    assert summary["rounds"][0]["totalObservedN"] == 0
+    assert summary["rounds"][0]["evaluableN"] == 0
     assert summary["rounds"][0]["demoN"] == 1
     assert summary["rounds"][0]["verifiedN"] == 0
     assert summary["rounds"][0]["verifiedRate"] is None

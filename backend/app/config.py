@@ -8,6 +8,12 @@ class Settings(BaseSettings):
     seed_demo_data: bool = False
     transcript_retention_days: int = 90
     cookie_secure: bool = True
+    transcript_purge_interval_hours: float = 24
+    login_window_minutes: int = 15
+    login_max_failures_pair: int = 5
+    login_max_failures_username: int = 10
+    login_max_failures_ip: int = 30
+    content_security_policy: str = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

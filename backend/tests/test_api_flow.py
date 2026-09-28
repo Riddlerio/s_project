@@ -284,7 +284,8 @@ def test_clinical_observation_and_append_only_verification(api):
     assert response.status_code == 200
     detail = client.get(f"/api/observations/{observation['id']}").json()
     assert detail["observation"]["ai_result"] == observation["ai_result"]
-    assert detail["observation"]["verification_state"] == "CORRECTED"
+    assert detail["observation"]["verification_state"] == "DEMO_CORRECTED"  # DEMO 검토는 임상 검증으로 승격하지 않는다.
+    assert detail["observation"]["is_demo"] is True
     assert detail["decisions"][0]["correction"] == {"result": "retry"}
     summary = client.get(f"/api/sessions/{start['sessionId']}/clinical-summary").json()
     assert summary["rounds"] == []  # 기존 모험은 V2 5라운드 정의가 없다.

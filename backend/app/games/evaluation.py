@@ -44,7 +44,8 @@ def evaluate_round(round_def, item: dict, transcript: str | None, acoustic: dict
     elif rule == "ENERGY_BAND":
         passed = 0.35 <= acoustic_number(acoustic, "energyMean01", -1) <= 0.75 and run >= target
     elif rule == "RE_ONSET":
-        passed = sum(segment >= target for segment in segments) >= 3 and 300 <= acoustic_number(acoustic, "pauseTotalMs") <= 4000
+        # "쉬었다가 다시": 목표 길이의 발성 구간 두 개 이상과 그 사이의 실제 쉼이 필요하다.
+        passed = sum(segment >= target for segment in segments) >= 2 and 300 <= acoustic_number(acoustic, "pauseTotalMs") <= 4000
     else:
         passed = run >= 0.8 * target
     tags = []
