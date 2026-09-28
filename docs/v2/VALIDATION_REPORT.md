@@ -6,7 +6,7 @@
 
 | 명령 | 실행 결과 |
 |---|---|
-| `backend\.venv\Scripts\python.exe -m pytest backend -q --basetemp backend/test-temp -p no:cacheprovider` | 84개 통과, 경고 2개 |
+| `backend\.venv\Scripts\python.exe -m pytest backend -q --basetemp backend/test-temp -p no:cacheprovider` | 90개 통과, 경고 2개 |
 | `npm.cmd run typecheck` | 통과 |
 | `npm.cmd test` | 14개 통과 |
 | `npm.cmd run build` | 통과, 큰 JavaScript 번들 경고 |
@@ -22,6 +22,8 @@ Windows 기본 pytest 임시 디렉터리에 접근 거부가 발생해 작업 �
 - 공통 3D 호야, 음성 신호→게임 행동 매핑, 700ms 발화 종료 유예, 친근한 재시도 문구를 코드에 연결했다.
 - 네 게임 각각 5라운드의 서버 정의·진행·종료 API와 DEMO 화면을 만들었다. 라운드·불확실 건너뛰기·진행 종료를 테스트했다.
 - 발화와 임상 관찰을 같은 DB 트랜잭션에 저장한다. 치료사 확인·교정·거부는 원래 AI 결과를 보존한 별도 이력·감사 이벤트로 저장한다. 세션별 타임라인과 라운드 표본 수를 제공한다.
+- 치료사 확인 비율: 확인·교정된 관찰 중 `success`/`retry`만 분모로 쓴다. 불확실·무발화·대화 속 목표 관찰은 실패로 세지 않고 `verifiedEvaluatedN`·`verifiedObservedN`으로 따로 보여 준다(`test_clinical_integrity.py`).
+- 음성 자료 삭제: 발화·분석과 함께 파생된 임상 관찰, 치료사 검증 이력, 활동 제안을 지우고 감사 이벤트를 남긴다. 삭제 뒤 FK 위반이 없고 다른 아동 자료는 유지됨을 테스트했다.
 - 대화 게임의 응답은 고정된 안전한 DEMO 규칙을 사용한다. 목표 단어가 없는 응답은 이야기만 진행하고 임상 점수·관찰을 만들지 않는다.
 
 ## 남은 한계와 판정

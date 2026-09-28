@@ -286,13 +286,22 @@ def delete_speech_data(child_id: str, db: Session = Depends(get_db), therapist: 
     owned_child(db, child_id, therapist)
     ids = db.scalars(select(TrainingSession.id).where(TrainingSession.child_id == child_id)).all()
     utterance_ids = db.scalars(select(Utterance.id).where(Utterance.session_id.in_(ids))).all() if ids else []
+    # 발화에서 파생된 임상 관찰·치료사 검증·활동 제안도 함께 지운다. 참조하는 행부터 삭제한다.
+    observation_ids = db.scalars(select(ClinicalObservation.id).where(ClinicalObservation.child_id == child_id)).all()
+    if observation_ids:
+        db.execute(delete(ClinicalVerification).where(ClinicalVerification.observation_id.in_(observation_ids)))
+        db.execute(delete(ClinicalObservation).where(ClinicalObservation.id.in_(observation_ids)))
+    db.execute(delete(ActivityRecommendation).where(ActivityRecommendation.child_id == child_id))
     if utterance_ids:
         db.execute(delete(SpeechAnalysis).where(SpeechAnalysis.utterance_id.in_(utterance_ids)))
-        db.execute(delete(Utterance).where(Utterance.id.in_(utterance_ids)))
     if ids:
         for model in (TrainingDecision, GameEvent, ProgressMetric, AIRecommendation):
             db.execute(delete(model).where(model.session_id.in_(ids)))
+    if utterance_ids:
+        db.execute(delete(Utterance).where(Utterance.id.in_(utterance_ids)))
+    if ids:
         db.execute(delete(TrainingSession).where(TrainingSession.id.in_(ids)))
+    db.add(AuditEvent(actor_id=therapist.id, action="SPEECH_DATA_DELETED", resource_id=child_id, result="SUCCESS"))
     db.commit()
     return Response(status_code=204)
 
@@ -714,6 +723,8 @@ def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: 
         all_round = [row for row in observations if row.round_index == definition.index]
         sample = all_round if session.mode == "real" and not session.is_seed else []
         verified = 0
+        verified_evaluated = 0
+        verified_observed = 0
         verified_success = 0
         for row in sample:
             latest = db.scalar(select(ClinicalVerification).where(ClinicalVerification.observation_id == row.id)
@@ -721,13 +732,19 @@ def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: 
             if latest and latest.action in {"confirm", "correct"}:
                 verified += 1
                 value = latest.correction.get("result") if latest.action == "correct" else row.ai_result
-                verified_success += value == "success"
+                # 불확실·무발화·대화 속 목표 관찰은 정오 판정이 아니므로 비율의 분모에 넣지 않는다.
+                if value in {"success", "retry"}:
+                    verified_evaluated += 1
+                    verified_success += value == "success"
+                elif value == "target_observed":
+                    verified_observed += 1
         rows.append({"roundIndex": definition.index, "roundId": definition.id,
                      "clinicalFocus": definition.clinical_focus, "n": len(sample), "demoN": len(all_round) - len(sample),
                      "aiSupportedSuccesses": sum(row.ai_result == "success" for row in sample),
                      "uncertainN": sum(row.ai_result in {"uncertain", "no_speech"} for row in sample),
-                     "verifiedN": verified, "verifiedSuccesses": verified_success,
-                     "verifiedRate": round(100 * verified_success / verified, 1) if verified else None,
+                     "verifiedN": verified, "verifiedEvaluatedN": verified_evaluated,
+                     "verifiedObservedN": verified_observed, "verifiedSuccesses": verified_success,
+                     "verifiedRate": round(100 * verified_success / verified_evaluated, 1) if verified_evaluated else None,
                      "limitedData": len(sample) < 5})
     return {"game": game, "rounds": rows}
 

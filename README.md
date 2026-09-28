@@ -71,7 +71,7 @@ backend\.venv\Scripts\python.exe -m pytest backend -q
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
-pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다. 2026-09-28 검증에서는 백엔드 84개 테스트, 프런트엔드 14개 테스트, 타입 검사와 빌드가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
+pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다. 2026-09-28 검증에서는 백엔드 90개 테스트, 프런트엔드 14개 테스트, 타입 검사와 빌드가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
 
 ## 환경 변수와 API
 

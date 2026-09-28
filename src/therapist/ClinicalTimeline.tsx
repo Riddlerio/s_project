@@ -11,7 +11,7 @@ type Observation = {
 
 export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
   const [rows, setRows] = useState<Observation[]>([])
-  const [breakdown, setBreakdown] = useState<{ roundIndex: number; clinicalFocus: string; n: number; demoN: number; aiSupportedSuccesses: number; uncertainN: number; verifiedN: number; verifiedRate: number | null; limitedData: boolean }[]>([])
+  const [breakdown, setBreakdown] = useState<{ roundIndex: number; clinicalFocus: string; n: number; demoN: number; aiSupportedSuccesses: number; uncertainN: number; verifiedN: number; verifiedEvaluatedN: number; verifiedObservedN: number; verifiedRate: number | null; limitedData: boolean }[]>([])
   const [error, setError] = useState('')
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [corrections, setCorrections] = useState<Record<string, string>>({})
@@ -33,7 +33,7 @@ export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
   }
   return <section className="card"><h2>임상 관찰 타임라인</h2><p>AI 분석은 기초 추정입니다. 치료사 확인 전에는 임상 검증 자료가 아닙니다.</p>
     {error && <p role="alert">{error}</p>}
-    {breakdown.length > 0 && <div><h3>라운드별 근거</h3><table><thead><tr><th>라운드</th><th>관찰 초점</th><th>실제 표본</th><th>DEMO</th><th>AI 지지</th><th>불확실</th><th>치료사 확인</th><th>확인된 비율</th></tr></thead><tbody>{breakdown.map(row => <tr key={row.roundIndex}><td>{row.roundIndex}</td><td>{row.clinicalFocus}</td><td>{row.n === 0 ? '자료 없음' : `${row.n}${row.limitedData ? ' · 적은 자료' : ''}`}</td><td>{row.demoN}</td><td>{row.aiSupportedSuccesses}</td><td>{row.uncertainN}</td><td>{row.verifiedN}</td><td>{row.verifiedRate === null ? '자료 없음' : `${row.verifiedRate}%`}</td></tr>)}</tbody></table></div>}
+    {breakdown.length > 0 && <div><h3>라운드별 근거</h3><table><thead><tr><th>라운드</th><th>관찰 초점</th><th>실제 표본</th><th>DEMO</th><th>AI 지지</th><th>불확실</th><th>치료사 확인</th><th>확인된 비율 (판정 가능 확인 기준)</th></tr></thead><tbody>{breakdown.map(row => <tr key={row.roundIndex}><td>{row.roundIndex}</td><td>{row.clinicalFocus}</td><td>{row.n === 0 ? '자료 없음' : `${row.n}${row.limitedData ? ' · 적은 자료' : ''}`}</td><td>{row.demoN}</td><td>{row.aiSupportedSuccesses}</td><td>{row.uncertainN}</td><td>{row.verifiedN}{row.verifiedObservedN ? ` · 목표 관찰 ${row.verifiedObservedN}` : ''}</td><td>{row.verifiedRate === null ? '자료 없음' : `${row.verifiedRate}% (${row.verifiedEvaluatedN}건)`}</td></tr>)}</tbody></table></div>}
     {rows.length === 0 ? <p>자료 없음</p> : rows.map(row => <article className="card" key={row.id}>
       <h3>{row.evidence.targetText || '발화'} · {row.activity} · 라운드 {row.round_index} · 난이도 {row.difficulty}</h3>
       <p>목표 /{row.target_phoneme}/ · 위치 {row.word_position} · 단계 {row.generalization_level} · 시도 {row.attempt_number}</p>
