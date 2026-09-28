@@ -19,3 +19,4 @@ __pycache__/
 coverage/
 .vite/
 *.log
+backend/test-temp/
