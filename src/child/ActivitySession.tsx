@@ -7,7 +7,8 @@ import { HoyaActionController } from '../control/HoyaActionController'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
 import { AudioCapture } from '../speech/audioCapture'
-import { VadStateMachine } from '../speech/vad'
+import { DEFAULT_VAD, VadStateMachine } from '../speech/vad'
+import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { SustainTracker } from '../speech/sustainTracker'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 
@@ -28,6 +29,8 @@ export default function ActivitySession() {
   const [demoSpeech, setDemoSpeech] = useState(session?.firstItem.displayText || '')
   const [completed, setCompleted] = useState<number[]>([])
   const [ready, setReady] = useState(false)
+  const [capabilities] = useState(() => detectCapabilities())
+  const realSupported = !session || session.mode !== 'real' || supportsRealMode(session.game, capabilities)
   const began = useRef<number | null>(null)
   const startedAt = useRef(Date.now())
   const promptShownAt = useRef(performance.now())
@@ -105,9 +108,10 @@ export default function ActivitySession() {
   }
 
   useEffect(() => {
-    if (!ready || !session || !round || !item || session.mode !== 'real') return
+    if (!ready || !session || !round || !item || session.mode !== 'real' || !realSupported) return
     const capture = new AudioCapture()
-    const vad = new VadStateMachine()
+    // 발화 뒤 기다리는 시간은 라운드가 정한다. 쉼 후 재개 라운드는 한 발화 안에서 자연스러운 쉼을 허용한다.
+    const vad = new VadStateMachine({ ...DEFAULT_VAD, endHoldMs: round.endHoldMs ?? DEFAULT_VAD.endHoldMs })
     const recognizer = new WebSpeechRecognizer()
     const tracker = new SustainTracker(session.game === 'magic_beam' ? 'fricative' : 'any_sound', -60)
     let calibration: number[] = []
@@ -148,7 +152,7 @@ export default function ActivitySession() {
       }
     }).catch(cause => setError(cause instanceof Error ? cause.message : '마이크를 사용할 수 없어요'))
     return () => { disposed = true; capture.stop() }
-  }, [ready, item?.itemId, round?.index, attempt, session?.mode])
+  }, [ready, item?.itemId, round?.index, round?.endHoldMs, attempt, session?.mode, realSupported])
 
   function begin() {
     if (!session || busy || began.current !== null) return
@@ -188,6 +192,7 @@ export default function ActivitySession() {
     <p className="target">{item.displayText}</p><p aria-live="polite">{message}</p>
     {session.mode === 'demo' && session.game === 'conversation_quest' && <div><label>호야에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
     {session.mode === 'demo' && <button disabled={busy} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 (Space)</button>}
+    {!realSupported && <p role="alert">{missingText(session.game, capabilities)}</p>}
     {error && <p role="alert">{error}</p>}
     <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
   </main>

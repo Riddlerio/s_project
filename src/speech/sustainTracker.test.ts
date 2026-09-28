@@ -40,3 +40,39 @@ describe('마찰음 발성 근거', () => {
     expect(assessAudioQuality(-60, -40, 900, 0).level).toBe('GOOD')
   })
 })
+
+describe('쉼 후 재개 측정', () => {
+  const run = (tracker: SustainTracker, from: number, to: number, rmsDb: number) => {
+    for (let t = from; t < to; t += 20) tracker.process({ tMs: t, rmsDb, hfRatio: 0.05, spectralCentroidHz: 1200 })
+  }
+
+  it('자연스러운 쉼 뒤 재개하면 두 구간과 쉼 길이를 남긴다', () => {
+    const tracker = new SustainTracker('any_sound', -60)
+    run(tracker, 0, 1100, -20); run(tracker, 1100, 2300, -70); run(tracker, 2300, 3400, -20)
+    expect(tracker.segments.filter(ms => ms >= 1000)).toHaveLength(2)
+    expect(tracker.pauseCount).toBe(1)
+    expect(tracker.pauseTotalMs).toBeGreaterThanOrEqual(1100)
+    expect(tracker.pauseTotalMs).toBeLessThanOrEqual(1300)
+  })
+
+  it('120ms 이하의 짧은 끊김은 쉼으로 세지 않는다', () => {
+    const tracker = new SustainTracker('any_sound', -60)
+    run(tracker, 0, 1000, -20); run(tracker, 1000, 1080, -70); run(tracker, 1080, 2000, -20)
+    expect(tracker.pauseCount).toBe(0)
+    expect(tracker.segments).toHaveLength(1)
+  })
+
+  it('다시 시작하지 않으면 구간은 하나다', () => {
+    const tracker = new SustainTracker('any_sound', -60)
+    run(tracker, 0, 1100, -20); run(tracker, 1100, 2300, -70)
+    expect(tracker.segments).toHaveLength(1)
+    expect(tracker.pauseCount).toBe(0)
+  })
+
+  it('소리가 없으면 활동 시간이 0이다', () => {
+    const tracker = new SustainTracker('any_sound', -60)
+    run(tracker, 0, 1000, -70)
+    expect(tracker.totalActiveMs).toBe(0)
+    expect(tracker.segments).toHaveLength(0)
+  })
+})

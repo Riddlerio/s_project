@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { getProfile } from '../api/play'
 import { login } from '../api/therapist'
 import { setToken } from '../therapist/auth'
-import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
+import { useDemoAccounts } from '../shared/useDemoAccounts'
 
 export default function PlayEntry() {
-  const [code, setCode] = useState('HERO01')
+  const [code, setCode] = useState('')
+  const demoAccounts = useDemoAccounts()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -25,6 +26,6 @@ export default function PlayEntry() {
     <label>아이디<input value={code} onChange={e => setCode(e.target.value)} maxLength={12} /></label>
     <label>비밀번호<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
     <button onClick={enter}>모험 시작</button>{error && <p role="alert">{error}</p>}
-    <p className="small">DEMO 모드 · 음성 인식: {new WebSpeechRecognizer().isAvailable() ? '사용 가능' : '이 브라우저에서 사용할 수 없음'}</p>
+    {demoAccounts && <p className="small">DEMO 서버입니다. 샘플 아동 계정: HERO01 / speechhero <button type="button" onClick={() => { setCode('HERO01'); setPassword('speechhero') }}>DEMO 계정으로 채우기</button></p>}
   </main>
 }

@@ -2,7 +2,7 @@ import { api } from './client'
 import type { Acoustic } from '../shared/types'
 import type { GameKind } from '../control/speechGameSignal'
 
-export interface ActivityRound { index: number; id: string; childTitle: string; childPrompt: string; targetMs: number; attempts: number; elicitationType: string; difficulty?: number }
+export interface ActivityRound { index: number; id: string; childTitle: string; childPrompt: string; targetMs: number; attempts: number; elicitationType: string; difficulty?: number; itemSource?: string; endHoldMs?: number }
 export interface ActivityItem { itemId: string; displayText: string; level: string; game: GameKind; pictureKey: string; beamTargetMs?: number }
 export interface ActivityStart { sessionId: string; game: GameKind; mode: 'real' | 'demo'; heroName: string; rounds: ActivityRound[]; currentRound: ActivityRound; firstItem: ActivityItem; nextAttemptIndex?: number; completedRounds?: number[] }
 export interface ActivityResponse { events: { type: string; payload: Record<string, unknown> }[]; nextItem: ActivityItem | null; nextAttemptIndex: number; currentRound: ActivityRound | null; sessionComplete: boolean; dialogue?: { provider: string; text: string; hoyaActions: string[] } | null }

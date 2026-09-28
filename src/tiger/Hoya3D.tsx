@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
+import { Component, useRef, useState, type ReactNode } from 'react'
 import type { Group } from 'three'
 import type { HoyaAction } from '../control/speechGameSignal'
 
@@ -45,14 +45,55 @@ function Tiger({ action }: { action: HoyaAction }) {
   </group>
 }
 
-export function Hoya3D({ action = 'IDLE', className = '' }: { action?: HoyaAction; className?: string }) {
-  if (typeof window === 'undefined' || !window.WebGLRenderingContext) {
-    return <div role="img" aria-label={`호야: ${action}`} style={{ display: 'grid', placeItems: 'center', minHeight: 280, fontSize: 120 }}>🐯</div>
+const ACTION_TEXT: Partial<Record<HoyaAction, string>> = {
+  LISTENING: '호야가 귀 기울이고 있어요', TALKING: '호야가 말하고 있어요', CHARGE: '호야가 힘을 모으고 있어요',
+  BEAM: '호야가 빛을 쏘고 있어요', RELEASE: '호야가 빛을 놓았어요', FLY: '호야가 날고 있어요', LAND: '호야가 내려앉았어요',
+  CAST: '호야가 주문을 외우고 있어요', ATTACK: '호야가 몬스터에게 마법을 보냈어요', WALK_TO: '호야가 걸어가고 있어요',
+  PICK_UP: '호야가 물건을 집었어요', PUT_IN_BAG: '호야가 가방에 넣었어요', WAVE: '호야가 손을 흔들어요',
+  CHEER: '호야가 신나 해요', ENCOURAGE: '호야가 응원하고 있어요',
+}
+
+/** WebGL을 쓸 수 없을 때 보여 주는 간단한 대체 화면. 3D 렌더가 아니다. */
+export function HoyaFallback({ action = 'IDLE' }: { action?: HoyaAction }) {
+  return <div role="img" aria-label="호야 그림(간단한 대체 화면)" data-hoya-fallback="true"
+    style={{ display: 'grid', placeItems: 'center', minHeight: 280, textAlign: 'center' }}>
+    <span aria-hidden="true" style={{ fontSize: 120 }}>🐯</span>
+    <p>{ACTION_TEXT[action] || '호야가 옆에 있어요'}</p>
+    <p className="small">호야가 간단한 모습으로 함께해요. 게임은 그대로 할 수 있어요.</p>
+  </div>
+}
+
+type CanvasDocument = { createElement(tag: 'canvas'): { getContext(kind: string): unknown } }
+
+export function canUseWebGL(doc: CanvasDocument | undefined = typeof document === 'undefined' ? undefined : document): boolean {
+  if (!doc) return false
+  try {
+    const canvas = doc.createElement('canvas')
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch {
+    return false
   }
+}
+
+/** Canvas나 3D 장면에서 오류가 나도 아동 화면 전체가 깨지지 않게 대체 화면으로 바꾼다. */
+export class HoyaErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: unknown) { console.warn('3D 호야를 표시하지 못해 대체 화면을 사용합니다', error) }
+  render() { return this.state.failed ? this.props.fallback : this.props.children }
+}
+
+export function Hoya3D({ action = 'IDLE', className = '' }: { action?: HoyaAction; className?: string }) {
+  const [supported] = useState(() => canUseWebGL())
+  const [lost, setLost] = useState(false)
+  if (!supported || lost) return <HoyaFallback action={action} />
   return <div className={className} role="img" aria-label={`3D 호야: ${action}`} style={{ width: '100%', height: '100%', minHeight: 280 }}>
-    <Canvas camera={{ position: [0, 0.15, 4.7], fov: 40 }} shadows>
-      <ambientLight intensity={1.8} /><directionalLight position={[3, 5, 5]} intensity={2} />
-      <Tiger action={action} />
-    </Canvas>
+    <HoyaErrorBoundary fallback={<HoyaFallback action={action} />}>
+      <Canvas camera={{ position: [0, 0.15, 4.7], fov: 40 }} shadows
+        onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); setLost(true) })}>
+        <ambientLight intensity={1.8} /><directionalLight position={[3, 5, 5]} intensity={2} />
+        <Tiger action={action} />
+      </Canvas>
+    </HoyaErrorBoundary>
   </div>
 }
