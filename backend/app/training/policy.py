@@ -45,6 +45,17 @@ def decide(goal, item: dict, analysis, state: dict, elapsed_sec: int, total_atte
         event("NO_SPEECH")
         return out
 
+    if analysis.result == "uncertain":
+        if state.get("listenAgainCount", 0) >= 2:
+            event("ITEM_ADVANCE", reason="UNCERTAIN_SKIP")
+            event("REWARD", xp=2, reason="ATTEMPT")
+            decision("ITEM_ADVANCE", ["UNCERTAIN_SKIP"])
+            advance()
+        else:
+            event("LISTEN_AGAIN")
+            decision("LISTEN_AGAIN", ["LOW_CONFIDENCE"])
+        return out
+
     if item.get("game") == "magic_beam":
         target = item.get("beamTargetMs", out.beam_target_ms)
         if analysis.result == "success":
@@ -55,7 +66,7 @@ def decide(goal, item: dict, analysis, state: dict, elapsed_sec: int, total_atte
             advance()
         else:
             event("TARGET_RETRY", attempt=attempt, cue="none")
-            if state.get("voicedMs", 0) < target * 0.5:
+            if state.get("bestRunMs", 0) < target * 0.5:
                 out.beam_target_ms = max(800, target - 300)
                 out.next_item = {**item, "beamTargetMs": out.beam_target_ms}
                 decision("BEAM_ADJUST", ["BEAM_SHORT_REDUCE"])

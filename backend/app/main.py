@@ -1,9 +1,11 @@
 import secrets
 import logging
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Response, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -11,12 +13,13 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, engine, get_db, SessionLocal
 from .enums import LEVEL_ORDER
-from .models import (AIRecommendation, AuthToken, Child, GameEvent, ProgressMetric, SpeechAnalysis,
+from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginThrottle, Child, GameEvent, ProgressMetric, SpeechAnalysis,
                      Therapist, TherapistFeedback, TherapistRule, TrainingDecision, TrainingGoal,
                      TrainingPlan, TrainingSession, Utterance, now)
-from .schemas import (ChildInput, CompleteInput, FeedbackInput, GoalInput, LoginInput,
+from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
                       RecommendationDecisionInput, StartInput, UtteranceInput)
-from .security import hash_token, issue_token, verify_password
+from .security import hash_password, hash_token, verify_password
+from .auth import COOKIE_NAME, create_session, current_account, require_student, require_therapist, require_admin
 from .seed import seed
 from .speech.pipeline import analyze
 from .training.plan_generator import generate_plan
@@ -26,6 +29,13 @@ from .analysis.recommendation import recommend
 from .analysis.insights import generate_insights
 from .analysis.translation import reason_text, therapist_text
 from .training.rewards import award
+from .training.retry_state import next_retry_state
+from .clinical.observation_builder import build_observation
+from .clinical.activity_recommendation import propose_activity
+from .games.rounds import GAME_ROUNDS, effective_round, next_difficulty, public_round
+from .games.evaluation import evaluate_round
+from .games.conversation import quest_reply
+from .training.content import items
 
 
 @asynccontextmanager
@@ -49,6 +59,46 @@ app = FastAPI(title="Speech Hero API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins.split(","), allow_methods=["*"], allow_headers=["*"])
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+
+@app.middleware("http")
+async def limit_body(request: Request, call_next):
+    origin = request.headers.get("origin")
+    allowed = {value.strip() for value in settings.cors_origins.split(",")}
+    if origin and origin not in allowed:
+        return JSONResponse(status_code=403, content={"detail": "허용되지 않은 출처"})
+    length = request.headers.get("content-length")
+    if length is not None:
+        if not length.isdecimal():
+            return JSONResponse(status_code=400, content={"detail": "잘못된 Content-Length"})
+        if int(length) > 65536:
+            return JSONResponse(status_code=413, content={"detail": "요청 본문이 너무 큽니다"})
+    size = 0
+    chunks = []
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 65536:
+            return JSONResponse(status_code=413, content={"detail": "요청 본문이 너무 큽니다"})
+        chunks.append(chunk)
+    request._body = b"".join(chunks)
+    return await call_next(request)
+
+
+@app.exception_handler(RequestValidationError)
+async def safe_validation_error(_request: Request, exc: RequestValidationError):
+    # 입력값과 예외 컨텍스트에는 아동의 발화 내용이 포함될 수 있다.
+    errors = [{key: value for key, value in error.items() if key not in {"input", "ctx"}} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 def public(model, fields):
     return {field: getattr(model, field) for field in fields}
 
@@ -65,29 +115,39 @@ def rec_data(rec):
     return public(rec, ["id", "child_id", "session_id", "rule_id", "observation", "evidence", "suggestion_text", "suggested_goal", "rationale", "confidence", "status"])
 
 
+def activity_rec_data(rec):
+    return public(rec, ["id", "child_id", "activity", "clinical_purpose", "reason", "evidence", "confidence", "status", "selected_activity", "decision_note", "created_at", "decided_at"])
+
+
+def observation_data(observation):
+    return public(observation, ["id", "session_id", "utterance_id", "round_index", "round_id", "difficulty", "activity",
+                                "target_phoneme", "word_position", "generalization_level", "attempt_number",
+                                "cue_type", "independence", "duration_ms", "audio_quality", "ai_result",
+                                "ai_confidence", "possible_error_pattern", "evidence", "provenance",
+                                "verification_state", "created_at"])
+
+
 def current_goal(db, child_id):
     return db.scalar(select(TrainingGoal).where(TrainingGoal.child_id == child_id, TrainingGoal.status == "active"))
 
 
-def therapist_auth(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Therapist:
-    token = (authorization or "").removeprefix("Bearer ")
-    row = db.get(AuthToken, hash_token(token)) if token else None
-    if not row or row.expires_at.replace(tzinfo=None) < now().replace(tzinfo=None):
-        raise HTTPException(401, "로그인이 필요합니다")
-    return db.get(Therapist, row.therapist_id)
+therapist_auth = require_therapist
 
 
 def owned_child(db, child_id, therapist):
     child = db.get(Child, child_id)
     if not child or child.therapist_id != therapist.id:
+        db.add(AuditEvent(actor_id=therapist.id, action="ACCESS_DENIED", resource_id=child.id if child else hash_token(child_id)[:36],
+                          result="DENIED"))
+        db.commit()
         raise HTTPException(404, "아동을 찾을 수 없습니다")
     return child
 
 
-def play_session(db, session_id, token):
+def play_session(db, session_id, account):
     session = db.get(TrainingSession, session_id)
-    if not session or not token or session.play_token_hash != hash_token(token):
-        raise HTTPException(401, "세션 인증에 실패했습니다")
+    if not session or account.child_id != session.child_id:
+        raise HTTPException(404, "세션을 찾을 수 없습니다")
     return session
 
 
@@ -120,23 +180,59 @@ def create_goal(db, child, values, source="manual", recommendation_id=None):
 
 @app.get("/api/system/info")
 def system_info():
-    return {"version": "0.1.0", "modes": ["real", "demo"], "analysisMethod": "asr_text_alignment_v1", "notice": "Web Speech API 사용 시 브라우저 제공업체 서버로 음성이 전송될 수 있습니다. 원본 음성은 이 서버에 저장하거나 전송하지 않습니다."}
+    return {"version": "0.2.0", "modes": ["real", "demo"], "analysisMethod": "baseline_acoustic_and_asr_v2",
+            "pronunciationProvider": "BASELINE", "clinicalValidation": False,
+            "notice": "Web Speech API 사용 시 브라우저 제공업체 서버로 음성이 전송될 수 있습니다. 원본 음성은 이 서버에 저장하지 않습니다."}
 
 
 @app.post("/api/auth/login")
-def login(body: LoginInput, db: Session = Depends(get_db)):
-    user = db.scalar(select(Therapist).where(Therapist.username == body.username))
+def login(body: LoginInput, request: Request, response: Response, db: Session = Depends(get_db)):
+    throttle_key = hash_token(f"{request.client.host if request.client else 'unknown'}:{body.username.lower()}")
+    throttle = db.get(LoginThrottle, throttle_key)
+    if throttle and throttle.locked_until and throttle.locked_until.replace(tzinfo=None) > now().replace(tzinfo=None):
+        raise HTTPException(429, "잠시 후 다시 시도해 주세요")
+    user = db.scalar(select(Account).where(Account.username == body.username))
     if not user or not verify_password(body.password, user.password_salt, user.password_hash):
+        if not throttle:
+            throttle = LoginThrottle(key_hash=throttle_key, failures=0)
+            db.add(throttle)
+        throttle.failures += 1
+        if throttle.failures >= 5:
+            throttle.locked_until = now() + timedelta(minutes=5)
+            throttle.failures = 0
+        db.add(AuditEvent(actor_id=user.id if user else throttle_key[:36], action="LOGIN_FAILURE",
+                          resource_id=user.id if user else throttle_key[:36], result="DENIED"))
+        db.commit()
         raise HTTPException(401, "로그인 정보가 올바르지 않습니다")
-    return {"token": issue_token(db, user.id), "therapist": {"id": user.id, "displayName": user.display_name}}
+    if throttle:
+        throttle.failures = 0
+        throttle.locked_until = None
+    token, csrf = create_session(db, user)
+    db.add(AuditEvent(actor_id=user.id, action="LOGIN_SUCCESS", resource_id=user.id, result="SUCCESS"))
+    db.commit()
+    response.set_cookie(COOKIE_NAME, token, httponly=True, secure=settings.cookie_secure,
+                        samesite="strict", max_age=12 * 3600, path="/api")
+    return {"role": user.role, "csrfToken": csrf}
 
 
 @app.post("/api/auth/logout", status_code=204)
-def logout(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
-    if authorization:
-        db.execute(delete(AuthToken).where(AuthToken.token_hash == hash_token(authorization.removeprefix("Bearer "))))
-        db.commit()
-    return Response(status_code=204)
+def logout(request: Request, response: Response, account: Account = Depends(current_account), db: Session = Depends(get_db)):
+    db.execute(delete(CookieSession).where(CookieSession.token_hash == hash_token(request.cookies[COOKIE_NAME])))
+    db.add(AuditEvent(actor_id=account.id, action="LOGOUT", resource_id=account.id, result="SUCCESS"))
+    db.commit()
+    response.delete_cookie(COOKIE_NAME, path="/api")
+    response.status_code = 204
+    return response
+
+
+@app.get("/api/auth/me")
+def auth_me(account: Account = Depends(current_account)):
+    return {"id": account.id, "role": account.role}
+
+
+@app.get("/api/admin/health")
+def admin_health(_account: Account = Depends(require_admin)):
+    return {"status": "ok"}
 
 
 @app.get("/api/children")
@@ -153,9 +249,13 @@ def add_child(body: ChildInput, db: Session = Depends(get_db), therapist: Therap
     child = Child(child_code=f"C-{count:04d}", hero_name=body.hero_name, age_band=body.age_band, therapist_id=therapist.id, play_code=play_code, guardian_consent_at=now() if body.guardian_consent else None)
     db.add(child)
     db.flush()
+    initial_password = secrets.token_urlsafe(16)
+    salt = secrets.token_hex(16)
+    db.add(Account(username=play_code, password_salt=salt,
+                   password_hash=hash_password(initial_password, salt), role="STUDENT", child_id=child.id))
     create_goal(db, child, {})
     db.commit()
-    return child_data(child)
+    return {**child_data(child), "initialPassword": initial_password}
 
 
 @app.get("/api/children/{child_id}")
@@ -198,9 +298,11 @@ def delete_speech_data(child_id: str, db: Session = Depends(get_db), therapist: 
 
 
 @app.post("/api/play/start")
-def start(body: StartInput, db: Session = Depends(get_db)):
+def start(body: StartInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
     child = db.scalar(select(Child).where(Child.play_code == body.play_code.upper()))
     if not child:
+        raise HTTPException(404, "모험 코드를 찾을 수 없습니다")
+    if account is not None and account.child_id != child.id:
         raise HTTPException(404, "모험 코드를 찾을 수 없습니다")
     if not child.guardian_consent_at:
         raise HTTPException(403, "보호자 동의가 필요합니다")
@@ -227,12 +329,12 @@ def start(body: StartInput, db: Session = Depends(get_db)):
     db.add(TrainingDecision(session_id=session.id, decision_type="PLAN_GENERATED", reason_codes=plan_json["rationale"], reason_text=reason_text(plan_json["rationale"]), inputs_snapshot={"goalId": goal.id, "goalVersion": goal.version, "ruleIds": [r.id for r in rules]}))
     events = save_events(db, session, [{"type": "SESSION_START", "payload": {}}, {"type": "STAGE_START", "payload": {"stageIndex": 0, "game": first_stage["game"], "itemCount": len(first_stage["items"])}}, {"type": "TARGET_PRESENTED", "payload": {"item": first_item}}], item=first_item, goal=goal)
     db.commit()
-    return {"sessionId": session.id, "playToken": token, "heroName": child.hero_name, "mode": body.mode, "plan": {"stages": [{"game": s["game"], "itemCount": len(s["items"])} for s in plan_json["stages"]]}, "firstItem": first_item, "events": events}
+    return {"sessionId": session.id, "heroName": child.hero_name, "mode": body.mode, "plan": {"stages": [{"game": s["game"], "itemCount": len(s["items"])} for s in plan_json["stages"]]}, "firstItem": first_item, "events": events}
 
 
 @app.post("/api/play/sessions/{session_id}/utterances")
-def play_utterance(session_id: str, body: UtteranceInput, x_play_token: str | None = Header(default=None), db: Session = Depends(get_db)):
-    session = play_session(db, session_id, x_play_token)
+def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
+    session = play_session(db, session_id, account) if account is not None else db.get(TrainingSession, session_id)
     if session.status != "active":
         raise HTTPException(409, "완료된 세션입니다")
     state = dict(session.runtime_state)
@@ -241,13 +343,17 @@ def play_utterance(session_id: str, body: UtteranceInput, x_play_token: str | No
         raise HTTPException(409, "현재 항목 또는 시도 번호가 일치하지 않습니다")
     goal = db.get(TrainingGoal, session.goal_id)
     rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == session.child_id, TherapistRule.active == True)).all()
-    analysis = analyze(item, body.transcript, body.acoustic, goal, rules)
-    utterance = Utterance(session_id=session.id, item_id=item["itemId"], item_text=item["displayText"], level=item["level"], game=item["game"], stage_index=state["stageIndex"], attempt_index=state["itemAttempt"], transcript=body.transcript, alternatives=body.alternatives, recognizer=body.recognizer, acoustic=body.acoustic)
+    acoustic = body.acoustic.model_dump(by_alias=True, exclude_none=True)
+    acoustic["source"] = "keyboard" if session.mode == "demo" else "microphone"
+    evaluation_acoustic = acoustic
+    analysis = analyze(item, body.transcript, evaluation_acoustic, goal, rules)
+    utterance = Utterance(session_id=session.id, item_id=item["itemId"], item_text=item["displayText"], level=item["level"], game=item["game"], stage_index=state["stageIndex"], attempt_index=state["itemAttempt"], transcript=body.transcript, alternatives=body.alternatives, recognizer=body.recognizer, acoustic=acoustic)
     db.add(utterance)
     db.flush()
     db.add(SpeechAnalysis(utterance_id=utterance.id, target_phones=analysis.target_phones, observed_phones=analysis.observed_phones, alignment=analysis.alignment, ai_score=analysis.score, ai_result=analysis.result, target_status=analysis.target_status, substitute_symbol=analysis.substitute_symbol, pattern_tags=analysis.pattern_tags, rule_applied_id=analysis.rule_applied_id, final_score=analysis.score, final_result=analysis.result))
-    total = state["totalAttempts"] + (analysis.result != "no_speech")
-    state["voicedMs"] = body.acoustic.get("voicedMs", 0)
+    db.add(build_observation(session, utterance, goal, analysis, acoustic, state))
+    total = state["totalAttempts"] + (analysis.result not in {"no_speech", "uncertain"})
+    state["bestRunMs"] = acoustic.get("bestRunMs", 0)
     previous = db.scalar(select(TrainingSession).where(TrainingSession.child_id == session.child_id, TrainingSession.status == "completed").order_by(TrainingSession.started_at.desc()))
     output = decide(goal, item, analysis, state, body.elapsed_sec, total, rules, previous.summary_json if previous else None)
     for draft in output.decisions:
@@ -279,8 +385,10 @@ def play_utterance(session_id: str, body: UtteranceInput, x_play_token: str | No
         if draft["type"] == "SESSION_COMPLETE":
             draft["payload"].update(totalXp=state["xp"] + xp, badges=db.get(Child, session.child_id).collection_json.get("badges", []), monsterCards=db.get(Child, session.child_id).collection_json.get("monsterCards", []))
     advanced = output.advanced or bool(output.next_item and output.next_item["itemId"] != item["itemId"])
-    state.update({"currentLevel": output.next_level, "queue": output.queue, "resumeItem": output.resume_item, "successStreak": output.success_streak, "targetRetryStreak": output.target_retry_streak, "currentItem": output.next_item, "itemAttempt": 1 if advanced else state["itemAttempt"] + (analysis.result != "no_speech"), "totalAttempts": total, "xp": state["xp"] + xp, "nextSlot": output.next_slot, "beamTargetMs": output.beam_target_ms, "pendingBigAttack": output.pending_big_attack})
-    state.pop("voicedMs", None)
+    retry = next_retry_state(state.get("retry"), item["itemId"], analysis.result, advanced)
+    state.update({"currentLevel": output.next_level, "queue": output.queue, "resumeItem": output.resume_item, "successStreak": output.success_streak, "targetRetryStreak": output.target_retry_streak, "currentItem": output.next_item, "itemAttempt": 1 if advanced else state["itemAttempt"] + (analysis.result not in {"no_speech", "uncertain"}), "totalAttempts": total, "xp": state["xp"] + xp, "nextSlot": output.next_slot, "beamTargetMs": output.beam_target_ms, "pendingBigAttack": output.pending_big_attack,
+                  "retry": retry, "listenAgainCount": retry["listenAgainCount"]})
+    state.pop("bestRunMs", None)
     session.runtime_state = state
     events = save_events(db, session, drafts, utterance.id, item, goal, analysis)
     db.commit()
@@ -288,15 +396,16 @@ def play_utterance(session_id: str, body: UtteranceInput, x_play_token: str | No
 
 
 @app.post("/api/play/sessions/{session_id}/complete")
-def complete(session_id: str, body: CompleteInput, x_play_token: str | None = Header(default=None), db: Session = Depends(get_db)):
-    session = play_session(db, session_id, x_play_token)
+def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
+    session = play_session(db, session_id, account) if account is not None else db.get(TrainingSession, session_id)
     child = db.get(Child, session.child_id)
     if session.status == "completed":
         return session.summary_json
     goal = db.get(TrainingGoal, session.goal_id)
     state = session.runtime_state
     metric = recompute(db, session, goal, body.elapsed_sec)
-    recommend(db, session, goal, metric)
+    if not state.get("activityGame"):
+        recommend(db, session, goal, metric)
     child.xp += state.get("xp", 0)
     utterances = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
     stages = db.get(TrainingPlan, session.plan_id).plan_json["stages"]
@@ -305,19 +414,191 @@ def complete(session_id: str, body: CompleteInput, x_play_token: str | None = He
     child.collection_json = collection
     summary = {"totalXp": state.get("xp", 0), "heroLevel": child.xp // 100 + 1, "badges": collection["badges"], "monsterCards": collection["monsterCards"], "newBadges": new_badges, "newMonsterCards": new_cards, "levelDownCount": metric.level_down_count, "durationSec": body.elapsed_sec}
     session.summary_json = summary
-    session.insight_json = generate_insights(db, session, goal, metric)
+    session.insight_json = (["게임 완료. 임상 관찰은 치료사 확인이 필요합니다."] if state.get("activityGame")
+                            else generate_insights(db, session, goal, metric))
     session.status, session.ended_at = "completed", now()
     db.commit()
     return summary
 
 
 @app.get("/api/play/children/{play_code}/profile")
-def play_profile(play_code: str, db: Session = Depends(get_db)):
+def play_profile(play_code: str, db: Session = Depends(get_db), account: Account = Depends(require_student)):
     child = db.scalar(select(Child).where(Child.play_code == play_code.upper()))
     if not child:
         raise HTTPException(404)
+    if account.child_id != child.id:
+        raise HTTPException(404)
     collection = child.collection_json or {}
-    return {"heroName": child.hero_name, "heroLevel": child.xp // 100 + 1, "xp": child.xp, "badges": collection.get("badges", []), "monsterCards": collection.get("monsterCards", []), "mapProgress": len(db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "completed")).all())}
+    return {"heroName": child.hero_name, "heroLevel": child.xp // 100 + 1, "xp": child.xp, "badges": collection.get("badges", []), "monsterCards": collection.get("monsterCards", []), "assignedActivity": collection.get("assignedActivity"), "mapProgress": len(db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "completed")).all())}
+
+
+@app.get("/api/me/home")
+def character_home(db: Session = Depends(get_db), account: Account = Depends(require_student)):
+    child = db.get(Child, account.child_id)
+    return {"heroName": child.hero_name, "heroLevel": child.xp // 100 + 1,
+            "tapCount": (child.collection_json or {}).get("hoyaTaps", 0),
+            "assignedActivity": (child.collection_json or {}).get("assignedActivity")}
+
+
+@app.post("/api/me/character/tap")
+def character_tap(db: Session = Depends(get_db), account: Account = Depends(require_student)):
+    child = db.get(Child, account.child_id)
+    count = (child.collection_json or {}).get("hoyaTaps", 0) + 1
+    child.collection_json = {**(child.collection_json or {}), "hoyaTaps": count}
+    db.commit()
+    lines = ("안녕! 나는 호야야.", "오늘도 같이 모험하자!", "네 목소리를 들을 준비가 됐어.",
+             "천천히 해도 괜찮아.", "같이 별을 찾으러 가자!")
+    return {"line": lines[(count - 1) % len(lines)], "tapCount": count}
+
+
+@app.post("/api/activities")
+def start_activity(body: StartActivityInput, db: Session = Depends(get_db), account: Account = Depends(require_student)):
+    child = db.get(Child, account.child_id)
+    if not child.guardian_consent_at:
+        raise HTTPException(403, "보호자 동의가 필요합니다")
+    goal = current_goal(db, child.id)
+    if not goal:
+        raise HTTPException(409, "활성 목표가 없습니다")
+    definitions = GAME_ROUNDS[body.game]
+    plan_stages = []
+    for definition in definitions:
+        level = "syllable" if body.game == "monster_adventure" and definition.index == 1 else "short_sentence" if body.game == "monster_adventure" and definition.index == 5 else "word"
+        candidates = items(goal.target_phoneme, level, goal.word_position)
+        text = candidates[(definition.index - 1) % len(candidates)]["displayText"] if candidates else goal.target_sound
+        item = {"itemId": secrets.token_hex(8), "displayText": text, "level": level if body.game == "monster_adventure" else definition.generalization_level.lower(),
+                "game": body.game, "beamTargetMs": definition.target_ms, "pictureKey": text}
+        plan_stages.append({"game": body.game, "level": item["level"], "round": public_round(definition), "items": [item]})
+    plan = TrainingPlan(goal_id=goal.id, child_id=child.id,
+                        plan_json={"stages": plan_stages, "nextSlot": 5, "rationale": ["V2_ROUND_ACTIVITY"]},
+                        rationale_json=["V2_ROUND_ACTIVITY"])
+    db.add(plan)
+    db.flush()
+    first = plan_stages[0]["items"][0]
+    state = {"activityGame": body.game, "roundIndex": 1, "roundAttempt": 1, "roundAttemptsUsed": 0,
+             "roundSuccesses": 0, "roundEvaluated": 0, "listenAgainCount": 0, "roundStartedAt": now().isoformat(),
+             "difficulty": 2, "difficultyIncreases": 0, "lowStreak": 0, "difficultyDecreased": False,
+             "currentCue": "AUDITORY_MODEL" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "NONE",
+             "currentItem": first, "totalAttempts": 0, "xp": 0, "stageIndex": 0,
+             "roundDefinition": {**public_round(definitions[0], 2), "independence": "MODELED" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"}}
+    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode,
+                              play_token_hash=hash_token(secrets.token_urlsafe(32)), runtime_state=state)
+    db.add(session)
+    db.flush()
+    events = save_events(db, session, [{"type": "SESSION_START", "payload": {"activity": body.game}},
+                                        {"type": "ROUND_START", "payload": public_round(definitions[0], 2)},
+                                        {"type": "TARGET_PRESENTED", "payload": {"item": first}}], item=first, goal=goal)
+    db.commit()
+    return {"sessionId": session.id, "game": body.game, "mode": body.mode, "heroName": child.hero_name,
+            "rounds": [public_round(definition) for definition in definitions], "currentRound": public_round(definitions[0], 2),
+            "firstItem": first, "events": events}
+
+
+@app.get("/api/activities/{session_id}")
+def current_activity(session_id: str, db: Session = Depends(get_db), account: Account = Depends(require_student)):
+    session = play_session(db, session_id, account)
+    state = session.runtime_state
+    game = state.get("activityGame")
+    if game not in GAME_ROUNDS or session.status != "active":
+        raise HTTPException(409, "활성 게임이 아닙니다")
+    child = db.get(Child, session.child_id)
+    return {"sessionId": session.id, "game": game, "mode": session.mode, "heroName": child.hero_name,
+            "rounds": [public_round(definition) for definition in GAME_ROUNDS[game]],
+            "currentRound": public_round(GAME_ROUNDS[game][state["roundIndex"] - 1], state["difficulty"]),
+            "firstItem": state["currentItem"], "nextAttemptIndex": state["roundAttempt"],
+            "completedRounds": list(range(1, state["roundIndex"]))}
+
+
+@app.post("/api/activities/{session_id}/utterances")
+def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account = Depends(require_student)):
+    session = play_session(db, session_id, account)
+    state = dict(session.runtime_state)
+    if session.status != "active" or "activityGame" not in state:
+        raise HTTPException(409, "활성 게임이 아닙니다")
+    round_index = state["roundIndex"]
+    if body.round_index != round_index or body.item_id != state["currentItem"]["itemId"] or body.attempt_index != state["roundAttempt"]:
+        raise HTTPException(409, "현재 라운드 또는 항목과 일치하지 않습니다")
+    definition = effective_round(GAME_ROUNDS[state["activityGame"]][round_index - 1], state["difficulty"])
+    goal = db.get(TrainingGoal, session.goal_id)
+    acoustic = body.acoustic.model_dump(by_alias=True, exclude_none=True)
+    acoustic["source"] = "keyboard" if session.mode == "demo" else "microphone"
+    analysis = evaluate_round(definition, state["currentItem"], body.transcript, acoustic, goal)
+    item = state["currentItem"]
+    utterance = Utterance(session_id=session.id, item_id=item["itemId"], item_text=item["displayText"],
+                          level=item["level"], game=state["activityGame"], stage_index=round_index - 1,
+                          attempt_index=state["roundAttempt"], transcript=body.transcript,
+                          alternatives=body.alternatives, recognizer=body.recognizer, acoustic=acoustic)
+    db.add(utterance)
+    db.flush()
+    db.add(SpeechAnalysis(utterance_id=utterance.id, target_phones=analysis.target_phones,
+                          observed_phones=analysis.observed_phones, alignment=analysis.alignment,
+                          ai_score=analysis.score, ai_result=analysis.result, target_status=analysis.target_status,
+                          substitute_symbol=analysis.substitute_symbol, pattern_tags=analysis.pattern_tags,
+                          final_score=analysis.score, final_result=analysis.result))
+    if analysis.result != "not_target_attempt":
+        db.add(build_observation(session, utterance, goal, analysis, acoustic, state))
+    drafts = []
+    if analysis.result == "no_speech":
+        drafts.append({"type": "NO_SPEECH", "payload": {}})
+    elif analysis.result == "uncertain":
+        if state["listenAgainCount"] >= 2:
+            drafts.append({"type": "ITEM_ADVANCE", "payload": {"reason": "UNCERTAIN_SKIP"}})
+            drafts.append({"type": "REWARD", "payload": {"xp": 2, "reason": "ATTEMPT"}})
+            state["roundAttemptsUsed"] += 1
+            state["listenAgainCount"] = 0
+        else:
+            drafts.append({"type": "LISTEN_AGAIN", "payload": {}})
+            state["listenAgainCount"] += 1
+    elif analysis.result in {"target_observed", "not_target_attempt"}:
+        state["roundAttemptsUsed"] += 1
+        drafts.append({"type": "STORY_CONTINUE", "payload": {"targetObserved": analysis.result == "target_observed"}})
+    else:
+        state["roundAttemptsUsed"] += 1
+        state["roundEvaluated"] += 1
+        state["totalAttempts"] += 1
+        if analysis.result == "success":
+            state["roundSuccesses"] += 1
+            drafts.extend([{"type": "TARGET_SUCCESS", "payload": {}}, {"type": "REWARD", "payload": {"xp": 10}}])
+        else:
+            drafts.append({"type": "TARGET_RETRY", "payload": {"cue": "gentle"}})
+    state["xp"] += sum(draft["payload"].get("xp", 0) for draft in drafts)
+    elapsed = (now() - datetime.fromisoformat(state["roundStartedAt"])).total_seconds()
+    neutral_skip = any(draft["type"] == "ITEM_ADVANCE" for draft in drafts)
+    clear = state["roundSuccesses"] > 0 or neutral_skip or (state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"}) or state["roundAttemptsUsed"] >= definition.attempts or elapsed >= definition.time_limit_sec
+    finished = False
+    if clear:
+        drafts.append({"type": "ROUND_CLEAR", "payload": {"index": round_index, "stars": 1 + min(1, state["roundSuccesses"]),
+                                                   "doneAttempts": state["roundAttemptsUsed"]}})
+        if round_index == 5:
+            finished = True
+            drafts.append({"type": "SESSION_COMPLETE", "payload": {"totalXp": state["xp"], "badges": [], "monsterCards": []}})
+            next_item = None
+            next_round = None
+        else:
+            state["difficulty"], state["difficultyIncreases"], state["lowStreak"], state["difficultyDecreased"] = next_difficulty(
+                state["difficulty"], state["roundSuccesses"], state["roundEvaluated"],
+                state["difficultyIncreases"], state["lowStreak"], state["difficultyDecreased"])
+            round_index += 1
+            next_round = GAME_ROUNDS[state["activityGame"]][round_index - 1]
+            next_item = {**db.get(TrainingPlan, session.plan_id).plan_json["stages"][round_index - 1]["items"][0],
+                         "beamTargetMs": effective_round(next_round, state["difficulty"]).target_ms}
+            state.update(roundIndex=round_index, stageIndex=round_index - 1, currentItem=next_item,
+                         roundAttempt=1, roundAttemptsUsed=0, roundSuccesses=0, roundEvaluated=0,
+                         listenAgainCount=0, roundStartedAt=now().isoformat(),
+                         currentCue="AUDITORY_MODEL" if next_round.elicitation_type == "DIRECT_IMITATION" else "NONE",
+                         roundDefinition={**public_round(next_round, state["difficulty"]), "independence": "MODELED" if next_round.elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"})
+            drafts.extend([{"type": "ROUND_START", "payload": public_round(next_round, state["difficulty"])},
+                           {"type": "TARGET_PRESENTED", "payload": {"item": next_item}}])
+    else:
+        next_item = item
+        next_round = GAME_ROUNDS[state["activityGame"]][round_index - 1]
+        if analysis.result not in {"uncertain", "no_speech"}:
+            state["roundAttempt"] += 1
+    session.runtime_state = state
+    events = save_events(db, session, drafts, utterance.id, item, goal, analysis)
+    db.commit()
+    return {"events": events, "nextItem": next_item, "nextAttemptIndex": state["roundAttempt"],
+            "currentRound": public_round(next_round, state["difficulty"]) if next_round else None, "sessionComplete": finished,
+            "dialogue": quest_reply(definition.index, body.transcript) if state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"} else None}
 
 
 @app.get("/api/dashboard/overview")
@@ -338,6 +619,59 @@ def recommendations(child_id: str, status: str | None = None, db: Session = Depe
     return [rec_data(r) for r in db.scalars(query.order_by(AIRecommendation.created_at.desc())).all()]
 
 
+@app.get("/api/children/{child_id}/activity-recommendations")
+def activity_recommendations(child_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    owned_child(db, child_id, therapist)
+    rows = db.scalars(select(ActivityRecommendation).where(ActivityRecommendation.child_id == child_id)
+                      .order_by(ActivityRecommendation.created_at.desc())).all()
+    return [activity_rec_data(row) for row in rows]
+
+
+@app.post("/api/children/{child_id}/activity-recommendations")
+def generate_activity_recommendation(child_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    owned_child(db, child_id, therapist)
+    pending = db.scalar(select(ActivityRecommendation).where(ActivityRecommendation.child_id == child_id,
+                                                               ActivityRecommendation.status == "PENDING"))
+    if pending:
+        return {"status": "PENDING", "recommendation": activity_rec_data(pending)}
+    proposal = propose_activity(db, child_id)
+    if proposal is None:
+        return {"status": "INSUFFICIENT_DATA", "recommendation": None}
+    rec = ActivityRecommendation(child_id=child_id, activity=proposal["activity"],
+                                 clinical_purpose=proposal["clinicalPurpose"], reason=proposal["reason"],
+                                 evidence=proposal["evidence"], confidence=proposal["confidence"])
+    db.add(rec)
+    db.commit()
+    return {"status": "PENDING", "recommendation": activity_rec_data(rec)}
+
+
+@app.post("/api/activity-recommendations/{recommendation_id}/decision")
+def decide_activity_recommendation(recommendation_id: str, body: ActivityRecommendationDecisionInput,
+                                   db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    rec = db.get(ActivityRecommendation, recommendation_id)
+    if rec is None:
+        raise HTTPException(404)
+    child = owned_child(db, rec.child_id, therapist)
+    if rec.status != "PENDING":
+        raise HTTPException(409, "이미 처리한 제안입니다")
+    if body.action == "modify" and (body.modified_game is None or not body.note.strip()):
+        raise HTTPException(422, "수정할 게임과 이유가 필요합니다")
+    if body.action == "reject" and not body.note.strip():
+        raise HTTPException(422, "거절 사유가 필요합니다")
+    if body.action != "reject":
+        child.collection_json = {**(child.collection_json or {}),
+                                 "assignedActivity": body.modified_game if body.action == "modify" else rec.activity}
+    rec.status = {"accept": "ACCEPTED", "modify": "MODIFIED", "reject": "REJECTED"}[body.action]
+    rec.selected_activity = None if body.action == "reject" else body.modified_game if body.action == "modify" else rec.activity
+    rec.decision_note = body.note
+    rec.decided_at = now()
+    rec.decided_by = therapist.id
+    db.add(AuditEvent(actor_id=therapist.id, action=f"RECOMMENDATION_{rec.status}",
+                      resource_id=rec.id, result="SUCCESS"))
+    db.commit()
+    return activity_rec_data(rec)
+
+
 @app.get("/api/sessions/{session_id}")
 def session_detail(session_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
     session = db.get(TrainingSession, session_id)
@@ -351,13 +685,89 @@ def session_detail(session_id: str, db: Session = Depends(get_db), therapist: Th
     recs = db.scalars(select(AIRecommendation).where(AIRecommendation.session_id == session.id)).all()
     goal = db.get(TrainingGoal, session.goal_id)
     rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == session.child_id, TherapistRule.active == True)).all()
-    return {"session": {"id": session.id, "mode": session.mode, "isSeed": session.is_seed, "status": session.status, "startedAt": session.started_at, "endedAt": session.ended_at, "durationSec": session.summary_json.get("durationSec"), "goalVersion": goal.version, "summary": session.summary_json}, "goal": goal_data(goal), "plan": db.get(TrainingPlan, session.plan_id).plan_json, "utterances": [{"id": u.id, "itemText": u.item_text, "level": u.level, "game": u.game, "recognizer": u.recognizer, "stageIndex": u.stage_index, "acoustic": u.acoustic, "createdAt": u.created_at, "transcript": u.transcript, "attemptIndex": u.attempt_index, "analysis": public(db.scalar(select(SpeechAnalysis).where(SpeechAnalysis.utterance_id == u.id)), ["ai_score", "ai_result", "final_score", "final_result", "target_status", "substitute_symbol", "pattern_tags", "therapist_override", "rule_applied_id", "method"])} for u in utterances], "decisions": [public(d, ["id", "decision_type", "reason_codes", "reason_text", "inputs_snapshot", "from_level", "to_level"]) for d in decisions], "events": [public(e, ["id", "type", "payload", "therapist_text", "utterance_id", "created_at"]) for e in events], "metrics": [public(m, ["attempts", "successes", "retries", "hints", "first_try_success_rate", "mean_score", "level_down_count"]) for m in metrics], "insight": session.insight_json, "recommendations": [rec_data(r) for r in recs], "activeRules": [public(r, ["id", "rule_type", "params"]) for r in rules]}
+    return {"session": {"id": session.id, "mode": session.mode, "activityGame": session.runtime_state.get("activityGame"), "isSeed": session.is_seed, "status": session.status, "startedAt": session.started_at, "endedAt": session.ended_at, "durationSec": session.summary_json.get("durationSec"), "goalVersion": goal.version, "summary": session.summary_json}, "goal": goal_data(goal), "plan": db.get(TrainingPlan, session.plan_id).plan_json, "utterances": [{"id": u.id, "itemText": u.item_text, "level": u.level, "game": u.game, "recognizer": u.recognizer, "stageIndex": u.stage_index, "acoustic": u.acoustic, "createdAt": u.created_at, "transcript": u.transcript, "attemptIndex": u.attempt_index, "analysis": public(db.scalar(select(SpeechAnalysis).where(SpeechAnalysis.utterance_id == u.id)), ["ai_score", "ai_result", "final_score", "final_result", "target_status", "substitute_symbol", "pattern_tags", "therapist_override", "rule_applied_id", "method"])} for u in utterances], "decisions": [public(d, ["id", "decision_type", "reason_codes", "reason_text", "inputs_snapshot", "from_level", "to_level"]) for d in decisions], "events": [public(e, ["id", "type", "payload", "therapist_text", "utterance_id", "created_at"]) for e in events], "metrics": [public(m, ["attempts", "successes", "retries", "hints", "first_try_success_rate", "mean_score", "level_down_count"]) for m in metrics], "insight": session.insight_json, "recommendations": [rec_data(r) for r in recs], "activeRules": [public(r, ["id", "rule_type", "params"]) for r in rules]}
+
+
+@app.get("/api/sessions/{session_id}/timeline")
+def session_timeline(session_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    session = db.get(TrainingSession, session_id)
+    if session is None:
+        raise HTTPException(404)
+    owned_child(db, session.child_id, therapist)
+    events = db.scalars(select(GameEvent).where(GameEvent.session_id == session_id).order_by(GameEvent.created_at)).all()
+    observations = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == session_id).order_by(ClinicalObservation.created_at)).all()
+    return {"events": [public(event, ["id", "type", "payload", "utterance_id", "created_at"]) for event in events],
+            "observations": [observation_data(observation) for observation in observations]}
+
+
+@app.get("/api/sessions/{session_id}/clinical-summary")
+def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    session = db.get(TrainingSession, session_id)
+    if session is None:
+        raise HTTPException(404)
+    owned_child(db, session.child_id, therapist)
+    game = session.runtime_state.get("activityGame")
+    definitions = GAME_ROUNDS.get(game, ())
+    observations = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == session_id)).all()
+    rows = []
+    for definition in definitions:
+        all_round = [row for row in observations if row.round_index == definition.index]
+        sample = all_round if session.mode == "real" and not session.is_seed else []
+        verified = 0
+        verified_success = 0
+        for row in sample:
+            latest = db.scalar(select(ClinicalVerification).where(ClinicalVerification.observation_id == row.id)
+                               .order_by(ClinicalVerification.created_at.desc(), ClinicalVerification.id.desc()))
+            if latest and latest.action in {"confirm", "correct"}:
+                verified += 1
+                value = latest.correction.get("result") if latest.action == "correct" else row.ai_result
+                verified_success += value == "success"
+        rows.append({"roundIndex": definition.index, "roundId": definition.id,
+                     "clinicalFocus": definition.clinical_focus, "n": len(sample), "demoN": len(all_round) - len(sample),
+                     "aiSupportedSuccesses": sum(row.ai_result == "success" for row in sample),
+                     "uncertainN": sum(row.ai_result in {"uncertain", "no_speech"} for row in sample),
+                     "verifiedN": verified, "verifiedSuccesses": verified_success,
+                     "verifiedRate": round(100 * verified_success / verified, 1) if verified else None,
+                     "limitedData": len(sample) < 5})
+    return {"game": game, "rounds": rows}
+
+
+@app.get("/api/observations/{observation_id}")
+def observation_detail(observation_id: str, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    observation = db.get(ClinicalObservation, observation_id)
+    if observation is None:
+        raise HTTPException(404)
+    owned_child(db, observation.child_id, therapist)
+    decisions = db.scalars(select(ClinicalVerification).where(ClinicalVerification.observation_id == observation_id).order_by(ClinicalVerification.created_at)).all()
+    return {"observation": observation_data(observation),
+            "decisions": [public(row, ["id", "action", "correction", "note", "created_at"]) for row in decisions]}
+
+
+@app.post("/api/observations/{observation_id}/decision")
+def decide_observation(observation_id: str, body: ObservationDecisionInput, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
+    observation = db.get(ClinicalObservation, observation_id)
+    if observation is None:
+        raise HTTPException(404)
+    owned_child(db, observation.child_id, therapist)
+    if body.action == "correct" and body.corrected_result is None:
+        raise HTTPException(422, "교정 결과가 필요합니다")
+    if body.action == "reject" and not body.note.strip():
+        raise HTTPException(422, "거부 사유가 필요합니다")
+    correction = {"result": body.corrected_result} if body.action == "correct" else {}
+    db.add(ClinicalVerification(observation_id=observation.id, therapist_id=therapist.id,
+                                action=body.action, correction=correction, note=body.note))
+    observation.verification_state = {"confirm": "CONFIRMED", "correct": "CORRECTED", "reject": "REJECTED"}[body.action]
+    db.add(AuditEvent(actor_id=therapist.id, action=f"THERAPIST_{body.action.upper()}",
+                      resource_id=observation.id, result="SUCCESS"))
+    db.commit()
+    return observation_data(observation)
 
 
 @app.get("/api/children/{child_id}/progress")
 def progress(child_id: str, limit: int = 20, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
     owned_child(db, child_id, therapist)
     rows = db.execute(select(TrainingSession, ProgressMetric, TrainingGoal).join(ProgressMetric, ProgressMetric.session_id == TrainingSession.id).join(TrainingGoal, TrainingGoal.id == TrainingSession.goal_id).where(TrainingSession.child_id == child_id, ProgressMetric.level == "all").order_by(TrainingSession.started_at.desc()).limit(limit)).all()[::-1]
+    rows = [row for row in rows if not row[0].runtime_state.get("activityGame")]
     sessions = []
     word_performance = {}
     for index, (s, m, g) in enumerate(rows, 1):

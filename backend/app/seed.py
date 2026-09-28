@@ -3,22 +3,38 @@ import secrets
 
 from sqlalchemy import select
 
-from .models import Therapist, Child, TrainingGoal, TrainingSession, AIRecommendation, TherapistFeedback, now
+from .models import Account, Therapist, Child, TrainingGoal, TrainingSession, AIRecommendation, TherapistFeedback, now
 from .security import hash_password
 
 
 def seed(db):
     if db.scalar(select(Therapist.id).limit(1)):
+        # 명시적 DEMO 모드에서 기존 MVP DB를 재사용할 때 새 쿠키 계정을 보충한다.
+        therapist = db.scalar(select(Therapist).where(Therapist.username == "demo"))
+        if therapist and not db.scalar(select(Account.id).where(Account.username == "demo")):
+            db.add(Account(username="demo", password_salt=therapist.password_salt,
+                           password_hash=therapist.password_hash, role="THERAPIST", therapist_id=therapist.id))
+        for child in db.scalars(select(Child).where(Child.is_seed == True)).all():
+            if not db.scalar(select(Account.id).where(Account.username == child.play_code)):
+                salt = secrets.token_hex(16)
+                db.add(Account(username=child.play_code, password_salt=salt,
+                               password_hash=hash_password("speechhero", salt), role="STUDENT", child_id=child.id))
+        db.commit()
         return
     salt = secrets.token_hex(16)
     therapist = Therapist(username="demo", password_salt=salt, password_hash=hash_password("speechhero", salt), display_name="데모 치료사")
     db.add(therapist)
     db.flush()
+    db.add(Account(username="demo", password_salt=salt, password_hash=therapist.password_hash,
+                   role="THERAPIST", therapist_id=therapist.id))
     children = []
     for index, (hero, phoneme, sound, code) in enumerate([("바람용사", "ㅅ", "사", "HERO01"), ("별용사", "ㄹ", "라", "HERO02"), ("숲용사", "ㅈ", "자", "HERO03")], 1):
         child = Child(child_code=f"C-{index:04d}", hero_name=hero, therapist_id=therapist.id, play_code=code, guardian_consent_at=now(), is_seed=True)
         db.add(child)
         db.flush()
+        child_salt = secrets.token_hex(16)
+        db.add(Account(username=code, password_salt=child_salt,
+                       password_hash=hash_password("speechhero", child_salt), role="STUDENT", child_id=child.id))
         db.add(TrainingGoal(child_id=child.id, version=1, target_phoneme=phoneme, target_sound=sound, level="word", min_level="syllable", source="seed"))
         children.append(child)
     db.commit()
@@ -28,9 +44,8 @@ def seed(db):
     from .schemas import StartInput, UtteranceInput, CompleteInput
 
     def run(child, days_ago, struggle=False):
-        response = start(StartInput(play_code=child.play_code, mode="demo"), db=db)
+        response = start(StartInput(play_code=child.play_code, mode="demo"), db=db, account=None)
         session = db.get(TrainingSession, response["sessionId"])
-        token = response["playToken"]
         item = response["firstItem"]
         attempt = 1
         steps = 0
@@ -41,14 +56,14 @@ def seed(db):
             else:
                 transcript = "따과" if struggle and item["displayText"] == "사과" and attempt <= 3 and steps < 4 else item["displayText"]
                 voiced = 900
-            result = play_utterance(session.id, UtteranceInput(item_id=item["itemId"], attempt_index=attempt, transcript=transcript, recognizer="demo_script", acoustic={"durationMs": voiced, "voicedMs": voiced, "meanRmsDb": -20, "peakRmsDb": -12, "meanHfRatio": 0.2, "onsetLatencyMs": 100}, elapsed_sec=steps * 8), x_play_token=token, db=db)
+            result = play_utterance(session.id, UtteranceInput(item_id=item["itemId"], attempt_index=attempt, transcript=transcript, recognizer="demo_script", acoustic={"durationMs": voiced, "voicedMs": voiced, "meanRmsDb": -20, "peakRmsDb": -12, "meanHfRatio": 0.2, "onsetLatencyMs": 100}, elapsed_sec=steps * 8), db=db, account=None)
             steps += 1
             if result["sessionComplete"]:
                 break
             item, attempt = result["nextItem"], result["nextAttemptIndex"]
         if steps >= 80:
             raise RuntimeError("데모 세션 생성 중 반복 상한에 도달했습니다")
-        complete(session.id, CompleteInput(elapsed_sec=steps * 8), x_play_token=token, db=db)
+        complete(session.id, CompleteInput(elapsed_sec=steps * 8), db=db, account=None)
         session.is_seed = True
         session.started_at = now() - timedelta(days=days_ago)
         session.ended_at = session.started_at + timedelta(seconds=steps * 8)

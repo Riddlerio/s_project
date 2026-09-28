@@ -32,6 +32,32 @@ class AuthToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class Account(Base):
+    __tablename__ = "accounts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    username: Mapped[str] = mapped_column(String, unique=True)
+    password_hash: Mapped[str] = mapped_column(String)
+    password_salt: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String)
+    therapist_id: Mapped[str | None] = mapped_column(ForeignKey("therapists.id"), nullable=True)
+    child_id: Mapped[str | None] = mapped_column(ForeignKey("children.id"), nullable=True)
+
+
+class CookieSession(Base):
+    __tablename__ = "cookie_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    csrf_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LoginThrottle(Base):
+    __tablename__ = "login_throttles"
+    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Child(Base):
     __tablename__ = "children"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
@@ -159,6 +185,54 @@ class GameEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class ClinicalObservation(Base):
+    __tablename__ = "clinical_observations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("training_sessions.id"))
+    utterance_id: Mapped[str] = mapped_column(ForeignKey("utterances.id"), unique=True)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"))
+    round_index: Mapped[int] = mapped_column(Integer, default=1)
+    round_id: Mapped[str] = mapped_column(String, default="legacy.r1")
+    difficulty: Mapped[int] = mapped_column(Integer, default=2)
+    activity: Mapped[str] = mapped_column(String)
+    target_phoneme: Mapped[str] = mapped_column(String)
+    word_position: Mapped[str] = mapped_column(String)
+    generalization_level: Mapped[str] = mapped_column(String)
+    attempt_number: Mapped[int] = mapped_column(Integer)
+    cue_type: Mapped[str] = mapped_column(String)
+    independence: Mapped[str] = mapped_column(String)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    audio_quality: Mapped[str] = mapped_column(String)
+    ai_result: Mapped[str] = mapped_column(String)
+    ai_confidence: Mapped[str] = mapped_column(String)
+    possible_error_pattern: Mapped[list] = mapped_column(JSON, default=list)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    verification_state: Mapped[str] = mapped_column(String, default="PENDING")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ClinicalVerification(Base):
+    __tablename__ = "clinical_verifications"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    observation_id: Mapped[str] = mapped_column(ForeignKey("clinical_observations.id"))
+    therapist_id: Mapped[str] = mapped_column(ForeignKey("therapists.id"))
+    action: Mapped[str] = mapped_column(String)
+    correction: Mapped[dict] = mapped_column(JSON, default=dict)
+    note: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    actor_id: Mapped[str] = mapped_column(String(36))
+    action: Mapped[str] = mapped_column(String)
+    resource_id: Mapped[str] = mapped_column(String(36))
+    result: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class ProgressMetric(Base):
     __tablename__ = "progress_metrics"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
@@ -199,6 +273,23 @@ class AIRecommendation(Base):
     status: Mapped[str] = mapped_column(String, default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ActivityRecommendation(Base):
+    __tablename__ = "activity_recommendations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"))
+    activity: Mapped[str] = mapped_column(String)
+    clinical_purpose: Mapped[str] = mapped_column(String)
+    reason: Mapped[str] = mapped_column(String)
+    evidence: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="PENDING")
+    selected_activity: Mapped[str | None] = mapped_column(String, nullable=True)
+    decision_note: Mapped[str] = mapped_column(String, default="")
+    decided_by: Mapped[str | None] = mapped_column(ForeignKey("therapists.id"), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class TherapistFeedback(Base):

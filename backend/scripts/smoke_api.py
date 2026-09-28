@@ -1,4 +1,4 @@
-"""실행 중인 API에 대해 데모 세션과 치료사 루프를 확인한다."""
+"""시연 데이터가 있는 로컬 서버의 쿠키 인증·5라운드 API를 확인한다."""
 
 import sys
 
@@ -7,60 +7,45 @@ import httpx
 
 def main(base_url: str) -> None:
     with httpx.Client(base_url=base_url, timeout=20) as client:
-        def request(method, path, *, token=None, **kwargs):
-            response = client.request(method, path, headers={"Authorization": f"Bearer {token}"} if token else None, **kwargs)
-            response.raise_for_status()
-            print(f"[OK] {method} {path}: {response.status_code}")
-            return response.json() if response.content else None
+        assert client.get("/api/system/info").status_code == 200
+        assert client.get("/api/dashboard/overview").status_code == 401
+        login = client.post("/api/auth/login", json={"username": "HERO01", "password": "speechhero"})
+        login.raise_for_status()
+        assert login.json()["role"] == "STUDENT"
+        csrf = {"X-CSRF-Token": login.json()["csrfToken"]}
+        assert client.get("/api/me/home").status_code == 200
+        assert client.get("/api/dashboard/overview").status_code == 403
+        assert client.post("/api/me/character/tap").status_code == 403
+        assert client.post("/api/me/character/tap", headers=csrf).status_code == 200
 
-        info = request("GET", "/api/system/info")
-        assert "demo" in info["modes"]
-        auth = request("POST", "/api/auth/login", json={"username": "demo", "password": "speechhero"})
-        token = auth["token"]
-        overview = request("GET", "/api/dashboard/overview", token=token)
-        assert len(overview["activeChildren"]) >= 3
-        child = next(c for c in overview["activeChildren"] if c["child_code"] == "C-0001")
-        detail = request("GET", f"/api/children/{child['id']}", token=token)
-        assert detail["currentGoal"]
-        progress = request("GET", f"/api/children/{child['id']}/progress", token=token)
-        assert len(progress["sessions"]) >= 4
-        started = request("POST", "/api/play/start", json={"playCode": "HERO01", "mode": "demo"})
-        item = started["firstItem"]
-        attempt = 1
-        play_headers = {"X-Play-Token": started["playToken"]}
-        for step in range(80):
-            transcript = None if item["game"] == "magic_beam" else "따과" if item["displayText"] == "사과" and attempt <= 3 and step < 4 else item["displayText"]
-            voiced = item.get("beamTargetMs", 1500) + 250 if item["game"] == "magic_beam" else 900
-            response = client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=play_headers, json={"itemId": item["itemId"], "attemptIndex": attempt, "transcript": transcript, "recognizer": "demo_script", "acoustic": {"durationMs": voiced, "voicedMs": voiced, "meanRmsDb": -20, "peakRmsDb": -12, "meanHfRatio": 0.2, "onsetLatencyMs": 100}, "elapsedSec": step * 8})
+        started = client.post("/api/activities", headers=csrf, json={"game": "magic_beam", "mode": "demo"})
+        started.raise_for_status()
+        data = started.json()
+        assert len(data["rounds"]) == 5
+        item = data["firstItem"]
+        for index in range(1, 6):
+            response = client.post(f"/api/activities/{data['sessionId']}/utterances", headers=csrf,
+                                   json={"roundIndex": index, "itemId": item["itemId"], "attemptIndex": 1,
+                                         "acoustic": {"durationMs": 5000, "voicedMs": 4000, "activeMs": 4000,
+                                                      "bestRunMs": 4000, "fricationMs": 4000,
+                                                      "sustainSegmentsMs": [1600, 1600, 1600],
+                                                      "onsetFricationMs": 500, "voicedAfterFricationMs": 300}})
             response.raise_for_status()
-            data = response.json()
-            if data["sessionComplete"]:
-                print(f"[OK] 세션 완료: {step + 1}회 발화")
-                break
-            item, attempt = data["nextItem"], data["nextAttemptIndex"]
-        else:
-            raise AssertionError("80회 안에 세션이 완료되지 않았습니다")
-        summary = client.post(f"/api/play/sessions/{started['sessionId']}/complete", headers=play_headers, json={"elapsedSec": (step + 1) * 8})
-        summary.raise_for_status()
-        assert "totalXp" in summary.json()
-        print("[OK] 세션 요약")
-        session_detail = request("GET", f"/api/sessions/{started['sessionId']}", token=token)
-        assert session_detail["session"]["status"] == "completed"
-        assert session_detail["utterances"] and session_detail["decisions"] and session_detail["events"]
-        utterance_id = session_detail["utterances"][0]["id"]
-        feedback = request("POST", f"/api/utterances/{utterance_id}/feedback", token=token,
-                           json={"action": "note", "note": "API smoke 확인"})
-        assert feedback["feedback"]["action"] == "note"
-        recs = request("GET", f"/api/children/{child['id']}/recommendations?status=pending", token=token)
-        assert recs
-        accepted = request("POST", f"/api/recommendations/{recs[0]['id']}/decision", token=token, json={"action": "accept", "note": "API smoke 확인"})
-        assert accepted["newGoal"]["version"] > detail["currentGoal"]["version"]
-        assert accepted["recommendation"]["status"] == "accepted"
-        next_start = request("POST", "/api/play/start", json={"playCode": "HERO01", "mode": "demo"})
-        assert next_start["firstItem"]["level"] == accepted["newGoal"]["level"]
-        unauth = client.get("/api/dashboard/overview")
-        assert unauth.status_code == 401
-        print("[OK] 비인증 요청 401")
+            result = response.json()
+            assert any(event["type"] == "ROUND_CLEAR" for event in result["events"])
+            item = result["nextItem"]
+        assert result["sessionComplete"]
+        complete = client.post(f"/api/play/sessions/{data['sessionId']}/complete", headers=csrf,
+                               json={"elapsedSec": 300})
+        complete.raise_for_status()
+
+        therapist = client.post("/api/auth/login", json={"username": "demo", "password": "speechhero"})
+        therapist.raise_for_status()
+        assert therapist.json()["role"] == "THERAPIST"
+        timeline = client.get(f"/api/sessions/{data['sessionId']}/timeline")
+        timeline.raise_for_status()
+        assert {row["round_index"] for row in timeline.json()["observations"]} == {1, 2, 3, 4, 5}
+        print("[OK] 쿠키 인증, CSRF, 역할 접근, 5라운드, 임상 관찰")
 
 
 if __name__ == "__main__":

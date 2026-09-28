@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from dataclasses import asdict
+from math import isfinite
 
 from .normalization import normalize
 from .g2p import SimpleKoreanG2P
 from .alignment import align
+from ..pronunciation.audio_quality import assess_audio_quality
 
 
 @dataclass
@@ -19,12 +21,33 @@ class AnalysisResult:
     rule_applied_id: str | None = None
 
 
+def acoustic_number(acoustic: dict, key: str, default: float = 0) -> float:
+    value = acoustic.get(key, default)
+    return float(value) if type(value) in (int, float) and isfinite(value) else default
+
+
 def analyze(item: dict, transcript: str | None, acoustic: dict, goal, rules=()) -> AnalysisResult:
     if item.get("game") == "magic_beam":
-        voiced = acoustic.get("voicedMs", 0)
         target = item.get("beamTargetMs", 1500)
-        passed = voiced >= 0.8 * target
-        return AnalysisResult(min(100, round(voiced / target * 100)), "success" if passed else "retry", "correct" if passed else "omitted", None, [], [], [], [])
+        if acoustic.get("source") == "keyboard":
+            # 명시적 DEMO 입력은 실제 음향 근거로 해석하지 않는다.
+            run_ms = acoustic_number(acoustic, "bestRunMs", acoustic_number(acoustic, "voicedMs"))
+            passed = run_ms >= 0.8 * target
+            return AnalysisResult(min(100, round(run_ms / target * 100)), "success" if passed else "retry", "correct" if passed else "omitted", None, ["DEMO_INPUT"], [], [], [])
+        active_ms = acoustic_number(acoustic, "activeMs", acoustic_number(acoustic, "voicedMs"))
+        if active_ms <= 0:
+            return AnalysisResult(0, "no_speech", "unknown", None, ["NO_SPEECH"], [], [], [])
+        quality = assess_audio_quality(acoustic.get("noiseFloorDb"), acoustic.get("meanRmsDb"),
+                                       acoustic.get("durationMs"), acoustic.get("clippingRatio"), acoustic.get("snrDb"))
+        if quality["level"] == "POOR":
+            return AnalysisResult(0, "uncertain", "unknown", None, ["POOR_AUDIO"], [], [], [])
+        if quality["level"] == "UNKNOWN":
+            return AnalysisResult(0, "uncertain", "unknown", None, ["NO_ACOUSTIC_EVIDENCE"], [], [], [])
+        run_ms = acoustic_number(acoustic, "bestRunMs")
+        frication_ms = acoustic_number(acoustic, "fricationMs")
+        passed = run_ms >= 0.8 * target and frication_ms >= 0.6 * active_ms
+        tags = ["VOICED_NOT_FRICATIVE"] if not passed and active_ms >= 0.8 * target and frication_ms < 0.6 * active_ms else []
+        return AnalysisResult(min(100, round(run_ms / target * 100)), "success" if passed else "retry", "correct" if passed else "omitted", None, tags, [], [], [])
     observed = normalize(transcript)
     if not observed:
         return AnalysisResult(0, "no_speech", "omitted", None, [], [], [], [])

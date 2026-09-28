@@ -1,16 +1,13 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
-
-
-class ApiModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+from pydantic import ConfigDict, Field, field_validator
+from .schemas_base import ApiModel
+from .pronunciation.acoustic import AcousticSummary
 
 
 class LoginInput(ApiModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class GoalInput(ApiModel):
@@ -35,6 +32,11 @@ class StartInput(ApiModel):
     mode: str = "demo"
 
 
+class StartActivityInput(ApiModel):
+    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
+    mode: Literal["real", "demo"] = "demo"
+
+
 class ChildInput(ApiModel):
     hero_name: str = Field(min_length=1, max_length=20)
     age_band: Literal["4-5", "6-7"] = "4-5"
@@ -42,13 +44,22 @@ class ChildInput(ApiModel):
 
 
 class UtteranceInput(ApiModel):
+    model_config = ConfigDict(alias_generator=ApiModel.model_config["alias_generator"], populate_by_name=True, extra="forbid")
     item_id: str
-    attempt_index: int = 1
-    transcript: str | None = None
-    alternatives: list[str] = Field(default_factory=list)
+    round_index: int | None = Field(default=None, ge=1, le=5)
+    attempt_index: int = Field(default=1, ge=0, le=100)
+    transcript: str | None = Field(default=None, max_length=50)
+    alternatives: list[str] = Field(default_factory=list, max_length=5)
     recognizer: str = "demo_script"
-    acoustic: dict = Field(default_factory=dict)
-    elapsed_sec: int = 0
+    acoustic: AcousticSummary = Field(default_factory=AcousticSummary)
+    elapsed_sec: int = Field(default=0, ge=0, le=600)
+
+    @field_validator("alternatives")
+    @classmethod
+    def limit_alternatives(cls, values: list[str]) -> list[str]:
+        if any(len(value) > 50 for value in values):
+            raise ValueError("대체 인식 결과는 50자 이하여야 합니다")
+        return values
 
 
 class CompleteInput(ApiModel):
@@ -67,3 +78,17 @@ class FeedbackInput(ApiModel):
     score: int | None = None
     note: str = ""
     create_rule: bool = False
+
+
+class ObservationDecisionInput(ApiModel):
+    model_config = ConfigDict(alias_generator=ApiModel.model_config["alias_generator"], populate_by_name=True, extra="forbid")
+    action: Literal["confirm", "correct", "reject"]
+    corrected_result: Literal["success", "retry", "uncertain", "no_speech"] | None = None
+    note: str = Field(default="", max_length=500)
+
+
+class ActivityRecommendationDecisionInput(ApiModel):
+    model_config = ConfigDict(alias_generator=ApiModel.model_config["alias_generator"], populate_by_name=True, extra="forbid")
+    action: Literal["accept", "modify", "reject"]
+    modified_game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"] | None = None
+    note: str = Field(default="", max_length=500)

@@ -9,7 +9,7 @@ from ..models import AIRecommendation, ProgressMetric, SpeechAnalysis, TrainingG
 def recommend(db, session, goal, metric):
     retry_rate = metric.retries / max(1, metric.attempts)
     previous = db.execute(select(TrainingSession, ProgressMetric, TrainingGoal).join(ProgressMetric, ProgressMetric.session_id == TrainingSession.id).join(TrainingGoal, TrainingGoal.id == TrainingSession.goal_id).where(TrainingSession.child_id == session.child_id, TrainingSession.status == "completed", ProgressMetric.level == "all").order_by(TrainingSession.started_at.desc()).limit(3)).all()
-    same_level = [m for _, m, g in previous if g.level == goal.level]
+    same_level = [m for s, m, g in previous if g.level == goal.level and not s.runtime_state.get("activityGame")]
     rows = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
     word_scores = defaultdict(list)
     for utterance, analysis in rows:
