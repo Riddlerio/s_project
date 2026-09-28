@@ -50,7 +50,7 @@ cd backend
 npm.cmd run dev
 ```
 
-브라우저에서 `http://localhost:5173`을 엽니다. 데모 계정은 `demo / speechhero`, 첫 아동 모험 코드는 `HERO01`입니다. 프론트엔드 개발 서버는 `/api`를 백엔드로 전달합니다.
+브라우저에서 `http://127.0.0.1:5173`을 엽니다. 데모 계정은 `demo / speechhero`, 첫 아동 모험 코드는 `HERO01`입니다. 프론트엔드 개발 서버는 로컬 주소에서만 접속을 받고 `/api`를 백엔드로 전달합니다.
 
 ## 사용 방법
 
@@ -71,7 +71,7 @@ backend\.venv\Scripts\python.exe -m pytest backend -q
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
-API smoke 명령은 백엔드 서버 실행 중에 사용합니다. 마지막 검증에서 프런트엔드 5개, 백엔드 13개 테스트와 빌드·API smoke가 통과했습니다. 브라우저 마이크로 실제 발음의 품질을 확인하는 수동 시험은 별도로 필요합니다.
+API smoke 명령은 백엔드 서버 실행 중에 사용합니다. 마지막 검증에서 프런트엔드 5개, 백엔드 13개 테스트와 빌드·API smoke가 통과했습니다. 브라우저 마이크로 실제 발음의 품질을 확인하는 수동 시험은 [실제 마이크 수동 시험](docs/manual-mic-test.md)에 정리했습니다. npm 취약점의 시연 환경 판단은 [보안 감사](docs/security-audit.md)에 있습니다.
 
 ## 환경 변수와 API
 
