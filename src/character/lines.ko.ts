@@ -1,0 +1,3 @@
+export const lines = {
+  greeting: ['안녕! 나는 루미야. 함께 떠나자!'], story: ['오늘 몬스터 타워를 올라가자!'], mission: ['마법 주문을 들려줘!'], listen: ['마법을 모으는 중이야!'], encourage: ['좋아, 다시 해보자!'], cue: ['루미 입 모양을 봐! 바람을 솔솔~'], hint: ['루미가 먼저 해볼게. 잘 들어봐!'], charge_mode: ['새로운 스킬을 먼저 연습해볼까? 마법 충전 시작!'], charge_full: ['충전 완료! 큰 마법을 쓸 시간이야!'], success: ['멋진 마법이야!'], big_success: ['우와, 커다란 마법이 나갔어!'], retry_shield: ['몬스터가 방패를 만들었어! 다시 주문을 외쳐보자!'], no_speech: ['마법 주문이 바람에 날아갔어! 한 번 더 크게!'], item_skipped: ['몬스터가 위층으로 달아났어! 따라가자!'], stage_transition: ['다음 모험이 기다려!'], beam_ready: ['길게 빔을 쏴보자!'], beam_short: ['빔이 조금 짧았어, 이번엔 더 길게!'], beam_success: ['빛의 마법이 반짝였어!'], celebrate: ['우리가 해냈어!'], goodbye: ['다음에 또 만나!'], connection_pause: ['마법 통신이 잠깐 쉬는 중이야.']
+} as const
