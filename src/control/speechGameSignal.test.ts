@@ -17,4 +17,12 @@ describe('음성 신호와 호야 행동', () => {
       expect(mapSignalToHoya(game, { type: 'UNCERTAIN' })).toBe('LISTENING')
     }
   })
+
+  it('기존 게임 신호는 THINKING으로 바뀌지 않는다(호야 대화에서만 명시적으로 쓴다)', () => {
+    const signals = [{ type: 'VOICE_START' }, { type: 'VOICE_CONTINUE', energy01: 0.5 }, { type: 'VOICE_END' },
+      { type: 'TARGET_SUCCESS' }, { type: 'TARGET_RETRY' }, { type: 'UNCERTAIN' }, { type: 'NO_SPEECH' }] as const
+    for (const game of ['magic_beam', 'sky_climb', 'monster_adventure', 'conversation_quest'] as const) {
+      for (const signal of signals) expect(mapSignalToHoya(game, signal)).not.toBe('THINKING')
+    }
+  })
 })

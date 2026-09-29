@@ -47,6 +47,23 @@ def main(base_url: str) -> None:
         assert {row["round_index"] for row in timeline.json()["observations"]} == {1, 2, 3, 4, 5}
         print("[OK] 쿠키 인증, CSRF, 역할 접근, 5라운드, 임상 관찰")
 
+        # 호야와 대화하기(DEMO 제공자): 시작 → 자동 turn → 종료.
+        login = client.post("/api/auth/login", json={"username": "HERO01", "password": "speechhero"})
+        login.raise_for_status()
+        csrf = {"X-CSRF-Token": login.json()["csrfToken"]}
+        chat = client.post("/api/hoya/chat/sessions", headers=csrf, json={"mode": "demo"})
+        chat.raise_for_status()
+        chat_id = chat.json()["sessionId"]
+        for index, text in enumerate(["학교 갔어.", "미술 수업 했어.", None], 1):
+            turn = client.post(f"/api/hoya/chat/sessions/{chat_id}/turns", headers=csrf,
+                               json={"turnIndex": index, "transcript": text})
+            turn.raise_for_status()
+            assert turn.json()["text"] and "틀렸" not in turn.json()["text"]
+        assert client.post(f"/api/hoya/chat/sessions/{chat_id}/turns", headers=csrf,
+                           json={"turnIndex": 3, "transcript": "또"}).status_code == 409
+        client.post(f"/api/hoya/chat/sessions/{chat_id}/complete", headers=csrf).raise_for_status()
+        print("[OK] 호야와 대화하기 DEMO 흐름")
+
 
 if __name__ == "__main__":
     try:
