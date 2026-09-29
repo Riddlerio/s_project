@@ -1,6 +1,23 @@
 # Speech Hero V2 검증 기록
 
-기준 브랜치: `feature/speech-hero-v2-hardening` (PR #2 merge 이후) · 2026-09-28
+기준 브랜치: `feature/speech-hero-v2-hardening` (PR #2 merge 이후) · 2026-09-28. 아래 "호야와 대화하기" 절은 `feature/hoya-adaptive-chat` · 2026-09-29 기준이다.
+
+## 호야와 대화하기 (feature/hoya-adaptive-chat)
+
+| 명령 | 실행 결과 |
+|---|---|
+| 작업 전 main(`09377fc`) baseline | pytest 184개 통과, Vitest 47개 통과(10개 파일), typecheck·build·`git diff --check`·audit 통과 |
+| `backend\.venv\Scripts\python.exe -m pytest backend -q --basetemp backend/test-temp -p no:cacheprovider` | 228개 통과 (새 `test_hoya_chat.py` 44개), 경고 1개 |
+| `npm.cmd run typecheck` | 통과 |
+| `npm.cmd test` | 62개 통과 (11개 파일) |
+| `npm.cmd run build` | 통과. dist 13개 파일에서 샘플 계정·`OPENAI_API_KEY`·`HOYA_CHAT_`·`VITE_OPENAI`와 `.env` 파일 없음 |
+| `git diff --check` / `npm.cmd audit` | 공백 오류 없음 / 취약점 0건 |
+| `smoke_api.py` (임시 DB·DEMO 서버) | 기존 흐름과 호야 대화 DEMO 흐름(시작 → 3 turn → 중복 turn 409 → 종료) 통과 |
+| 브라우저(Playwright, Vite 개발 서버 + DEMO 백엔드) | DEMO 대화 시작 → 인사 → LISTENING → 입력 → 답변 → 자동 LISTENING, 대화 끝내기 확인. 응답을 2.5초 늦췄을 때 약 0.1초에 THINKING, 0.75초에 "음..." 1회, 응답은 "음..." 재생이 끝난 뒤 시작(겹침 없음) |
+
+- 자동 테스트 범위: DEMO·가짜 OpenAI(공식 SDK + mock transport) 정상, 시간 초과·5xx·JSON 아님·schema 불일치·빈 응답 → DEMO 대체, 외부 소켓 연결 차단. 대화 정책 6가지, BANK 재사용·제외 단어·다른 음소 차단, 프롬프트 주입(지시문 노출·전략 변경 거부, 도구 없음), 401·CSRF·Origin·다른 아동 404·보호자 동의·잘못된 본문 4xx, 보존 기간 비우기·음성 자료 삭제 FK·임상 통계 불변, `backend/.env` 위치·OS 환경 변수 우선. 프런트엔드는 THINKING·"음..." Case 1~10(대체 화면 포함)과 기존 게임 매핑 불변을 테스트했다.
+- **실제 OpenAI 호출: NOT MANUALLY VERIFIED** (`backend/.env`의 key·model이 비어 있음). 실물 마이크로 하는 자동 turn(호야 TTS를 다시 듣지 않는지)과 Android 브라우저도 NOT MANUALLY VERIFIED.
+- 대화 근거는 임상 통계에 넣지 않는다. **NOT VALIDATED — NO LABELED DATA.**
 
 ## 자동 검증
 

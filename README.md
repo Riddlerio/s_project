@@ -17,11 +17,11 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 ## 주요 기능
 
-- 아동: 계정 로그인, 3D 호야 홈, 네 게임의 5라운드, DEMO 또는 실제 음성 입력, XP·뱃지·카드 확인
+- 아동: 계정 로그인, 3D 호야 홈, 네 게임의 5라운드, 호야와 대화하기(자유대화), DEMO 또는 실제 음성 입력, XP·뱃지·카드 확인
 - 치료사: 로그인, 아동과 목표 관리, 세션 기록·진행 지표 확인, AI 추천 수락·수정·거절, 발화 교정과 규칙 비활성화
 - 서버: FastAPI·SQLite, 쿠키 세션·역할 접근 제어·CSRF 방어, 발화 분석, 라운드 이벤트와 임상 관찰·치료사 검증 기록
 
-음향·발음 판정은 **기초 근사 분석**이며 임상 진단이나 치료사의 판단을 대체하지 않습니다. 5라운드 난이도 규칙은 제품 운영 규칙입니다. 원본 음성은 앱 서버에 저장하지 않습니다. 실제 음성 모드에서 브라우저의 Web Speech API 제공업체로 음성이 전송될 수 있습니다. DEMO는 스크립트 인식 결과를 사용하며 아동 화면에 명시됩니다. 외부 LLM이나 학습 모델 재훈련은 사용하지 않습니다.
+음향·발음 판정은 **기초 근사 분석**이며 임상 진단이나 치료사의 판단을 대체하지 않습니다. 5라운드 난이도 규칙은 제품 운영 규칙입니다. 원본 음성은 앱 서버에 저장하지 않습니다. 실제 음성 모드에서 브라우저의 Web Speech API 제공업체로 음성이 전송될 수 있습니다. DEMO는 스크립트 인식 결과를 사용하며 아동 화면에 명시됩니다. 학습 모델 재훈련은 하지 않습니다. 외부 LLM은 아래 "호야와 대화하기"에서 서버 설정으로 켰을 때만 대화 문장을 만드는 데 쓰입니다. 발음 판정·치료 결정에는 쓰이지 않습니다.
 
 ## 구조와 음성 처리
 
@@ -30,6 +30,18 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 치료사 추천은 관찰·근거·신뢰도·제안을 보여 줍니다. 수락이나 수정 때만 새 목표 버전이 만들어지고, 거절은 사유와 함께 기록됩니다. 추천 자체가 목표를 자동 변경하지 않습니다.
 
 라운드별 임상 요약은 실제 음성 관찰 전체(`totalObservedN`)와 평가 가능한 표본(`evaluableN`, AI가 성공·재시도로 판단한 관찰)을 나눕니다. 불확실(`uncertainN`)·발화 없음(`noSpeechN`)은 따로 세며 실패가 아닙니다. 치료사 확인 비율은 성공·재시도로 확인된 관찰만 분모로 씁니다. 자료가 없으면 0%가 아니라 "자료 없음"입니다. DEMO·샘플 관찰은 카드에 DEMO로 표시되고, 치료사가 검토해도 `DEMO_CONFIRMED`처럼 기록되어 임상 검증 통계와 활동 제안에 쓰이지 않습니다. 모든 라운드 항목은 기존 훈련 단어 목록에서 고르므로 Monster Adventure R4는 미훈련 단어가 아니라 "새 장면에서 훈련 단어 산출"로 표시합니다. 자세한 구조는 [아키텍처](docs/ARCHITECTURE.md)에 있습니다.
+
+## 호야와 대화하기
+
+호야 홈의 "호야와 대화하기"(`/play/chat`)는 게임 밖 자유대화입니다. 아동이 말하면 기존 음성 경로(AudioCapture·MicUtterancePipeline·VAD·WebSpeechRecognizer)로 발화를 요약하고, 서버가 목표 음소가 관찰됐는지(`TARGET_OBSERVED`·`TARGET_NOT_OBSERVED`·`UNCERTAIN`·`NO_SPEECH`)만 기록합니다. 정해진 목표 단어가 없으므로 발음의 정오를 판정하지 않습니다. 결정적 대화 정책이 다음 전략을 정하고, 대화 제공자는 그 전략을 짧은 한국어 문장으로 표현만 합니다. 호야는 아동이 한 말에 먼저 반응하고, 같은 주제 안에서 목표 음소가 자연스럽게 나올 질문을 합니다.
+
+- 흐름: "대화 시작"을 한 번 누르면 호야 말하기 → 듣기 → (발화 끝) 생각하기(THINKING) → 말하기 → 듣기가 자동으로 이어집니다. 응답이 750ms보다 늦을 때만 "음..."을 한 turn에 한 번 말합니다(`HOYA_THINKING_FILLER_DELAY_MS`, `src/child/hoyaChatController.ts`). 호야가 말하거나 생각하는 동안에는 마이크 소리를 아동 발화로 보내지 않습니다.
+- 제공자: 기본은 LLM 없이 동작하는 DEMO 제공자입니다. `HOYA_CHAT_ENABLED=true`, `HOYA_CHAT_PROVIDER=openai`, `HOYA_CHAT_MODEL`(모델 이름, 코드에 고정하지 않음), `OPENAI_API_KEY`를 모두 넣으면 OpenAI Responses API를 씁니다. key가 없거나 시간 초과(`HOYA_CHAT_TIMEOUT_SEC`, 기본 8초)·서버 오류·형식이 틀린 응답·검증 실패가 나면 DEMO 응답으로 대신하고 대화는 계속됩니다.
+- 안전: 서버가 응답의 전략·허용 행동·목표 단어(훈련 단어 목록 안)·금지 표현(교정·진단·치료 기법·개인정보 요청·지시문 노출)을 검사합니다. 아동 발화는 신뢰하지 않는 내용으로 서버 지시와 따로 보냅니다. LLM에는 도구를 주지 않습니다.
+- 개인정보: 외부 LLM을 켜면 아동 발화의 인식 문장과 최근 대화 몇 turn, 목표 음소·단어·연령대가 설정한 제공자에게 전송됩니다. 이름·계정·play code·원본 음성은 보내지 않습니다. 보호자 동의가 있는 아동만 대화를 시작할 수 있습니다. 대화 문장은 `HoyaChatTurn`에 저장되고, 보존 기간(`TRANSCRIPT_RETENTION_DAYS`)이 지나면 아동 발화와 호야 응답 문장을 비웁니다. 치료사의 음성 자료 삭제는 대화 기록도 지웁니다.
+- 임상 분리: 대화 기록은 진행 지표·임상 요약·활동 제안·임상 관찰에 들어가지 않습니다. 치료사 화면의 대화 보기는 아직 없습니다. 실제 OpenAI 호출은 자동 테스트하지 않았습니다(가짜 transport만 사용).
+
+API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST /api/hoya/chat/sessions/{id}/turns`, `POST /api/hoya/chat/sessions/{id}/complete`입니다. 기존 쿠키 인증·CSRF·Origin 검사를 그대로 쓰고, 아동은 로그인한 계정의 자기 대화만 쓸 수 있습니다.
 
 ## 사전 요구사항
 
@@ -52,7 +64,7 @@ python -m venv .venv
 
 ## 실행 방법
 
-로컬 HTTP 시연에서는 `backend/.env`에 `SEED_DEMO_DATA=true`와 `COOKIE_SECURE=false`를 설정합니다. 운영 환경은 HTTPS와 `COOKIE_SECURE=true`를 사용하고 데모 데이터 생성을 끕니다. 각각 별도 터미널에서 실행합니다.
+로컬 HTTP 시연에서는 `backend/.env`에 `SEED_DEMO_DATA=true`와 `COOKIE_SECURE=false`를 설정합니다. 서버는 저장소 루트와 `backend` 중 어디에서 실행하든 `backend/.env` 하나만 읽고, 같은 이름의 OS 환경 변수가 있으면 그 값이 우선합니다. 운영 환경은 `.env` 없이 OS 환경 변수만으로 실행할 수 있습니다. 운영 환경은 HTTPS와 `COOKIE_SECURE=true`를 사용하고 데모 데이터 생성을 끕니다. 각각 별도 터미널에서 실행합니다.
 
 ```powershell
 cd backend
@@ -84,11 +96,11 @@ backend\.venv\Scripts\python.exe -m pytest backend -q
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
-pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다(`backend/test-temp/`는 추적하지 않습니다). 2026-09-28 hardening 검증에서는 백엔드 184개 테스트, 프런트엔드 44개 테스트, 타입 검사와 빌드(dist 자격 증명 검사 포함)가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
+pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다(`backend/test-temp/`는 추적하지 않습니다). 2026-09-29 호야 대화 검증에서는 백엔드 228개 테스트, 프런트엔드 62개 테스트, 타입 검사와 빌드(dist 자격 증명·LLM key 검사 포함)가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
 
 ## 환경 변수와 API
 
-백엔드는 `backend/.env.example`을 참고합니다. `.env`는 커밋하지 않습니다. `DATABASE_URL`은 SQLite 주소, `CORS_ORIGINS`는 허용할 프런트엔드 주소, `SEED_DEMO_DATA`는 샘플 데이터 생성 여부, `COOKIE_SECURE`는 HTTPS 전용 쿠키 여부입니다. 기본값은 샘플 데이터 비활성화와 보안 쿠키 활성화입니다. `TRANSCRIPT_RETENTION_DAYS`(기본 90일)와 `TRANSCRIPT_PURGE_INTERVAL_HOURS`(기본 24시간, 0이면 주기 실행 끔)는 인식 문장 보존 기간과 삭제 주기입니다. `LOGIN_WINDOW_MINUTES`(15분) 동안 같은 IP+아이디 5회, 같은 아이디 10회, 같은 IP 30회 실패하면 로그인을 잠시 막습니다(`LOGIN_MAX_FAILURES_PAIR`, `LOGIN_MAX_FAILURES_USERNAME`, `LOGIN_MAX_FAILURES_IP`). 없는 계정도 같은 비밀번호 해시 비용을 치르고 같은 오류 문구를 받습니다. 기존 DB에서는 서버 시작 시 `login_failures` 표가 새로 만들어지고, 이전 `login_throttles` 표는 더 쓰지 않습니다.
+백엔드는 `backend/.env.example`을 참고합니다. `.env`는 커밋하지 않습니다. `OPENAI_API_KEY`는 서버에만 두며 프런트엔드 코드·빌드에 넣지 않습니다(`npm.cmd run build`가 dist에서 key 이름과 로컬 `backend/.env`의 key 값을 검사합니다). `DATABASE_URL`은 SQLite 주소, `CORS_ORIGINS`는 허용할 프런트엔드 주소, `SEED_DEMO_DATA`는 샘플 데이터 생성 여부, `COOKIE_SECURE`는 HTTPS 전용 쿠키 여부입니다. 기본값은 샘플 데이터 비활성화와 보안 쿠키 활성화입니다. `TRANSCRIPT_RETENTION_DAYS`(기본 90일)와 `TRANSCRIPT_PURGE_INTERVAL_HOURS`(기본 24시간, 0이면 주기 실행 끔)는 인식 문장 보존 기간과 삭제 주기입니다. `LOGIN_WINDOW_MINUTES`(15분) 동안 같은 IP+아이디 5회, 같은 아이디 10회, 같은 IP 30회 실패하면 로그인을 잠시 막습니다(`LOGIN_MAX_FAILURES_PAIR`, `LOGIN_MAX_FAILURES_USERNAME`, `LOGIN_MAX_FAILURES_IP`). 없는 계정도 같은 비밀번호 해시 비용을 치르고 같은 오류 문구를 받습니다. 기존 DB에서는 서버 시작 시 `login_failures` 표가 새로 만들어지고, 이전 `login_throttles` 표는 더 쓰지 않습니다.
 
 주요 경로는 `/api/auth/login`, `/api/auth/logout`, `/api/me/home`, `/api/activities`, `/api/activities/{id}/utterances`, `/api/sessions/{id}/timeline`, `/api/sessions/{id}/clinical-summary`, `/api/observations/{id}/decision`입니다. 로그인은 HttpOnly·SameSite 쿠키를 설정하고 응답의 CSRF 값을 이후 변경 요청의 `X-CSRF-Token` 헤더에 사용합니다. 역할과 아동 배정은 서버 DB가 결정합니다. `/api/system/info`와 `http://127.0.0.1:8000/docs`에서 API 정보를 확인할 수 있습니다.
 
