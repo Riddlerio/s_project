@@ -40,7 +40,7 @@ export class VadStateMachine {
         const durationMs = Math.max(0, lastVoicedMs - this.voiceStart)
         result.push({ type: 'VOICE_END', tMs: frame.tMs, durationMs, voicedMs: voiced.length * 20,
           meanRmsDb: mean(f => f.rmsDb),
-          peakRmsDb: Math.max(...this.frames.map(f => f.peakDb ?? f.rmsDb)),
+          peakRmsDb: Math.max(...signal.map(f => f.peakDb ?? f.rmsDb)),
           meanHfRatio: mean(f => f.hfRatio),
           meanCentroidHz: mean(f => f.spectralCentroidHz ?? 0),
           fricationMs: this.frames.filter(f => isFrication(f, this.noiseFloor)).length * 20,

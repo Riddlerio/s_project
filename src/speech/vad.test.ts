@@ -53,3 +53,46 @@ describe('쉼 후 재개 라운드의 발화 종료 유예', () => {
     expect(feed(vad, 3800, 4200, -20).some(event => event.type === 'VOICE_START')).toBe(true)
   })
 })
+
+describe('VOICE_END peak 통계', () => {
+  const feed = (vad: VadStateMachine, from: number, to: number, rmsDb: number, peakDb?: number) => {
+    const events: VadEvent[] = []
+    for (let t = from; t < to; t += 20) events.push(...vad.process({ tMs: t, rmsDb, peakDb, hfRatio: 0.4 }))
+    return events
+  }
+  const make = () => {
+    const vad = new VadStateMachine()
+    vad.calibrate([-60])
+    return vad
+  }
+
+  it('일반 발화의 peak는 발성 frame의 최댓값이다', () => {
+    const vad = make()
+    feed(vad, 0, 400, -20, -8)
+    feed(vad, 400, 600, -18, -5)
+    const end = feed(vad, 600, 1400, -60, -55).find(event => event.type === 'VOICE_END')
+    expect(end?.peakRmsDb).toBe(-5)
+    expect(end?.meanRmsDb).toBeCloseTo(-19.333, 2)
+  })
+
+  it('발성 peak보다 낮은 후행 무음은 peak에 영향을 주지 않는다', () => {
+    const vad = make()
+    feed(vad, 0, 600, -20, -10)
+    const end = feed(vad, 600, 1400, -60, -58).find(event => event.type === 'VOICE_END')
+    expect(end?.peakRmsDb).toBe(-10)
+    expect(end?.meanRmsDb).toBe(-20)
+  })
+
+  it('후행 무음의 순간 잡음 spike는 peak에 들어가지 않는다', () => {
+    const vad = make()
+    feed(vad, 0, 600, -20, -10)
+    feed(vad, 600, 800, -60, -58)
+    // rms는 무음 수준이지만 순간 peak가 튀는 클릭성 잡음
+    feed(vad, 800, 820, -58, 0)
+    const end = feed(vad, 820, 1600, -60, -58).find(event => event.type === 'VOICE_END')
+    expect(end?.peakRmsDb).toBe(-10)
+    expect(end?.meanRmsDb).toBe(-20)
+    expect(end?.meanHfRatio).toBeCloseTo(0.4)
+    expect(end?.clippingRatio).toBe(0)
+  })
+})
