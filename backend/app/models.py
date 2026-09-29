@@ -348,6 +348,9 @@ class HoyaChatTurn(Base):
     turn_index: Mapped[int] = mapped_column(Integer)
     # 브라우저가 만든 임의 값. 아동·계정 정보를 담지 않는다. 이전 개발 DB의 행은 비어 있을 수 있다.
     client_request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 검증된 요청 내용(turn 번호·인식 문장·대체 후보·인식기·음향 요약)의 SHA-256. 같은 요청 ID는 같은 내용에만 쓸 수 있다.
+    # 인식 문장에서 나온 값이므로 보존 기간이 지나면 문장과 함께 비운다.
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String, default="COMPLETED")
     session_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     child_transcript: Mapped[str | None] = mapped_column(String, nullable=True)

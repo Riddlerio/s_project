@@ -4,6 +4,9 @@ turn 요청은 멱등이다. 브라우저가 발화 1회마다 clientRequestId�
 turn을 PROCESSING으로 예약한다. 같은 요청 ID의 재시도는 저장된 결과(또는 처리 중 202)를 받고
 제공자를 다시 부르지 않는다.
 """
+import hashlib
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, update
@@ -135,12 +138,30 @@ def chat_detail(session_id: str, db: Session = Depends(get_db), account: Account
     return _public(session, _turns(db, session.id))
 
 
+def request_fingerprint(body: HoyaChatTurnInput) -> str:
+    """검증된 요청 내용의 canonical JSON SHA-256. 원본 HTTP 본문이 아니라 검증 뒤 값을 쓰므로 key 순서·공백과 무관하다.
+    아동·계정 id, play code, 이름, 비밀 값은 넣지 않는다(요청 본문에 없다)."""
+    canonical = {"turnIndex": body.turn_index, "transcript": body.transcript, "alternatives": body.alternatives,
+                 "recognizer": body.recognizer, "acoustic": body.acoustic.model_dump(by_alias=True, exclude_none=True)}
+    text = json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _same_request(turn: HoyaChatTurn, body: HoyaChatTurnInput, transcript: str | None) -> bool:
+    if turn.turn_index != body.turn_index:
+        return False
+    if turn.request_fingerprint is not None:
+        return turn.request_fingerprint == request_fingerprint(body)
+    # fingerprint가 없는 이전 행(개발 DB)이나 보존 기간이 지난 행은 번호와 문장을 정확히 비교한다. None도 값이다.
+    return turn.child_transcript == transcript
+
+
 def _existing(db: Session, session: HoyaChatSession, turn: HoyaChatTurn, body: HoyaChatTurnInput,
               transcript: str | None, service: HoyaDialogueService):
     """같은 요청 ID의 재시도. 제공자를 다시 부르지 않는다."""
-    # 요청 ID는 발화 1회에만 쓴다. 다른 turn·다른 문장에 같은 ID가 오면 섞지 않고 거부한다.
-    if turn.turn_index != body.turn_index or (turn.child_transcript is not None and turn.child_transcript != transcript):
-        raise HTTPException(409, "요청 ID가 다른 발화에 쓰였습니다")
+    # 요청 ID는 발화 1회에만 쓴다. 내용이 다른 요청에 같은 ID가 오면 섞지 않고 거부한다.
+    if not _same_request(turn, body, transcript):
+        raise HTTPException(409, "REQUEST_ID_REUSED")
     if turn.status == "COMPLETED":
         return _completed(turn)
     if not _stale(turn):
@@ -185,7 +206,7 @@ async def chat_turn(session_id: str, body: HoyaChatTurnInput, db: Session = Depe
     strategy = policy.decide(evidence, [turn.speech_evidence for turn in turns], allowed_cue(goal, rules))
     # 제공자를 부르기 전에 turn을 예약하고 commit한다. 같은 turn·요청 ID는 unique 제약으로 한 요청만 예약에 성공한다.
     turn = HoyaChatTurn(session_id=session.id, turn_index=body.turn_index, client_request_id=body.client_request_id,
-                        status="PROCESSING", child_transcript=transcript, recognizer=body.recognizer,
+                        request_fingerprint=request_fingerprint(body), status="PROCESSING", child_transcript=transcript, recognizer=body.recognizer,
                         speech_evidence=evidence, strategy=strategy, target_words=[])
     db.add(turn)
     try:
