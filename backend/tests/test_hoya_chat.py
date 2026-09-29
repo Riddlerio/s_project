@@ -3,6 +3,7 @@
 import asyncio
 import json
 import socket
+import uuid
 from datetime import timedelta
 from pathlib import Path
 
@@ -82,7 +83,7 @@ def mock_openai(handler, timeout=2.0):
 
 def output_json(**overrides):
     value = {"text": "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?", "strategy": "NATURAL_REELICITATION",
-             "target_words": [], "hoya_actions": ["TALKING"]}
+             "target_words": []}
     return json.dumps({**value, **overrides}, ensure_ascii=False)
 
 
@@ -226,7 +227,7 @@ def test_lexicon_reuses_bank_and_excludes_words():
 
 def test_validator_rejects_words_outside_lexicon_and_unsafe_text():
     lexicon = ["수박"]
-    ok = ProviderOutput(text="수박 좋아해?", strategy="NATURAL_REELICITATION", target_words=["수박"], hoya_actions=["TALKING"])
+    ok = ProviderOutput(text="수박 좋아해?", strategy="NATURAL_REELICITATION", target_words=["수박"])
     assert validate_output(ok, "NATURAL_REELICITATION", lexicon).text == "수박 좋아해?"
     bad = {
         "TARGET_OUTSIDE_LEXICON": ok.model_copy(update={"target_words": ["사탕"]}),
@@ -244,6 +245,7 @@ def test_validator_rejects_words_outside_lexicon_and_unsafe_text():
             validate_output(output, "NATURAL_REELICITATION", lexicon)
         assert error.value.reason == reason
     with pytest.raises(Exception):
+        # 호야 동작은 제공자가 정하지 않는다. 동작 필드를 보내면 형식 오류로 거부된다.
         ProviderOutput(text="안녕", strategy="NATURAL_REELICITATION", hoya_actions=["SHELL_EXEC"])
 
 
@@ -275,7 +277,7 @@ class EchoPrompt:
 
     async def reply(self, item):
         self.calls.append(item)
-        return ProviderOutput(text=system_prompt()[:100], strategy="SIMPLIFY", hoya_actions=["TALKING"])
+        return ProviderOutput(text=system_prompt()[:100], strategy="SIMPLIFY")
 
 
 def test_prompt_injection_cannot_disclose_prompt_or_override_strategy(api):
@@ -285,11 +287,11 @@ def test_prompt_injection_cannot_disclose_prompt_or_override_strategy(api):
     api_module.app.dependency_overrides[dialogue_service] = lambda: HoyaDialogueService(provider)
     started = client.post("/api/hoya/chat/sessions", headers=headers, json={"mode": "demo"}).json()
     response = client.post(f"/api/hoya/chat/sessions/{started['sessionId']}/turns", headers=headers,
-                           json={"turnIndex": 1, "transcript": INJECTION})
+                           json={"turnIndex": 1, "transcript": INJECTION, "clientRequestId": rid()})
     assert response.status_code == 200, response.text
     body = response.json()
     assert system_prompt()[:30] not in body["text"]
-    assert set(body) == {"turnIndex", "text", "hoyaActions", "nextTurnIndex", "sessionComplete"}
+    assert set(body) == {"status", "turnIndex", "clientRequestId", "text", "nextTurnIndex", "sessionComplete"}
     # 제공자에게는 서버가 정한 전략이 갔고, 제공자가 바꾸려 한 전략(SIMPLIFY)은 저장되지 않는다.
     # 주입 문장에도 "시스템"의 /ㅅ/이 있으므로 서버 근거는 목표 관찰이다.
     assert provider.calls[0].strategy == "CONTINUE_OR_EXPAND"
@@ -325,16 +327,20 @@ def _start(client, headers, mode="demo"):
     return response.json()
 
 
-def _turn(client, headers, session_id, index, transcript, **extra):
+def rid() -> str:
+    return str(uuid.uuid4())
+
+
+def _turn(client, headers, session_id, index, transcript, request_id=None, **extra):
     return client.post(f"/api/hoya/chat/sessions/{session_id}/turns", headers=headers,
-                       json={"turnIndex": index, "transcript": transcript, **extra})
+                       json={"turnIndex": index, "transcript": transcript, "clientRequestId": request_id or rid(), **extra})
 
 
 def test_demo_chat_flow(api):
     client, sessions = api
     headers = student_auth(client)
     started = _start(client, headers)
-    assert started["openingText"] and started["status"] == "active" and started["hoyaActions"] == ["WAVE"]
+    assert started["openingText"] and started["status"] == "active" and started["nextTurnIndex"] == 1
     first = _turn(client, headers, started["sessionId"], 1, "학교 갔어.")
     assert first.status_code == 200, first.text
     assert first.json()["text"] == "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?"
@@ -366,6 +372,30 @@ def test_max_turns_limit(api, monkeypatch):
     assert _turn(client, headers, started["sessionId"], 3, "안녕").status_code == 409
 
 
+def test_final_turn_completes_session_on_server(api, monkeypatch):
+    client, sessions = api
+    monkeypatch.setattr(api_module.settings, "hoya_chat_max_turns", 2)
+    headers = student_auth(client)
+    started = _start(client, headers)
+    _turn(client, headers, started["sessionId"], 1, "안녕")
+    with sessions() as db:
+        assert db.get(HoyaChatSession, started["sessionId"]).status == "active"
+    final = _turn(client, headers, started["sessionId"], 2, "수박 먹었어", request_id="final-request-0001")
+    assert final.status_code == 200 and final.json()["sessionComplete"] is True
+    with sessions() as db:
+        session = db.get(HoyaChatSession, started["sessionId"])
+        # 브라우저가 /complete를 보내지 않아도 서버가 같은 transaction에서 대화를 끝냈다.
+        assert session.status == "completed" and session.ended_at is not None
+        ended = session.ended_at
+    # 수동 종료는 이미 끝난 대화에 불러도 안전하다(멱등).
+    for _ in range(2):
+        done = client.post(f"/api/hoya/chat/sessions/{started['sessionId']}/complete", headers=headers)
+        assert done.status_code == 200 and done.json()["status"] == "completed"
+    with sessions() as db:
+        assert db.get(HoyaChatSession, started["sessionId"]).ended_at == ended
+    assert _turn(client, headers, started["sessionId"], 3, "또").status_code == 409
+
+
 def test_chat_requires_login_and_csrf(api):
     client, _ = api
     assert client.post("/api/hoya/chat/sessions", json={"mode": "demo"}).status_code == 401
@@ -374,7 +404,7 @@ def test_chat_requires_login_and_csrf(api):
     started = _start(client, headers)
     assert client.post("/api/hoya/chat/sessions", json={"mode": "demo"}).status_code == 403
     assert client.post(f"/api/hoya/chat/sessions/{started['sessionId']}/turns",
-                       json={"turnIndex": 1, "transcript": "안녕"}).status_code == 403
+                       json={"turnIndex": 1, "transcript": "안녕", "clientRequestId": rid()}).status_code == 403
     assert client.post("/api/hoya/chat/sessions", headers={**headers, "Origin": "https://evil.example"},
                        json={"mode": "demo"}).status_code == 403
 
@@ -412,11 +442,15 @@ def test_guardian_consent_required(api):
     {"turnIndex": 1, "alternatives": ["가" * 81]}, {"turnIndex": 1, "acoustic": {"meanRmsDb": "loud"}},
     {"turnIndex": 1, "acoustic": {"audioBase64": "private"}}, {"turnIndex": 1, "recognizer": "gpt"},
     {"turnIndex": 1, "transcript": "안녕", "systemPrompt": "x"}, [], "text",
+    {"turnIndex": 1, "clientRequestId": None}, {"turnIndex": 1, "clientRequestId": "short"},
+    {"turnIndex": 1, "clientRequestId": "학교 갔어 학교 갔어 학교 갔어 학교 갔어"}, {"turnIndex": 1, "clientRequestId": "a" * 65},
 ])
 def test_malformed_turn_is_4xx_not_500(api, body):
     client, sessions = api
     headers = student_auth(client)
     started = _start(client, headers)
+    if isinstance(body, dict) and "clientRequestId" not in body:
+        body = {**body, "clientRequestId": rid()}
     response = client.post(f"/api/hoya/chat/sessions/{started['sessionId']}/turns", headers=headers, json=body)
     assert 400 <= response.status_code < 500, response.text
     assert "private" not in response.text

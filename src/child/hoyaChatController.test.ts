@@ -1,31 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HOYA_FILLER_TEXT, HOYA_OFFLINE_TEXT, HOYA_THINKING_FILLER_DELAY_MS, HoyaChatController, type ChatReply, type HoyaChatState } from './hoyaChatController'
+import { HOYA_FILLER_TEXT, HOYA_OFFLINE_TEXT, HOYA_THINKING_FILLER_DELAY_MS, HoyaChatController, TurnRejectedError, type ChatDeps, type ChatReply, type HoyaChatState, type TurnRequest } from './hoyaChatController'
 import type { HoyaAction } from '../control/speechGameSignal'
 
 interface Spoken { text: string; onStart(): void; onEnd(): void; cancelled: boolean }
 
-function setup() {
+function setup(extra: Partial<ChatDeps> = {}) {
   const spoken: Spoken[] = []
   const states: HoyaChatState[] = []
   const actions: HoyaAction[] = []
   const texts: string[] = []
-  const requests: { index: number; resolve(reply: ChatReply): void; reject(error: Error): void }[] = []
+  const requests: { index: number; request: TurnRequest; resolve(reply: ChatReply): void; reject(error: Error): void }[] = []
+  let ids = 0
   const controller = new HoyaChatController({
     speak: (text, events) => {
       const item = { text, ...events, cancelled: false }
       spoken.push(item)
       return { cancel: () => { item.cancelled = true } }
     },
-    requestReply: index => new Promise<ChatReply>((resolve, reject) => { requests.push({ index, resolve, reject }) }),
+    requestReply: request => new Promise<ChatReply>((resolve, reject) => { requests.push({ index: request.index, request, resolve, reject }) }),
+    newRequestId: () => `request-${++ids}`,
     onState: state => states.push(state),
     onAction: action => actions.push(action),
     onText: text => texts.push(text),
+    ...extra,
   })
   const utterance = { transcript: '학교 갔어', alternatives: [], acoustic: {}, recognizer: 'demo_script' as const }
   /** 첫 인사를 끝까지 말하고 LISTENING이 된 상태로 만든다. */
   const ready = () => { controller.start('안녕!'); spoken[0].onStart(); spoken[0].onEnd() }
-  const reply = (text = '학교 다녀왔구나!', extra: Partial<ChatReply> = {}): ChatReply => ({ text, hoyaActions: [], sessionComplete: false, ...extra })
-  const flush = () => Promise.resolve().then(() => undefined)
+  const reply = (text = '학교 다녀왔구나!', extra: Partial<ChatReply> = {}): ChatReply => ({ text, sessionComplete: false, ...extra })
+  const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve() }
   return { controller, spoken, states, actions, texts, requests, utterance, ready, reply, flush }
 }
 
@@ -207,5 +210,126 @@ describe('호야 대화 turn 흐름', () => {
     vi.advanceTimersByTime(10)
     expect(controller.state).toBe('ENDED')
     expect(done).toHaveBeenCalledOnce()
+  })
+})
+
+describe('응답을 못 받은 turn 복구', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+  const first = { transcript: '학교 갔어', alternatives: [], acoustic: {}, recognizer: 'demo_script' as const }
+  const second = { ...first, transcript: '수박 먹었어' }
+
+  /** 첫 발화의 응답을 연결 오류로 잃고, 안내 말이 끝나 다시 듣는 상태를 만든다. */
+  async function lost(t: ReturnType<typeof setup>) {
+    t.ready()
+    t.controller.submit(first)
+    t.requests[0].reject(new TypeError('Failed to fetch'))
+    await t.flush()
+    expect(t.spoken.at(-1)!.text).toBe(HOYA_OFFLINE_TEXT)
+    t.spoken.at(-1)!.onEnd()
+    expect(t.controller.state).toBe('LISTENING')
+    expect(t.controller.hasUnresolvedTurn).toBe(true)
+  }
+
+  it('다음 발화 전에 이전 발화를 같은 요청 ID로 먼저 확인하고, 새 발화는 새 ID와 다음 번호로 보낸다', async () => {
+    const t = setup()
+    await lost(t)
+    t.controller.submit(second)
+    expect(t.requests[1].request).toEqual(t.requests[0].request)
+    expect(t.requests[1].request.utterance.transcript).toBe('학교 갔어')
+    // 서버는 이미 turn 1을 끝냈었다(응답만 유실). 저장된 결과로 번호를 맞춘다.
+    t.requests[1].resolve(t.reply('저장된 답', { nextTurnIndex: 2 }))
+    await t.flush()
+    expect(t.requests[2].request).toMatchObject({ index: 2, requestId: 'request-2' })
+    expect(t.requests[2].request.utterance.transcript).toBe('수박 먹었어')
+    t.requests[2].resolve(t.reply('수박 맛있지!', { nextTurnIndex: 3 }))
+    await t.flush()
+    expect(t.texts.at(-1)).toBe('수박 맛있지!')
+    expect(t.controller.turnIndex).toBe(3)
+    expect(t.controller.hasUnresolvedTurn).toBe(false)
+  })
+
+  it('확인하는 동안에는 새 발화를 받지 않는다', async () => {
+    const t = setup()
+    await lost(t)
+    t.controller.submit(second)
+    expect(t.controller.state).toBe('PROCESSING')
+    expect(t.controller.submit(second)).toBe(false)
+    expect(t.requests).toHaveLength(2)
+  })
+
+  it('이전 발화를 여전히 확인할 수 없으면 새 발화를 보내지 않고 같은 요청을 계속 기억한다', async () => {
+    const t = setup()
+    await lost(t)
+    t.controller.submit(second)
+    t.requests[1].reject(new Error('HOYA_TURN_UNRESOLVED'))
+    await t.flush()
+    expect(t.requests).toHaveLength(2)
+    expect(t.spoken.at(-1)!.text).toBe(HOYA_OFFLINE_TEXT)
+    t.spoken.at(-1)!.onEnd()
+    t.controller.submit(second)
+    expect(t.requests[2].request).toEqual(t.requests[0].request)
+  })
+
+  it('서버가 거절(409)하면 미해결 turn을 버리고 서버 번호로 맞춘다(409 반복 없음)', async () => {
+    const resync = vi.fn(async () => ({ nextTurnIndex: 4, active: true }))
+    const t = setup({ resync })
+    await lost(t)
+    t.controller.submit(second)
+    t.requests[1].reject(new TurnRejectedError(409, '대화 순서가 맞지 않습니다'))
+    await t.flush()
+    expect(resync).toHaveBeenCalledOnce()
+    expect(t.controller.hasUnresolvedTurn).toBe(false)
+    expect(t.controller.turnIndex).toBe(4)
+    t.spoken.at(-1)!.onEnd()
+    t.controller.submit(second)
+    expect(t.requests[2].request).toMatchObject({ index: 4, requestId: 'request-2' })
+  })
+
+  it('거절 뒤 서버 대화가 끝나 있으면 대화를 끝낸다', async () => {
+    const done = vi.fn()
+    const t = setup({ resync: async () => ({ nextTurnIndex: 3, active: false }), onComplete: done })
+    t.ready()
+    t.controller.submit(first)
+    t.requests[0].reject(new TurnRejectedError(409, '끝난 대화입니다'))
+    await t.flush()
+    expect(t.controller.state).toBe('ENDED')
+    expect(done).toHaveBeenCalledOnce()
+  })
+
+  it('확인한 이전 turn이 마지막 turn이었으면 그 답을 말하고 끝낸다(새 발화는 보내지 않음)', async () => {
+    const done = vi.fn()
+    const t = setup({ onComplete: done })
+    await lost(t)
+    t.controller.submit(second)
+    t.requests[1].resolve(t.reply('오늘은 여기까지!', { nextTurnIndex: 3, sessionComplete: true }))
+    await t.flush()
+    expect(t.requests).toHaveLength(2)
+    t.spoken.at(-1)!.onEnd()
+    expect(t.controller.state).toBe('ENDED')
+    expect(done).toHaveBeenCalledOnce()
+  })
+
+  it('확인 중에 대화를 끝내면 늦은 결과가 새 요청을 만들지 않는다', async () => {
+    const t = setup()
+    await lost(t)
+    t.controller.submit(second)
+    t.controller.end()
+    t.requests[1].resolve(t.reply('늦은 답', { nextTurnIndex: 2 }))
+    await t.flush()
+    expect(t.requests).toHaveLength(2)
+    expect(t.texts).not.toContain('늦은 답')
+  })
+
+  it('정상 응답(서버의 DEMO 대체 포함) 뒤에는 같은 turn을 다시 보내지 않는다', async () => {
+    const t = setup()
+    t.ready()
+    t.controller.submit(first)
+    t.requests[0].resolve(t.reply('DEMO 대체 답', { nextTurnIndex: 2 }))
+    await t.flush()
+    t.spoken.at(-1)!.onEnd()
+    expect(t.controller.hasUnresolvedTurn).toBe(false)
+    t.controller.submit(second)
+    expect(t.requests[1].request).toMatchObject({ index: 2, requestId: 'request-2' })
   })
 })
