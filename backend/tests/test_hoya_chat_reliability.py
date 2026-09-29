@@ -311,3 +311,116 @@ def test_legacy_dev_table_is_upgraded_without_losing_rows(tmp_path):
         row = connection.execute(text("SELECT id, hoya_text, status, provider FROM hoya_chat_turns")).one()
     assert tuple(row) == ("t1", "그랬구나!", "COMPLETED", "DEMO")
     engine.dispose()
+
+
+def test_b7dd929_table_gets_fingerprint_column_without_losing_rows(tmp_path):
+    """client_request_id는 있지만 request_fingerprint가 없는 구조도 최신으로 간주하지 않는다."""
+    from sqlalchemy import inspect, text
+    from app.db import Base, make_engine
+    from app.hoya.schema_compat import upgrade_hoya_chat_schema
+    engine = make_engine(f"sqlite:///{(tmp_path / 'b7dd929.db').as_posix()}")
+    Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ALTER TABLE hoya_chat_turns DROP COLUMN request_fingerprint")
+        connection.exec_driver_sql(
+            "INSERT INTO hoya_chat_turns (id, session_id, turn_index, client_request_id, status, session_complete, "
+            "child_transcript, hoya_text, recognizer, speech_evidence, strategy, target_words, provider, created_at, updated_at) "
+            "VALUES ('t1', 's1', 1, 'request-abcdefghijkl', 'COMPLETED', 0, '안녕', '그랬구나!', 'demo_script', "
+            "'NO_SPEECH', 'WAIT_OR_SIMPLIFY', '[]', 'DEMO', '2026-09-29 00:00:00', '2026-09-29 00:00:00')")
+    assert "request_fingerprint" not in {c["name"] for c in inspect(engine).get_columns("hoya_chat_turns")}
+    assert upgrade_hoya_chat_schema(engine) is True
+    assert upgrade_hoya_chat_schema(engine) is False
+    assert "request_fingerprint" in {c["name"] for c in inspect(engine).get_columns("hoya_chat_turns")}
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT client_request_id, hoya_text, request_fingerprint FROM hoya_chat_turns")).one()
+    assert tuple(row) == ("request-abcdefghijkl", "그랬구나!", None)
+    engine.dispose()
+
+
+def test_current_schema_and_missing_table_are_left_alone(tmp_path):
+    from app.db import Base, make_engine
+    from app.hoya.schema_compat import upgrade_hoya_chat_schema
+    engine = make_engine(f"sqlite:///{(tmp_path / 'empty.db').as_posix()}")
+    assert upgrade_hoya_chat_schema(engine) is False
+    Base.metadata.create_all(engine)
+    assert upgrade_hoya_chat_schema(engine) is False
+    engine.dispose()
+
+
+# ---------------------------------------------------------------- 요청 ID와 요청 내용(fingerprint)
+
+def _post(client, headers, session_id, body):
+    return client.post(f"/api/hoya/chat/sessions/{session_id}/turns", headers=headers, json=body)
+
+
+def test_null_transcript_request_id_cannot_be_reused_for_real_text(api):
+    client, _ = api
+    provider = CountingProvider()
+    _use(provider)
+    headers = student_auth(client)
+    chat = _start(client, headers)
+    request_id = rid()
+    first = _turn(client, headers, chat["sessionId"], 1, None, request_id=request_id)
+    assert first.status_code == 200
+    # None도 정확한 값이다: None == None은 재시도, None != "학교 갔어"는 다른 요청.
+    assert _turn(client, headers, chat["sessionId"], 1, None, request_id=request_id).json() == first.json()
+    reused = _turn(client, headers, chat["sessionId"], 1, "학교 갔어", request_id=request_id)
+    assert reused.status_code == 409 and reused.json()["detail"] == "REQUEST_ID_REUSED"
+    assert provider.calls == 1
+
+
+def test_changed_alternatives_recognizer_or_acoustic_is_rejected(api):
+    client, sessions = api
+    provider = CountingProvider()
+    _use(provider)
+    headers = student_auth(client)
+    chat = _start(client, headers)
+    body = {"turnIndex": 1, "transcript": "학교 갔어", "clientRequestId": rid(), "alternatives": ["학교 갔어"],
+            "recognizer": "demo_script", "acoustic": {"durationMs": 900, "meanRmsDb": -30}}
+    first = _post(client, headers, chat["sessionId"], body)
+    assert first.status_code == 200
+    for change in ({"alternatives": ["학교 갔어", "학교 가써"]}, {"recognizer": "web_speech"},
+                   {"acoustic": {"durationMs": 901, "meanRmsDb": -30}}, {"acoustic": {"durationMs": 900}}):
+        response = _post(client, headers, chat["sessionId"], {**body, **change})
+        assert response.status_code == 409 and response.json()["detail"] == "REQUEST_ID_REUSED", change
+    assert _post(client, headers, chat["sessionId"], body).json() == first.json()
+    assert provider.calls == 1 and _turn_count(sessions) == 1
+
+
+def test_fingerprint_ignores_json_key_order_and_whitespace(api):
+    client, _ = api
+    provider = CountingProvider()
+    _use(provider)
+    headers = student_auth(client)
+    chat = _start(client, headers)
+    request_id = rid()
+    url = f"/api/hoya/chat/sessions/{chat['sessionId']}/turns"
+    first = client.post(url, headers=headers, json={"turnIndex": 1, "transcript": "수박", "clientRequestId": request_id,
+                                                   "acoustic": {"meanRmsDb": -30, "durationMs": 900}})
+    raw = ('{ "acoustic" : {"durationMs": 900, "meanRmsDb": -30},\n "clientRequestId": "%s", '
+           '"transcript": "수박", "turnIndex": 1 }' % request_id)
+    again = client.post(url, headers={**headers, "Content-Type": "application/json"}, content=raw.encode("utf-8"))
+    assert again.status_code == 200 and again.json() == first.json() and provider.calls == 1
+
+
+def test_fingerprint_contains_no_identity_and_is_cleared_by_retention(api):
+    from app import maintenance
+    from app.hoya.api import request_fingerprint
+    from app.hoya.schemas import HoyaChatTurnInput
+    client, sessions = api
+    headers = student_auth(client)
+    chat = _start(client, headers)
+    request_id = rid()
+    _turn(client, headers, chat["sessionId"], 1, "학교 갔어", request_id=request_id)
+    expected = request_fingerprint(HoyaChatTurnInput(turn_index=1, transcript="학교 갔어", client_request_id=request_id))
+    other_id = request_fingerprint(HoyaChatTurnInput(turn_index=1, transcript="학교 갔어", client_request_id=rid()))
+    # 요청 ID·세션·아동은 fingerprint 재료가 아니다. 같은 내용이면 같은 값이다.
+    assert expected == other_id and len(expected) == 64
+    with sessions() as db:
+        turn = db.scalar(select(HoyaChatTurn))
+        assert turn.request_fingerprint == expected
+        turn.created_at = now() - timedelta(days=91)
+        db.commit()
+        assert maintenance.purge_expired_chat_text(db, 90) == 1
+        turn = db.scalar(select(HoyaChatTurn))
+        assert (turn.child_transcript, turn.hoya_text, turn.request_fingerprint) == (None, None, None)
