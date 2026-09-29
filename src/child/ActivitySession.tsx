@@ -7,8 +7,9 @@ import { HoyaActionController } from '../control/HoyaActionController'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
 import { AudioCapture } from '../speech/audioCapture'
-import { VadStateMachine } from '../speech/vad'
-import { SustainTracker } from '../speech/sustainTracker'
+import { DEFAULT_VAD } from '../speech/vad'
+import { MicUtterancePipeline } from '../speech/micUtterance'
+import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 
 const gameNames = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '호야와 소풍' }
@@ -28,6 +29,8 @@ export default function ActivitySession() {
   const [demoSpeech, setDemoSpeech] = useState(session?.firstItem.displayText || '')
   const [completed, setCompleted] = useState<number[]>([])
   const [ready, setReady] = useState(false)
+  const [capabilities] = useState(() => detectCapabilities())
+  const realSupported = !session || session.mode !== 'real' || supportsRealMode(session.game, capabilities)
   const began = useRef<number | null>(null)
   const startedAt = useRef(Date.now())
   const promptShownAt = useRef(performance.now())
@@ -105,42 +108,26 @@ export default function ActivitySession() {
   }
 
   useEffect(() => {
-    if (!ready || !session || !round || !item || session.mode !== 'real') return
+    if (!ready || !session || !round || !item || session.mode !== 'real' || !realSupported) return
     const capture = new AudioCapture()
-    const vad = new VadStateMachine()
+    // 발화 뒤 기다리는 시간은 라운드가 정한다. 쉼 후 재개 라운드는 한 발화 안에서 자연스러운 쉼을 허용한다.
+    const pipeline = new MicUtterancePipeline(session.game === 'magic_beam' ? 'fricative' : 'any_sound', round.endHoldMs ?? DEFAULT_VAD.endHoldMs)
     const recognizer = new WebSpeechRecognizer()
-    const tracker = new SustainTracker(session.game === 'magic_beam' ? 'fricative' : 'any_sound', -60)
-    let calibration: number[] = []
-    let calibrationStart = 0
     let disposed = false
     capture.start(frame => {
       if (disposed || submitting.current || modelSpeaking.current) return
-      if (!calibrationStart) calibrationStart = frame.tMs
-      if (frame.tMs - calibrationStart < 1000) { calibration.push(frame.rmsDb); return }
-      if (calibration.length) { vad.calibrate(calibration); tracker.reset(vad.noiseFloor); calibration = [] }
-      const active = vad.state === 'voice' || vad.state === 'maybe_silence'
-      const events = vad.process(frame)
-      if (events.some(event => event.type === 'VOICE_START')) tracker.reset(vad.noiseFloor)
-      if (active || events.some(event => event.type === 'VOICE_START')) tracker.process(frame)
+      const { events, acoustic } = pipeline.process(frame)
       for (const event of events) {
         if (event.type === 'VOICE_START') {
           onsetLatency.current = Math.min(60000, Math.max(0, performance.now() - promptShownAt.current))
+          pipeline.onsetLatencyMs = onsetLatency.current
           signal.dispatch(session.game, { type: 'VOICE_START' })
           setMessage('호야가 힘을 모으고 있어!')
           if (session.game === 'monster_adventure' || session.game === 'conversation_quest') recognizer.start(item as Parameters<WebSpeechRecognizer['start']>[0])
         }
-        if (event.type === 'VOICE_CONTINUE') signal.dispatch(session.game, { type: 'VOICE_CONTINUE', energy01: tracker.energy01 })
-        if (event.type === 'VOICE_END') {
+        if (event.type === 'VOICE_CONTINUE') signal.dispatch(session.game, { type: 'VOICE_CONTINUE', energy01: pipeline.tracker.energy01 })
+        if (event.type === 'VOICE_END' && acoustic) {
           signal.dispatch(session.game, { type: 'VOICE_END' })
-          const acoustic: Acoustic = { durationMs: event.durationMs ?? 0, voicedMs: event.voicedMs ?? 0,
-            activeMs: tracker.totalActiveMs, bestRunMs: tracker.bestRunMs, fricationMs: tracker.fricationMs,
-            meanRmsDb: event.meanRmsDb ?? -60, peakRmsDb: event.peakRmsDb ?? -60,
-            meanHfRatio: event.meanHfRatio ?? 0, meanCentroidHz: event.meanCentroidHz ?? 0,
-            noiseFloorDb: event.noiseFloorDb, clippingRatio: event.clippingRatio,
-            onsetLatencyMs: onsetLatency.current, source: 'microphone', sustainSegmentsMs: tracker.segments,
-            pauseCount: tracker.pauseCount, pauseTotalMs: tracker.pauseTotalMs, interruptionCount: tracker.interruptionCount,
-            energyMean01: tracker.energyMean01, energyStd01: tracker.energyStd01, onsetFricationMs: tracker.onsetFricationMs,
-            voicedAfterFricationMs: tracker.voicedAfterFricationMs }
           if (session.game === 'monster_adventure' || session.game === 'conversation_quest') {
             void recognizer.stop().then(result => submit(acoustic, result.transcript))
           } else void submit(acoustic, null)
@@ -148,7 +135,7 @@ export default function ActivitySession() {
       }
     }).catch(cause => setError(cause instanceof Error ? cause.message : '마이크를 사용할 수 없어요'))
     return () => { disposed = true; capture.stop() }
-  }, [ready, item?.itemId, round?.index, attempt, session?.mode])
+  }, [ready, item?.itemId, round?.index, round?.endHoldMs, attempt, session?.mode, realSupported])
 
   function begin() {
     if (!session || busy || began.current !== null) return
@@ -188,6 +175,7 @@ export default function ActivitySession() {
     <p className="target">{item.displayText}</p><p aria-live="polite">{message}</p>
     {session.mode === 'demo' && session.game === 'conversation_quest' && <div><label>호야에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
     {session.mode === 'demo' && <button disabled={busy} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 (Space)</button>}
+    {!realSupported && <p role="alert">{missingText(session.game, capabilities)}</p>}
     {error && <p role="alert">{error}</p>}
     <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
   </main>

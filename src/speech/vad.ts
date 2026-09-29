@@ -30,15 +30,21 @@ export class VadStateMachine {
       if (frame.rmsDb < end && this.state === 'voice') { this.state = 'maybe_silence'; this.silenceStart = frame.tMs }
       else if (frame.rmsDb >= end && this.state === 'maybe_silence') this.state = 'voice'
       if (frame.tMs - this.voiceStart >= this.config.maxUtteranceMs || (this.state === 'maybe_silence' && frame.tMs - this.silenceStart >= this.config.endHoldMs)) {
+        // 신호 통계는 발성 frame으로만 계산한다. 쉼과 발화 종료 유예의 무음이 평균 음량·SNR을 낮추면 안 된다.
+        // 잡음 기준(noiseFloorDb)은 시작 전 보정 구간의 무음에서 따로 구한다.
         const voiced = this.frames.filter(f => f.rmsDb >= end)
-        const durationMs = frame.tMs - this.voiceStart
+        const signal = voiced.length ? voiced : this.frames
+        const mean = (value: (f: VadFrame) => number) => signal.reduce((n, f) => n + value(f), 0) / signal.length
+        // 발화 길이는 마지막 발성 frame까지다. 후행 종료 유예는 포함하지 않는다.
+        const lastVoicedMs = voiced.length ? voiced[voiced.length - 1].tMs + 20 : frame.tMs
+        const durationMs = Math.max(0, lastVoicedMs - this.voiceStart)
         result.push({ type: 'VOICE_END', tMs: frame.tMs, durationMs, voicedMs: voiced.length * 20,
-          meanRmsDb: this.frames.reduce((n, f) => n + f.rmsDb, 0) / this.frames.length,
-          peakRmsDb: Math.max(...this.frames.map(f => f.peakDb ?? f.rmsDb)),
-          meanHfRatio: this.frames.reduce((n, f) => n + f.hfRatio, 0) / this.frames.length,
-          meanCentroidHz: this.frames.reduce((n, f) => n + (f.spectralCentroidHz ?? 0), 0) / this.frames.length,
+          meanRmsDb: mean(f => f.rmsDb),
+          peakRmsDb: Math.max(...signal.map(f => f.peakDb ?? f.rmsDb)),
+          meanHfRatio: mean(f => f.hfRatio),
+          meanCentroidHz: mean(f => f.spectralCentroidHz ?? 0),
           fricationMs: this.frames.filter(f => isFrication(f, this.noiseFloor)).length * 20,
-          clippingRatio: this.frames.reduce((n, f) => n + (f.clippingRatio ?? 0), 0) / this.frames.length,
+          clippingRatio: mean(f => f.clippingRatio ?? 0),
           noiseFloorDb: this.noiseFloor })
         this.state = 'silence'; this.frames = []
       }

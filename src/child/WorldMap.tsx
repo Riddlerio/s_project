@@ -4,7 +4,7 @@ import { getProfile, startPlay } from '../api/play'
 import { startActivity } from '../api/activities'
 import type { GameKind } from '../control/speechGameSignal'
 import type { SessionMode } from '../shared/levels'
-import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
+import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 
 type Profile = Awaited<ReturnType<typeof getProfile>>
 const games: { id: GameKind; title: string }[] = [
@@ -18,6 +18,9 @@ export default function WorldMap() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [mode, setMode] = useState<SessionMode>('demo')
   const [error, setError] = useState('')
+  const [capabilities] = useState(() => detectCapabilities())
+  const realAllowed = (game: GameKind | 'legacy_adventure') => mode === 'demo' || supportsRealMode(game, capabilities)
+  const anyReal = games.some(game => supportsRealMode(game.id, capabilities))
   useEffect(() => { if (!code) navigate('/play'); else void getProfile(code).then(setProfile).catch(cause => setError(String(cause))) }, [code, navigate])
   async function depart() {
     try { const start = await startPlay(code, mode); sessionStorage.setItem('speechHero.play', JSON.stringify(start)); navigate(`/play/session/${start.sessionId}`) }
@@ -33,10 +36,10 @@ export default function WorldMap() {
     <div className="map">{Array.from({ length: 10 }, (_, index) => <span key={index} className={index < (profile?.mapProgress || 0) ? 'unlocked' : ''}>★ {index + 1}층</span>)}</div>
     <p>모은 카드: {profile?.monsterCards.join(', ') || '아직 없어요'}</p>
     <p>뱃지: {profile?.badges.join(', ') || '첫 모험을 기다려요'}</p>
-    <fieldset><legend>모험 방법</legend><label><input type="radio" checked={mode === 'demo'} onChange={() => setMode('demo')} /> DEMO 연습</label><label><input type="radio" checked={mode === 'real'} disabled={!new WebSpeechRecognizer().isAvailable()} onChange={() => setMode('real')} /> 실제 음성</label></fieldset>
-    {assigned && <section className="card"><h2>치료사가 골라 준 모험</h2><p>{assigned.title}</p><button onClick={() => { void enterGame(assigned.id) }}>이 모험 시작</button></section>}
+    <fieldset><legend>모험 방법</legend><label><input type="radio" checked={mode === 'demo'} onChange={() => setMode('demo')} /> DEMO 연습</label><label><input type="radio" checked={mode === 'real'} disabled={!anyReal} onChange={() => setMode('real')} /> 실제 음성</label></fieldset>
+    {assigned && <section className="card"><h2>치료사가 골라 준 모험</h2><p>{assigned.title}</p><button disabled={!realAllowed(assigned.id)} onClick={() => { void enterGame(assigned.id) }}>이 모험 시작</button>{!realAllowed(assigned.id) && <p className="small">{missingText(assigned.id, capabilities)}</p>}</section>}
     <p className="small">실제 음성 인식은 브라우저 제공업체 서버로 음성이 전송될 수 있어요. 원본 음성은 이 서비스에 저장하지 않아요.</p>
-    <section className="grid">{games.map(game => <button key={game.id} onClick={() => { void enterGame(game.id) }}>{game.title} · 5라운드</button>)}</section>
-    <button onClick={() => { void depart() }}>기존 모험</button>{error && <p role="alert">{error}</p>}
+    <section className="grid">{games.map(game => <div key={game.id}><button disabled={!realAllowed(game.id)} onClick={() => { void enterGame(game.id) }}>{game.title} · 5라운드</button>{!realAllowed(game.id) && <p className="small">{missingText(game.id, capabilities)}</p>}</div>)}</section>
+    <button disabled={!realAllowed('legacy_adventure')} onClick={() => { void depart() }}>기존 모험</button>{error && <p role="alert">{error}</p>}
   </main>
 }

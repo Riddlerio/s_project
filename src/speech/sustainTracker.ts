@@ -13,6 +13,8 @@ export class SustainTracker {
   segments: number[] = []
   pauseCount = 0
   pauseTotalMs = 0
+  /** 한 발화 안에서 가장 긴 쉼. 쉼 후 재개 판정에 쓴다. */
+  maxPauseMs = 0
   onsetFricationMs = 0
   voicedAfterFricationMs = 0
   private energySum = 0
@@ -38,6 +40,7 @@ export class SustainTracker {
     this.segments = []
     this.pauseCount = 0
     this.pauseTotalMs = 0
+    this.maxPauseMs = 0
     this.onsetFricationMs = 0
     this.voicedAfterFricationMs = 0
     this.energySum = 0
@@ -69,8 +72,10 @@ export class SustainTracker {
     if (active) {
       const continues = this.lastActiveMs !== null && frame.tMs - this.lastActiveMs <= SUSTAIN_GAP_MS
       if (!continues && this.lastActiveMs !== null) {
+        const pauseMs = Math.max(0, frame.tMs - this.lastActiveMs - 20)
         this.pauseCount += 1
-        this.pauseTotalMs += Math.max(0, frame.tMs - this.lastActiveMs - 20)
+        this.pauseTotalMs += pauseMs
+        this.maxPauseMs = Math.max(this.maxPauseMs, pauseMs)
       }
       this.currentRunMs = continues ? this.currentRunMs + frameMs : frameMs
       if (continues && this.segments.length) this.segments[this.segments.length - 1] = this.currentRunMs

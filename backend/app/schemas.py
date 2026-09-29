@@ -10,6 +10,11 @@ class LoginInput(ApiModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class DemoLoginInput(ApiModel):
+    model_config = ConfigDict(alias_generator=ApiModel.model_config["alias_generator"], populate_by_name=True, extra="forbid")
+    role: Literal["THERAPIST", "STUDENT"]
+
+
 class GoalInput(ApiModel):
     target_phoneme: Literal["ㅅ", "ㅈ", "ㄹ"] = "ㅅ"
     target_sound: str = "사"

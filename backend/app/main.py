@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 import logging
 from contextlib import asynccontextmanager
@@ -7,20 +8,24 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import Base, engine, get_db, SessionLocal
 from .enums import LEVEL_ORDER
-from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginThrottle, Child, GameEvent, ProgressMetric, SpeechAnalysis,
+from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginFailure, Child, GameEvent, ProgressMetric, SpeechAnalysis,
                      Therapist, TherapistFeedback, TherapistRule, TrainingDecision, TrainingGoal,
                      TrainingPlan, TrainingSession, Utterance, now)
-from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
+from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, DemoLoginInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
                       RecommendationDecisionInput, StartInput, UtteranceInput)
-from .security import hash_password, hash_token, verify_password
+from .security import hash_password, hash_token, verify_dummy_password, verify_password
+from .maintenance import purge_expired_transcripts, retention_loop
 from .auth import COOKIE_NAME, create_session, current_account, require_student, require_therapist, require_admin
 from .seed import seed
+from .demo import demo_account, is_demo_account
+from . import static_site
+from .session_state import activity_state, completion_state, legacy_state, state_guard
 from .speech.pipeline import analyze
 from .training.plan_generator import generate_plan
 from .training.policy import decide
@@ -44,29 +49,21 @@ async def lifespan(app: FastAPI):
     if settings.secret_key == "dev-only-change-me":
         logging.warning("개발용 SECRET_KEY가 사용 중입니다. 운영 환경에서는 변경하세요.")
     with SessionLocal() as db:
-        expired = db.scalars(select(Utterance).where(Utterance.created_at < now() - timedelta(days=settings.transcript_retention_days))).all()
-        for utterance in expired:
-            utterance.transcript = None
-            utterance.alternatives = []
-        db.commit()
+        purge_expired_transcripts(db, settings.transcript_retention_days)
     if settings.seed_demo_data:
         with SessionLocal() as db:
             seed(db)
+    task = None
+    if settings.transcript_purge_interval_hours > 0:
+        task = asyncio.create_task(retention_loop(SessionLocal, settings.transcript_retention_days,
+                                                  settings.transcript_purge_interval_hours * 3600))
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(title="Speech Hero API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins.split(","), allow_methods=["*"], allow_headers=["*"])
-
-
-@app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["X-Frame-Options"] = "DENY"
-    return response
 
 
 @app.middleware("http")
@@ -90,6 +87,23 @@ async def limit_body(request: Request, call_next):
         chunks.append(chunk)
     request._body = b"".join(chunks)
     return await call_next(request)
+
+
+# 마지막에 등록한 미들웨어가 가장 바깥에서 실행된다. 403·413 같은 조기 응답에도 보안 헤더가 붙는다.
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    frontend = static_site.is_frontend_path(path)
+    # 해시가 붙은 빌드 파일만 오래 캐시한다. HTML과 API 응답은 저장하지 않는다.
+    response.headers["Cache-Control"] = ("public, max-age=31536000, immutable"
+                                         if frontend and path.startswith("/assets/") and response.status_code == 200 else "no-store")
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    # API는 아무것도 불러오지 않는 정책, 화면(HTML·정적 파일)은 React/Vite/three.js가 동작하는 정책이다. 둘 다 framing 금지.
+    response.headers["Content-Security-Policy"] = static_site.FRONTEND_CSP if frontend else settings.content_security_policy
+    return response
 
 
 @app.exception_handler(RequestValidationError)
@@ -119,7 +133,17 @@ def activity_rec_data(rec):
     return public(rec, ["id", "child_id", "activity", "clinical_purpose", "reason", "evidence", "confidence", "status", "selected_activity", "decision_note", "created_at", "decided_at"])
 
 
-def observation_data(observation):
+def clinical_eligible(session) -> bool:
+    """실제 음성 모드의 비샘플 세션만 임상 검증 통계에 들어간다."""
+    return session is not None and session.mode == "real" and not session.is_seed
+
+
+def observation_data(observation, session=None):
+    eligible = clinical_eligible(session)
+    return {**observation_fields(observation), "is_demo": not eligible, "clinical_eligible": eligible}
+
+
+def observation_fields(observation):
     return public(observation, ["id", "session_id", "utterance_id", "round_index", "round_id", "difficulty", "activity",
                                 "target_phoneme", "word_position", "generalization_level", "attempt_number",
                                 "cue_type", "independence", "duration_ms", "audio_quality", "ai_result",
@@ -146,7 +170,8 @@ def owned_child(db, child_id, therapist):
 
 def play_session(db, session_id, account):
     session = db.get(TrainingSession, session_id)
-    if not session or account.child_id != session.child_id:
+    # account가 없는 경우는 서버 내부 DEMO seed 호출뿐이다.
+    if not session or (account is not None and account.child_id != session.child_id):
         raise HTTPException(404, "세션을 찾을 수 없습니다")
     return session
 
@@ -187,32 +212,61 @@ def system_info():
 
 @app.post("/api/auth/login")
 def login(body: LoginInput, request: Request, response: Response, db: Session = Depends(get_db)):
-    throttle_key = hash_token(f"{request.client.host if request.client else 'unknown'}:{body.username.lower()}")
-    throttle = db.get(LoginThrottle, throttle_key)
-    if throttle and throttle.locked_until and throttle.locked_until.replace(tzinfo=None) > now().replace(tzinfo=None):
-        raise HTTPException(429, "잠시 후 다시 시도해 주세요")
+    ip = request.client.host if request.client else "unknown"
+    username = body.username.lower()
+    keys = {"ip": hash_token(f"ip:{ip}"), "user": hash_token(f"user:{username}"), "pair": hash_token(f"pair:{ip}:{username}")}
+    limits = {"ip": settings.login_max_failures_ip, "user": settings.login_max_failures_username,
+              "pair": settings.login_max_failures_pair}
+    since = now() - timedelta(minutes=settings.login_window_minutes)
+    db.execute(delete(LoginFailure).where(LoginFailure.created_at < since))
+    for kind, key in keys.items():
+        recent = db.scalar(select(func.count()).select_from(LoginFailure)
+                           .where(LoginFailure.key_hash == key, LoginFailure.created_at >= since))
+        if recent >= limits[kind]:
+            db.commit()
+            raise HTTPException(429, "잠시 후 다시 시도해 주세요")
     user = db.scalar(select(Account).where(Account.username == body.username))
-    if not user or not verify_password(body.password, user.password_salt, user.password_hash):
-        if not throttle:
-            throttle = LoginThrottle(key_hash=throttle_key, failures=0)
-            db.add(throttle)
-        throttle.failures += 1
-        if throttle.failures >= 5:
-            throttle.locked_until = now() + timedelta(minutes=5)
-            throttle.failures = 0
-        db.add(AuditEvent(actor_id=user.id if user else throttle_key[:36], action="LOGIN_FAILURE",
-                          resource_id=user.id if user else throttle_key[:36], result="DENIED"))
+    valid = (verify_password(body.password, user.password_salt, user.password_hash) if user
+             else verify_dummy_password(body.password))
+    # DEMO 모드가 꺼져 있으면 기존 DB에 남은 샘플 계정도 비밀번호와 관계없이 로그인할 수 없다.
+    if valid and not settings.seed_demo_data and is_demo_account(db, user):
+        valid = False
+    if not valid:
+        for key in keys.values():
+            db.add(LoginFailure(key_hash=key))
+        db.add(AuditEvent(actor_id=user.id if user else keys["pair"][:36], action="LOGIN_FAILURE",
+                          resource_id=user.id if user else keys["pair"][:36], result="DENIED"))
         db.commit()
         raise HTTPException(401, "로그인 정보가 올바르지 않습니다")
-    if throttle:
-        throttle.failures = 0
-        throttle.locked_until = None
+    # 성공하면 해당 아이디 기준 실패만 지운다. IP 기준 실패는 창이 지날 때까지 남긴다.
+    db.execute(delete(LoginFailure).where(LoginFailure.key_hash.in_([keys["user"], keys["pair"]])))
+    return start_cookie_session(db, response, user, "LOGIN_SUCCESS")
+
+
+def start_cookie_session(db, response: Response, user: Account, action: str) -> dict:
     token, csrf = create_session(db, user)
-    db.add(AuditEvent(actor_id=user.id, action="LOGIN_SUCCESS", resource_id=user.id, result="SUCCESS"))
+    db.add(AuditEvent(actor_id=user.id, action=action, resource_id=user.id, result="SUCCESS"))
     db.commit()
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=settings.cookie_secure,
                         samesite="strict", max_age=12 * 3600, path="/api")
     return {"role": user.role, "csrfToken": csrf}
+
+
+@app.get("/api/config/public")
+def public_config():
+    return {"demoModeEnabled": settings.seed_demo_data}
+
+
+@app.post("/api/auth/demo-login")
+def demo_login(body: DemoLoginInput, response: Response, db: Session = Depends(get_db)):
+    """DEMO 모드에서만 샘플 계정 세션을 만든다. 비밀번호는 브라우저로 전달하지 않는다."""
+    if not settings.seed_demo_data:
+        raise HTTPException(404)
+    user = demo_account(db, body.role)
+    if user is None:
+        raise HTTPException(404)
+    result = start_cookie_session(db, response, user, "DEMO_LOGIN")
+    return {**result, "username": user.username}
 
 
 @app.post("/api/auth/logout", status_code=204)
@@ -342,11 +396,12 @@ def start(body: StartInput, db: Session = Depends(get_db), account: Account | No
 
 
 @app.post("/api/play/sessions/{session_id}/utterances")
+@state_guard
 def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
-    session = play_session(db, session_id, account) if account is not None else db.get(TrainingSession, session_id)
+    session = play_session(db, session_id, account)
     if session.status != "active":
         raise HTTPException(409, "완료된 세션입니다")
-    state = dict(session.runtime_state)
+    state = legacy_state(session)
     item = state["currentItem"]
     if body.item_id != item["itemId"] or body.attempt_index != state["itemAttempt"]:
         raise HTTPException(409, "현재 항목 또는 시도 번호가 일치하지 않습니다")
@@ -405,20 +460,22 @@ def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(
 
 
 @app.post("/api/play/sessions/{session_id}/complete")
+@state_guard
 def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
-    session = play_session(db, session_id, account) if account is not None else db.get(TrainingSession, session_id)
+    session = play_session(db, session_id, account)
     child = db.get(Child, session.child_id)
+    state = completion_state(session)
     if session.status == "completed":
         return session.summary_json
     goal = db.get(TrainingGoal, session.goal_id)
-    state = session.runtime_state
+    stage_index = state.get("stageIndex", 0)
     metric = recompute(db, session, goal, body.elapsed_sec)
     if not state.get("activityGame"):
         recommend(db, session, goal, metric)
     child.xp += state.get("xp", 0)
     utterances = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
     stages = db.get(TrainingPlan, session.plan_id).plan_json["stages"]
-    stats = {"monsterStagesCleared": sum(stage["game"] == "monster_tower" for stage in stages[:state["stageIndex"] + 1]), "beamSuccesses": sum(u.game == "magic_beam" and a.final_result == "success" for u, a in utterances), "retryThenSuccessCount": sum(u.game != "magic_beam" and u.attempt_index > 1 and a.final_result == "success" for u, a in utterances)}
+    stats = {"monsterStagesCleared": sum(stage["game"] == "monster_tower" for stage in stages[:stage_index + 1]), "beamSuccesses": sum(u.game == "magic_beam" and a.final_result == "success" for u, a in utterances), "retryThenSuccessCount": sum(u.game != "magic_beam" and u.attempt_index > 1 and a.final_result == "success" for u, a in utterances)}
     collection, new_badges, new_cards = award(child.collection_json, stats)
     child.collection_json = collection
     summary = {"totalXp": state.get("xp", 0), "heroLevel": child.xp // 100 + 1, "badges": collection["badges"], "monsterCards": collection["monsterCards"], "newBadges": new_badges, "newMonsterCards": new_cards, "levelDownCount": metric.level_down_count, "durationSec": body.elapsed_sec}
@@ -470,10 +527,14 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
         raise HTTPException(409, "활성 목표가 없습니다")
     definitions = GAME_ROUNDS[body.game]
     plan_stages = []
+    used = set()
     for definition in definitions:
         level = "syllable" if body.game == "monster_adventure" and definition.index == 1 else "short_sentence" if body.game == "monster_adventure" and definition.index == 5 else "word"
         candidates = items(goal.target_phoneme, level, goal.word_position)
-        text = candidates[(definition.index - 1) % len(candidates)]["displayText"] if candidates else goal.target_sound
+        # 같은 세션 안에서는 앞 라운드와 다른 단어를 고른다. 모두 쓰였으면 순서대로 다시 쓴다.
+        rotated = candidates[(definition.index - 1) % len(candidates):] + candidates[:(definition.index - 1) % len(candidates)] if candidates else []
+        text = next((c["displayText"] for c in rotated if c["displayText"] not in used), rotated[0]["displayText"] if rotated else goal.target_sound)
+        used.add(text)
         item = {"itemId": secrets.token_hex(8), "displayText": text, "level": level if body.game == "monster_adventure" else definition.generalization_level.lower(),
                 "game": body.game, "beamTargetMs": definition.target_ms, "pictureKey": text}
         plan_stages.append({"game": body.game, "level": item["level"], "round": public_round(definition), "items": [item]})
@@ -503,11 +564,12 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
 
 
 @app.get("/api/activities/{session_id}")
+@state_guard
 def current_activity(session_id: str, db: Session = Depends(get_db), account: Account = Depends(require_student)):
     session = play_session(db, session_id, account)
-    state = session.runtime_state
-    game = state.get("activityGame")
-    if game not in GAME_ROUNDS or session.status != "active":
+    state = activity_state(session)
+    game = state["activityGame"]
+    if session.status != "active":
         raise HTTPException(409, "활성 게임이 아닙니다")
     child = db.get(Child, session.child_id)
     return {"sessionId": session.id, "game": game, "mode": session.mode, "heroName": child.hero_name,
@@ -518,10 +580,11 @@ def current_activity(session_id: str, db: Session = Depends(get_db), account: Ac
 
 
 @app.post("/api/activities/{session_id}/utterances")
+@state_guard
 def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account = Depends(require_student)):
     session = play_session(db, session_id, account)
-    state = dict(session.runtime_state)
-    if session.status != "active" or "activityGame" not in state:
+    state = activity_state(session)
+    if session.status != "active":
         raise HTTPException(409, "활성 게임이 아닙니다")
     round_index = state["roundIndex"]
     if body.round_index != round_index or body.item_id != state["currentItem"]["itemId"] or body.attempt_index != state["roundAttempt"]:
@@ -706,7 +769,7 @@ def session_timeline(session_id: str, db: Session = Depends(get_db), therapist: 
     events = db.scalars(select(GameEvent).where(GameEvent.session_id == session_id).order_by(GameEvent.created_at)).all()
     observations = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == session_id).order_by(ClinicalObservation.created_at)).all()
     return {"events": [public(event, ["id", "type", "payload", "utterance_id", "created_at"]) for event in events],
-            "observations": [observation_data(observation) for observation in observations]}
+            "observations": [observation_data(observation, session) for observation in observations]}
 
 
 @app.get("/api/sessions/{session_id}/clinical-summary")
@@ -721,7 +784,7 @@ def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: 
     rows = []
     for definition in definitions:
         all_round = [row for row in observations if row.round_index == definition.index]
-        sample = all_round if session.mode == "real" and not session.is_seed else []
+        sample = all_round if clinical_eligible(session) else []
         verified = 0
         verified_evaluated = 0
         verified_observed = 0
@@ -738,14 +801,20 @@ def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: 
                     verified_success += value == "success"
                 elif value == "target_observed":
                     verified_observed += 1
+        # totalObservedN: 실제 음성 관찰 전체. evaluableN: AI가 success/retry로 판정한 표본만.
+        # 불확실·무발화·대화 속 목표 관찰은 평가 가능한 표본 수를 늘리지 않는다. 자료 없음은 0점이 아니다.
+        evaluable = sum(row.ai_result in {"success", "retry"} for row in sample)
         rows.append({"roundIndex": definition.index, "roundId": definition.id,
-                     "clinicalFocus": definition.clinical_focus, "n": len(sample), "demoN": len(all_round) - len(sample),
+                     "clinicalFocus": definition.clinical_focus,
+                     "totalObservedN": len(sample), "evaluableN": evaluable, "demoN": len(all_round) - len(sample),
                      "aiSupportedSuccesses": sum(row.ai_result == "success" for row in sample),
-                     "uncertainN": sum(row.ai_result in {"uncertain", "no_speech"} for row in sample),
+                     "uncertainN": sum(row.ai_result == "uncertain" for row in sample),
+                     "noSpeechN": sum(row.ai_result == "no_speech" for row in sample),
+                     "targetObservedN": sum(row.ai_result == "target_observed" for row in sample),
                      "verifiedN": verified, "verifiedEvaluatedN": verified_evaluated,
                      "verifiedObservedN": verified_observed, "verifiedSuccesses": verified_success,
                      "verifiedRate": round(100 * verified_success / verified_evaluated, 1) if verified_evaluated else None,
-                     "limitedData": len(sample) < 5})
+                     "limitedData": evaluable < 5})
     return {"game": game, "rounds": rows}
 
 
@@ -756,7 +825,7 @@ def observation_detail(observation_id: str, db: Session = Depends(get_db), thera
         raise HTTPException(404)
     owned_child(db, observation.child_id, therapist)
     decisions = db.scalars(select(ClinicalVerification).where(ClinicalVerification.observation_id == observation_id).order_by(ClinicalVerification.created_at)).all()
-    return {"observation": observation_data(observation),
+    return {"observation": observation_data(observation, db.get(TrainingSession, observation.session_id)),
             "decisions": [public(row, ["id", "action", "correction", "note", "created_at"]) for row in decisions]}
 
 
@@ -773,11 +842,14 @@ def decide_observation(observation_id: str, body: ObservationDecisionInput, db: 
     correction = {"result": body.corrected_result} if body.action == "correct" else {}
     db.add(ClinicalVerification(observation_id=observation.id, therapist_id=therapist.id,
                                 action=body.action, correction=correction, note=body.note))
-    observation.verification_state = {"confirm": "CONFIRMED", "correct": "CORRECTED", "reject": "REJECTED"}[body.action]
+    session = db.get(TrainingSession, observation.session_id)
+    state = {"confirm": "CONFIRMED", "correct": "CORRECTED", "reject": "REJECTED"}[body.action]
+    # DEMO 관찰도 검토할 수 있지만 임상 검증 자료로 승격하지 않도록 상태를 구분한다.
+    observation.verification_state = state if clinical_eligible(session) else f"DEMO_{state}"
     db.add(AuditEvent(actor_id=therapist.id, action=f"THERAPIST_{body.action.upper()}",
                       resource_id=observation.id, result="SUCCESS"))
     db.commit()
-    return observation_data(observation)
+    return observation_data(observation, session)
 
 
 @app.get("/api/children/{child_id}/progress")
@@ -882,3 +954,9 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
     rule.active, rule.deactivated_reason = False, "therapist"
     db.commit()
     return public(rule, ["id", "rule_type", "params", "active"])
+
+
+# 반드시 마지막에 등록한다. 위의 /api 경로가 먼저 일치하고, 나머지 GET만 프로덕션 SPA로 간다.
+@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+def frontend(path: str):
+    return static_site.serve(settings.frontend_dist, path)

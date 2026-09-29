@@ -51,11 +51,12 @@ class CookieSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class LoginThrottle(Base):
-    __tablename__ = "login_throttles"
-    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    failures: Mapped[int] = mapped_column(Integer, default=0)
-    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+class LoginFailure(Base):
+    """로그인 실패 한 건. IP·아이디·IP+아이디 해시별로 최근 실패 수를 센다."""
+    __tablename__ = "login_failures"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    key_hash: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class Child(Base):

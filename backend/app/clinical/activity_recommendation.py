@@ -35,7 +35,8 @@ def propose_activity(db, child_id: str) -> dict | None:
         verified.append((row, result))
     if not verified:
         return None
-    sound = [(row, result) for row, result in verified if row.generalization_level == "SOUND"]
+    # 지속 길이 평균은 success/retry로 확인된 평가 가능 관찰만 쓴다. 불확실·무발화의 음향값은 섞지 않는다.
+    sound = [(row, result) for row, result in verified if row.generalization_level == "SOUND" and result in {"success", "retry"}]
     word = [(row, result) for row, result in verified if row.generalization_level in {"WORD", "SYLLABLE"} and result in {"success", "retry"}]
     sustained = [row.evidence.get("acoustic", {}).get("bestRunMs") for row, _ in sound]
     sustained = [value for value in sustained if type(value) in (int, float)]

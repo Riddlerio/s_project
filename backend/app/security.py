@@ -14,6 +14,16 @@ def verify_password(password: str, salt: str, expected: str) -> bool:
     return hmac.compare_digest(hash_password(password, salt), expected)
 
 
+# 없는 계정에도 같은 PBKDF2 비용을 치르게 해 응답 시간으로 계정 존재를 알 수 없게 한다.
+_DUMMY_SALT = secrets.token_hex(16)
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(16), _DUMMY_SALT)
+
+
+def verify_dummy_password(password: str) -> bool:
+    verify_password(password, _DUMMY_SALT, _DUMMY_HASH)
+    return False
+
+
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
