@@ -11,7 +11,7 @@ import { HoyaChatController, type HoyaChatState, type Speak } from './hoyaChatCo
 
 const STATUS: Record<HoyaChatState, string> = {
   IDLE: '', LISTENING: '호야가 듣고 있어요', PROCESSING: '호야가 생각하고 있어요', FILLER_SPEAKING: '호야가 생각하고 있어요',
-  RESPONSE_SPEAKING: '호야가 말하고 있어요', ENDED: '대화가 끝났어요',
+  RECOVERING: '호야가 생각하고 있어요', RESPONSE_SPEAKING: '호야가 말하고 있어요', ENDED: '대화가 끝났어요',
 }
 
 /** 브라우저 TTS 한 번. 다른 음성과 겹치지 않게 이전 재생을 비우고, onend가 오지 않는 브라우저를 위해 안전 timer를 둔다. */

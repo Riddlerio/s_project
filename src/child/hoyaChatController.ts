@@ -4,20 +4,27 @@ import type { Acoustic } from '../shared/types'
 /**
  * 호야와 대화하기의 turn 흐름. 화면(React)과 분리해 timer·TTS·응답 순서를 테스트할 수 있게 한다.
  * 내부 상태는 HoyaAction(캐릭터 표정)과 다른 값이며, 호야 표정은 이 상태에서만 정한다
- * (PROCESSING·FILLER_SPEAKING → THINKING, RESPONSE_SPEAKING → TALKING, LISTENING → LISTENING).
+ * (PROCESSING·FILLER_SPEAKING·RECOVERING → THINKING, RESPONSE_SPEAKING → TALKING, LISTENING → LISTENING).
  *
  * LISTENING → (아동 발화) → PROCESSING(THINKING) → [늦으면 "음..." 1회: FILLER_SPEAKING] → RESPONSE_SPEAKING → LISTENING
  *
- * 발화 1회마다 요청 ID를 하나 만든다. 응답을 받지 못한 turn은 같은 ID로만 다시 묻고,
- * 다음 발화를 보내기 전에 그 turn이 서버에서 어떻게 됐는지 먼저 확인한다.
+ * 발화 1회마다 요청 ID를 하나 만든다. 응답을 받지 못하면(결과를 모름) RECOVERING이 되어 같은 ID로만 다시 묻는다.
+ * 그동안에는 새 발화를 받지 않고, 복구된 호야 답을 실제로 말한 뒤에만 다시 듣는다.
+ * 그래서 서버에 저장된 대화와 아동이 실제로 들은 대화가 같다.
  */
-export type HoyaChatState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'FILLER_SPEAKING' | 'RESPONSE_SPEAKING' | 'ENDED'
+export type HoyaChatState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'FILLER_SPEAKING' | 'RECOVERING' | 'RESPONSE_SPEAKING' | 'ENDED'
 
 /** 응답이 이 시간보다 늦을 때만 "음..."을 한 번 말한다. 사용성 테스트에서 조정한다. */
 export const HOYA_THINKING_FILLER_DELAY_MS = 750
 export const HOYA_FILLER_TEXT = '음...'
-/** 서버에 닿지 못했을 때의 말. 오류 내용이나 발음 결과를 말하지 않는다. */
+/** 서버가 발화를 받지 않았을 때(거절)의 말. 오류 내용이나 발음 결과를 말하지 않는다. */
 export const HOYA_OFFLINE_TEXT = '호야가 잠깐 딴생각을 했어. 다시 이야기해 줄래?'
+/** 결과를 모르는 turn을 복구하는 동안의 말. 새 발화를 청하지 않는다. "음..."은 turn마다 한 번만 쓰므로 넣지 않는다. */
+export const HOYA_RECOVERING_TEXT = '잠깐만, 호야가 다시 생각해 볼게.'
+/** 여러 번 복구해도 결과를 모를 때의 마지막 말. 이후 대화를 끝낸다. */
+export const HOYA_DISCONNECTED_TEXT = '호야가 잠시 쉬어야 해. 다음에 또 이야기하자!'
+/** 복구 재시도 사이 대기(ms). 각 재시도는 API 계층에서도 같은 요청 ID로 몇 번 더 묻는다. 끝없이 반복하지 않는다. */
+export const HOYA_RECOVERY_DELAYS_MS = [1000, 2000, 4000]
 
 export interface SpeakHandle { cancel(): void }
 export type Speak = (text: string, events: { onStart(): void; onEnd(): void }) => SpeakHandle
@@ -64,10 +71,13 @@ export class HoyaChatController {
   /** 재생 중인 음성. 종료·새 재생 때 바뀌어 이전 TTS callback을 버린다. */
   private speechToken = 0
   private fillerTimer: unknown = undefined
+  private recoveryTimer: unknown = undefined
   private fillerUsed = false
   private pending: ChatReply | null = null
-  /** 보냈지만 결과를 모르는 turn. 다음 발화 전에 같은 요청 ID로 먼저 확인한다. */
+  /** 보냈지만 결과를 모르는 turn. 복구가 끝날 때까지 새 발화를 받지 않는다. */
   private unresolved: TurnRequest | null = null
+  /** 복구 안내 말을 하는 중. 이때 도착한 답은 안내가 끝난 뒤 말한다. */
+  private noticeSpeaking = false
   private speech?: SpeakHandle
   private silent = false
   private readonly timers: Timers
@@ -77,8 +87,8 @@ export class HoyaChatController {
   get state(): HoyaChatState { return this.current }
   get turnIndex(): number { return this.nextTurn }
   get hasUnresolvedTurn(): boolean { return this.unresolved !== null }
-  /** 호야가 말하거나 생각하는 동안에는 아동 발화를 받지 않는다(호야 자신의 TTS를 다시 듣지 않게). */
-  get listening(): boolean { return this.current === 'LISTENING' }
+  /** 호야가 말하거나 생각하거나 복구하는 동안에는 아동 발화를 받지 않는다(호야 자신의 TTS를 다시 듣지 않게). */
+  get listening(): boolean { return this.current === 'LISTENING' && this.unresolved === null }
 
   start(openingText: string): void {
     if (this.current !== 'IDLE') return
@@ -87,7 +97,7 @@ export class HoyaChatController {
 
   /** 아동 발화 1회를 보낸다. LISTENING이 아니면 무시하고 false를 돌려준다. */
   submit(utterance: ChatUtterance): boolean {
-    if (this.current !== 'LISTENING') return false
+    if (!this.listening) return false
     const token = ++this.turnToken
     this.fillerUsed = false
     this.pending = null
@@ -114,44 +124,84 @@ export class HoyaChatController {
   }
 
   private async process(token: number, utterance: ChatUtterance) {
-    // 이전 발화의 결과를 모르면 먼저 같은 요청 ID로 확인한다. 이전 발화와 새 발화를 섞지 않는다.
-    const earlier = this.unresolved
-    let request: TurnRequest | null = earlier
+    const request: TurnRequest = { index: this.nextTurn, requestId: (this.deps.newRequestId ?? randomRequestId)(), utterance }
     try {
-      if (earlier) {
-        const recovered = await this.deps.requestReply(earlier)
-        if (token !== this.turnToken) return
-        this.unresolved = null
-        this.nextTurn = recovered.nextTurnIndex ?? earlier.index + 1
-        if (recovered.sessionComplete) { this.receive(token, recovered); return }
-      }
-      request = { index: this.nextTurn, requestId: (this.deps.newRequestId ?? randomRequestId)(), utterance }
       const reply = await this.deps.requestReply(request)
       if (token !== this.turnToken) return
       this.nextTurn = reply.nextTurnIndex ?? request.index + 1
       this.receive(token, reply)
     } catch (error) {
       if (token !== this.turnToken) return
-      if (error instanceof TurnRejectedError) {
-        // 거절은 재시도해도 같다. 미해결 turn을 버리고 서버 상태로 번호를 맞춘다(409 반복 방지).
-        this.unresolved = null
-        const state = await this.deps.resync?.().catch(() => null)
-        if (token !== this.turnToken) return
-        if (state && !state.active) { this.end(); this.deps.onComplete?.(); return }
-        if (state) this.nextTurn = state.nextTurnIndex
-      } else {
-        // 서버가 처리했는지 모른다. 번호를 올리지 않고 이 요청을 기억해 다음 발화 전에 같은 ID로 확인한다.
-        this.unresolved = request
-      }
-      this.receive(token, { text: HOYA_OFFLINE_TEXT, sessionComplete: false })
+      if (error instanceof TurnRejectedError) await this.rejected(token, error)
+      else await this.recover(token, request)
     }
+  }
+
+  /** 서버가 받았는지 모르는 turn: 같은 요청 ID로만 다시 묻고, 받은 답을 아동에게 들려준 뒤 다음 발화를 받는다. */
+  private async recover(token: number, request: TurnRequest) {
+    this.unresolved = request
+    this.enterRecovering(token)
+    for (const delay of HOYA_RECOVERY_DELAYS_MS) {
+      await new Promise<void>(resolve => { this.recoveryTimer = this.timers.set(resolve, delay) })
+      this.recoveryTimer = undefined
+      if (token !== this.turnToken) return
+      try {
+        const reply = await this.deps.requestReply(request)
+        if (token !== this.turnToken) return
+        this.unresolved = null
+        this.nextTurn = reply.nextTurnIndex ?? request.index + 1
+        this.receive(token, reply)
+        return
+      } catch (error) {
+        if (token !== this.turnToken) return
+        if (error instanceof TurnRejectedError) { this.unresolved = null; await this.rejected(token, error); return }
+      }
+    }
+    // 끝없이 재시도하지 않는다. 대화를 끝내므로 아동이 듣지 못한 답 뒤로 새 발화가 이어지지 않는다.
+    this.unresolved = null
+    this.receive(token, { text: HOYA_DISCONNECTED_TEXT, sessionComplete: true })
+  }
+
+  private enterRecovering(token: number) {
+    // "음..."을 말하는 중이면 그대로 두고, 끝난 뒤 RECOVERING으로 바꾼다(playFiller의 끝 처리).
+    if (this.current !== 'PROCESSING') return
+    this.clearFiller()
+    this.setState('RECOVERING')
+    this.action('THINKING')
+    this.noticeSpeaking = true
+    this.play(HOYA_RECOVERING_TEXT, () => {}, () => {
+      this.noticeSpeaking = false
+      if (token !== this.turnToken) return
+      const waiting = this.pending
+      this.pending = null
+      if (waiting) this.answer(waiting)
+      else this.action('THINKING')
+    })
+  }
+
+  /** 서버가 이 발화를 받지 않았다(4xx). 서버 번호로 맞추고 다시 말해 달라고 한다(409 반복 방지). */
+  private async rejected(token: number, error: TurnRejectedError) {
+    // 로그인·CSRF가 만료되면(401/403) 다시 말해도 계속 거절된다. 저장됐을지 모르는 답 뒤로 새 발화를 잇지 않고 대화를 끝낸다.
+    if (error.status === 401 || error.status === 403) {
+      this.receive(token, { text: HOYA_DISCONNECTED_TEXT, sessionComplete: true })
+      return
+    }
+    const state = await this.deps.resync?.().catch(() => null)
+    if (token !== this.turnToken) return
+    if (state && !state.active) { this.end(); this.deps.onComplete?.(); return }
+    if (state) this.nextTurn = state.nextTurnIndex
+    this.receive(token, { text: HOYA_OFFLINE_TEXT, sessionComplete: false })
   }
 
   private stopAll() {
     this.turnToken++
     this.speechToken++
     this.clearFiller()
+    // 복구 대기 timer도 멈춘다. 기다리던 복구는 더 진행되지 않는다.
+    if (this.recoveryTimer !== undefined) this.timers.clear(this.recoveryTimer)
+    this.recoveryTimer = undefined
     this.pending = null
+    this.noticeSpeaking = false
     this.speech?.cancel()
     this.speech = undefined
   }
@@ -172,15 +222,21 @@ export class HoyaChatController {
       const waiting = this.pending
       this.pending = null
       if (waiting) this.answer(waiting)
+      else if (this.unresolved) this.enterRecoveringAfterFiller(token)
       else { this.setState('PROCESSING'); this.action('THINKING') }
     })
   }
 
+  private enterRecoveringAfterFiller(token: number) {
+    this.setState('PROCESSING')
+    this.enterRecovering(token)
+  }
+
   private receive(token: number, reply: ChatReply) {
     if (token !== this.turnToken || this.current === 'ENDED') return
-    // "음..."을 말하는 중이면 끝날 때까지 기다린다. 두 음성을 겹쳐 재생하지 않는다.
-    if (this.current === 'FILLER_SPEAKING') { this.pending = reply; return }
-    if (this.current !== 'PROCESSING') return
+    // "음..."이나 복구 안내를 말하는 중이면 끝날 때까지 기다린다. 두 음성을 겹쳐 재생하지 않는다.
+    if (this.current === 'FILLER_SPEAKING' || this.noticeSpeaking) { this.pending = reply; return }
+    if (this.current !== 'PROCESSING' && this.current !== 'RECOVERING') return
     this.clearFiller()
     this.answer(reply)
   }
