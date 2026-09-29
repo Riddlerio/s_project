@@ -58,6 +58,10 @@ Windows 기본 pytest 임시 디렉터리에 접근 거부가 발생해 작업 �
   - 3D 호야: WebGL 판별, ErrorBoundary, 컨텍스트 손실 처리로 간단한 대체 화면을 보여 준다. 대체 화면은 3D 렌더가 아니다.
 - 대화 게임의 응답은 고정된 안전한 DEMO 규칙을 사용한다. 목표 단어가 없는 응답은 이야기만 진행하고 임상 점수·관찰을 만들지 않는다.
 
+## 발음 데이터셋 연구 (PHASE B, feature/pronunciation-research-v1)
+
+- 판정: **DATASET_NOT_SUITABLE, TECHNICAL DATASET EVALUATION: NOT RUN.** 발화 단위 발음 정오·들은 전사가 있는 한국 아동 데이터는 공개되지 않았고, 공개 데이터(HF PCC·집단, AI-Hub 철자 전사)는 보조 용도다. production 코드는 바뀌지 않았다. 상세: [pronunciation_v1](../../research/pronunciation/reports/pronunciation_v1.md).
+
 ## 남은 한계와 판정
 
 - **실물 마이크·Android 브라우저·3D 렌더 수동 확인: NOT MANUALLY VERIFIED.** 자동 테스트는 화면 렌더와 실제 기기 음질을 보증하지 않는다. 2.5초 유예가 아동에게 자연스러운지, 대체 화면이 실제 WebGL 실패 기기에서 뜨는지, 새 치료사 화면 표시도 사람이 확인해야 한다.

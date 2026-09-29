@@ -132,6 +132,21 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 
 한국어가 아닌 아동 SSD 자료는 모델 구조·특징 연구에 참고할 수 있어도 한국어 아동 조음 정확도 검증을 직접 대체하지 않는다. 위 세 후보 중에서도 **phoneme-level annotation과 forced alignment에 바로 쓸 수 있는 시간 경계가 확인된 데이터셋은 없다**. 필요하면 전문가가 동의·품질 관리 절차를 갖춰 별도로 라벨을 구축해야 한다.
 
+### 한국어 아동 발음 데이터셋 선택과 학습형 발음 모델 근거 — PHASE B 조사 결과 (2026-09-29)
+
+상세: [pronunciation_v1 보고서](../../research/pronunciation/reports/pronunciation_v1.md).
+
+1. **현재 production 발음 판정**: 단어 과제는 브라우저 Web Speech 문장 → 정규화 → 단순 G2P → 정렬 → 목표 위치 음소 일치와 점수 기준이다. 지속음 과제는 지속·마찰 시간 규칙이다. 학습된 발음 모델은 없고, 이번 작업으로도 바뀌지 않았다.
+2. **데이터셋을 검토한 이유**: 일반 ASR은 아동 발음을 표준 단어로 고쳐 버릴 수 있다. 문헌에서는 아동 음성으로 학습한 음향 모델이 ASR 문장 방식보다 목표 단어 정오 판별에 유리할 수 있다는 결과가 있다. 그래서 공정한 비교가 가능한지 조사했다.
+3. **논문 근거(각 논문 자체 데이터, 우리 재현 아님)**:
+   - Sung 외 2024: 573명 단어 발화, 화자 분리 교차검증, 음향 분류 정확도 81.6% vs ASR 전사 방식 60.2%.
+   - XLS-R SSD 연구: 실제 산출 발음 인식 PER 약 10% vs 일반 Whisper 약 50%.
+   - 2026 preprint: 자음 정오 balanced accuracy 약 0.72.
+4. **dataset label의 실제 의미**: 공개된 Hugging Face `K-Univ/Pathological-child-voice`는 녹음 1개당 자음정확도(PCC)·TD/SSD 집단만 있다. AI-Hub 아동 음성은 철자 전사다. 둘 다 "이 발화의 /ㅅ/이 맞았는가"의 정답이 아니며, 이를 발화 정오로 바꾸지 않았다. 발화 단위 정오·들은 전사가 있는 연구 데이터(Sung 외, XLS-R SSD, 2026 preprint)는 공개되지 않았다.
+5. **offline experiment 결과**: **NOT RUN — DATASET_NOT_SUITABLE.** 학습 모델과 baseline 수치가 없다. 데이터가 생기면 쓸 baseline은 버전을 고정한 공개 ASR과 현재 `analyze()`로 만든 **REPRODUCIBLE_PROXY_BASELINE**이다. Web Speech 경로 자체(CURRENT_RUNTIME_BASELINE)는 오프라인에서 재현할 수 없다. 비교는 화자 단위 분할, 같은 test set, false correction rate 포함, 화자 단위 bootstrap 신뢰구간으로 한다.
+6. **현재 runtime 적용 여부**: 적용하지 않았다(SHADOW 포함). 라이선스도 막는 요인이다. HF 데이터는 CC BY-NC-ND 4.0이고 원 제작자 통지가 필요하며 재배포 권한이 불확실하다. AI-Hub는 내국인 승인과 제3자 제공 금지 조건이 있다. 어느 쪽도 제품 사용을 허용하지 않는다.
+7. **clinical validation과 technical evaluation의 차이**: 외부 데이터에서 좋은 수치가 나오더라도 그것은 기술적 평가이고, Speech Hero의 임상 검증이 아니다. 현재 상태는 여전히 **NOT VALIDATED — NO LABELED DATA**이다.
+
 ## 11. AI와 언어치료를 결합하는 이유, 안전과 윤리
 
 반복 측정과 시도별 기록은 시간에 따른 변화와 단서 요구량을 보기 쉽게 만든다. 그러나 아동 ASR 오류, 표준형 보정, 환경 소음, 발달·방언·개인차, 미검증 데이터 편향은 거짓 확신을 만들 수 있다. [Macrae의 취학 전 아동 말소리 평가 논문](https://pubs.asha.org/doi/10.1044/persp1.SIG1.39)은 단어와 연결 발화, 오류 패턴, 모방 가능성 등 여러 자료를 함께 볼 필요를 설명한다. Speech Hero의 단일 점수는 그런 종합 평가가 아니다.
