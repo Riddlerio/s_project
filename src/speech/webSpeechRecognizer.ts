@@ -10,7 +10,8 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
   private instance?: NativeSpeechRecognition
   private pending?: Promise<RecognitionResult>
   isAvailable() { const scope = window as SpeechWindow; return !!(scope.SpeechRecognition || scope.webkitSpeechRecognition) }
-  start(_expected: PlayItem) {
+  /** 게임은 목표 항목을 넘기고, 자유대화는 목표 항목 없이 시작한다. 인식 방식은 같다. */
+  start(_expected?: PlayItem) {
     const scope = window as SpeechWindow
     const Constructor = scope.SpeechRecognition || scope.webkitSpeechRecognition
     if (!Constructor) throw new Error('실제 음성 인식을 지원하지 않는 브라우저입니다')

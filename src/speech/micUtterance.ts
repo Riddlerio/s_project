@@ -23,6 +23,9 @@ export class MicUtterancePipeline {
 
   get calibrated(): boolean { return this.calibrationStart !== null && this.calibration.length === 0 }
 
+  /** 진행 중이던 발화를 버린다. 잡음 기준은 유지한다. 호야가 말한 뒤 다시 들을 때 쓴다. */
+  resetUtterance(): void { this.vad.reset(); this.tracker.reset(this.vad.noiseFloor) }
+
   /** frame 하나를 처리한다. 발화가 끝나면 서버에 보낼 요약을 함께 돌려준다. */
   process(frame: VadFrame): { events: VadEvent[]; acoustic?: Acoustic } {
     if (this.calibrationStart === null) this.calibrationStart = frame.tMs

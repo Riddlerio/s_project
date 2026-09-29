@@ -37,6 +37,6 @@ export default function CharacterHome() {
     <div style={{ height: '54vh', minHeight: 310 }}><Hoya3D action={action} /></div>
     <p aria-live="polite">{line}</p>
     <button onClick={() => { void greet() }}>호야에게 인사하기</button>{error && <p role="alert">{error}</p>}
-    <nav><button onClick={() => navigate('/play/map')}>모험 지도</button><button onClick={() => navigate('/play/map')}>게임하기</button></nav>
+    <nav><button onClick={() => navigate('/play/map')}>모험 지도</button><button onClick={() => navigate('/play/map')}>게임하기</button><button onClick={() => navigate('/play/chat')}>호야와 대화하기</button></nav>
   </main>
 }
