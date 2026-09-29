@@ -39,7 +39,11 @@ class HoyaDialogueService:
     def _demo(self, context: HoyaDialogueContext, provider: str, reason: str | None) -> HoyaDialogueResponse:
         output = self.demo.reply_sync(context)
         return HoyaDialogueResponse(text=output.text, strategy=output.strategy, target_words=output.target_words,
-                                    hoya_actions=output.hoya_actions, provider=provider, model=None, fallback_reason=reason)
+                                    provider=provider, model=None, fallback_reason=reason)
+
+    def fallback(self, context: HoyaDialogueContext, reason: str) -> HoyaDialogueResponse:
+        """외부 제공자를 부르지 않고 DEMO 응답으로 turn을 마무리한다(멈춘 예약 복구 등)."""
+        return self._demo(context, "DEMO_FALLBACK", reason)
 
     async def reply(self, context: HoyaDialogueContext) -> HoyaDialogueResponse:
         if self.provider is None:
@@ -55,4 +59,4 @@ class HoyaDialogueService:
             log.warning("호야 대화 제공자 예외")
             return self._demo(context, "DEMO_FALLBACK", "PROVIDER_ERROR")
         return HoyaDialogueResponse(text=output.text, strategy=output.strategy, target_words=output.target_words,
-                                    hoya_actions=output.hoya_actions, provider=self.provider.name, model=self.provider.model)
+                                    provider=self.provider.name, model=self.provider.model)

@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr = SecretStr("")
     hoya_chat_timeout_sec: float = 8.0
     hoya_chat_max_turns: int = 30
+    # 이 시간이 지나도 PROCESSING인 turn(서버 중단 등)은 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리한다.
+    hoya_chat_stale_sec: float = 30.0
     model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 

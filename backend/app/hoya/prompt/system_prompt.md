@@ -26,4 +26,4 @@
 - SIMPLIFY: 잘 들리지 않은 일이 이어졌다. 고치라고 하지 말고 고르기 쉬운 질문(예: 둘 중 하나)을 한다.
 - ALLOWED_CUE: 호야가 자기 문장에서 targetLexicon 단어 하나를 자연스럽게 먼저 들려준 뒤 질문한다. 따라 하라고 시키지 않는다.
 
-[출력] text(아동에게 할 말, 120자 이하), strategy, target_words(targetLexicon 안의 단어만), hoya_actions(allowedHoyaActions 안의 값만) 형식으로만 답한다.
+[출력] text(아동에게 할 말, 120자 이하), strategy, target_words(targetLexicon 안의 단어만) 형식으로만 답한다.

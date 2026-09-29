@@ -9,7 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import get_args
 
-from ..schemas import HoyaChatAction, SpeechEvidence, Strategy
+from ..schemas import SpeechEvidence, Strategy
 
 SYSTEM_PROMPT_FILE = Path(__file__).with_name("system_prompt.md")
 
@@ -43,7 +43,6 @@ def trusted_context(context: HoyaDialogueContext) -> dict:
         "conversationPolicy": {"strategy": context.strategy},
         "speechEvidence": {"result": context.evidence},
         "targetLexicon": context.target_lexicon,
-        "allowedHoyaActions": list(get_args(HoyaChatAction)),
         "allowedStrategies": list(get_args(Strategy)),
     }
 

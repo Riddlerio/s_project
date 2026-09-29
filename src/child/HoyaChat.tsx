@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { completeHoyaChat, sendHoyaTurn, startHoyaChat, type HoyaChatSession } from '../api/hoyaChat'
+import { completeHoyaChat, getHoyaChat, sendHoyaTurn, startHoyaChat, type HoyaChatSession } from '../api/hoyaChat'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
 import { AudioCapture } from '../speech/audioCapture'
@@ -98,7 +98,9 @@ export default function HoyaChat() {
       const started = await startHoyaChat(mode)
       const chat = new HoyaChatController({
         speak: speakKorean,
-        requestReply: (turnIndex, utterance) => sendHoyaTurn(started.sessionId, turnIndex, utterance),
+        // 같은 발화는 같은 요청 ID로만 재시도한다. 서버가 이미 끝낸 turn이면 저장된 답을 받는다.
+        requestReply: request => sendHoyaTurn(started.sessionId, request),
+        resync: () => getHoyaChat(started.sessionId).then(value => ({ nextTurnIndex: value.nextTurnIndex, active: value.status === 'active' })),
         onState: setChatState, onAction: setAction, onText: setHoyaText,
         onComplete: () => { void completeHoyaChat(started.sessionId).catch(() => undefined); capture.current?.stop() },
       })

@@ -42,11 +42,14 @@ from .games.evaluation import evaluate_round
 from .games.conversation import quest_reply
 from .training.content import items
 from .hoya.api import router as hoya_chat_router
+from .hoya.schema_compat import upgrade_hoya_chat_schema
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
+    # PR #4 초기 개발 DB의 호야 대화 표를 현재 구조로 옮긴다(자료 보존). 이미 최신이면 아무것도 하지 않는다.
+    upgrade_hoya_chat_schema(engine)
     if settings.secret_key == "dev-only-change-me":
         logging.warning("개발용 SECRET_KEY가 사용 중입니다. 운영 환경에서는 변경하세요.")
     with SessionLocal() as db:

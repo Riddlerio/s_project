@@ -55,21 +55,21 @@ class DemoProvider:
         word = lexicon[(context.turn_index - 1) % len(lexicon)] if lexicon else None
         strategy = context.strategy
         if strategy == "WAIT_OR_SIMPLIFY":
-            return ProviderOutput(text=WAIT[(context.turn_index - 1) % len(WAIT)], strategy=strategy, hoya_actions=["LISTENING"])
+            return ProviderOutput(text=WAIT[(context.turn_index - 1) % len(WAIT)], strategy=strategy)
         if strategy == "SIMPLIFY":
             if len(lexicon) >= 2:
                 first, second = lexicon[(context.turn_index - 1) % len(lexicon)], lexicon[context.turn_index % len(lexicon)]
                 return ProviderOutput(text=f"호야가 잘 못 들었나 봐. {first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?",
-                                      strategy=strategy, target_words=[first, second], hoya_actions=["ENCOURAGE"])
-            return ProviderOutput(text="호야가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy, hoya_actions=["ENCOURAGE"])
+                                      strategy=strategy, target_words=[first, second])
+            return ProviderOutput(text="호야가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy)
         # 불확실할 때는 인식 문장을 믿지 않으므로 주제 반응을 일반 문장으로 한다.
         ack, questions = _topic(context.child_transcript if context.evidence != "UNCERTAIN" else None)
         question = questions.get(phoneme, GENERIC[1].get(phoneme, "그다음엔 뭐 했어?"))
         if strategy == "ALLOWED_CUE" and word:
             # 치료사가 허용한 청각 모델: 호야가 자기 말 속에서 목표 단어를 먼저 들려준다. 따라 하라고 시키지 않는다.
             return ProviderOutput(text=f"{ack} 호야는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너는 뭐 좋아해?",
-                                  strategy=strategy, target_words=[word], hoya_actions=["TALKING"])
+                                  strategy=strategy, target_words=[word])
         if strategy == "CONTINUE_OR_EXPAND":
             return ProviderOutput(text=f"{ack} 더 이야기해 줄래?" if context.turn_index % 2 == 0 else f"{ack} {question}",
-                                  strategy=strategy, hoya_actions=["CHEER"])
-        return ProviderOutput(text=f"{ack} {question}", strategy=strategy, hoya_actions=["TALKING"])
+                                  strategy=strategy)
+        return ProviderOutput(text=f"{ack} {question}", strategy=strategy)
