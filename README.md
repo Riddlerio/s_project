@@ -35,13 +35,15 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 호야 홈의 "호야와 대화하기"(`/play/chat`)는 게임 밖 자유대화입니다. 아동이 말하면 기존 음성 경로(AudioCapture·MicUtterancePipeline·VAD·WebSpeechRecognizer)로 발화를 요약하고, 서버가 목표 음소가 관찰됐는지(`TARGET_OBSERVED`·`TARGET_NOT_OBSERVED`·`UNCERTAIN`·`NO_SPEECH`)만 기록합니다. 정해진 목표 단어가 없으므로 발음의 정오를 판정하지 않습니다. 결정적 대화 정책이 다음 전략을 정하고, 대화 제공자는 그 전략을 짧은 한국어 문장으로 표현만 합니다. 호야는 아동이 한 말에 먼저 반응하고, 같은 주제 안에서 목표 음소가 자연스럽게 나올 질문을 합니다.
 
-- 흐름: "대화 시작"을 한 번 누르면 호야 말하기 → 듣기 → (발화 끝) 생각하기(THINKING) → 말하기 → 듣기가 자동으로 이어집니다. 응답이 750ms보다 늦을 때만 "음..."을 한 turn에 한 번 말합니다(`HOYA_THINKING_FILLER_DELAY_MS`, `src/child/hoyaChatController.ts`). 호야가 말하거나 생각하는 동안에는 마이크 소리를 아동 발화로 보내지 않습니다.
+- 흐름: "대화 시작"을 한 번 누르면 호야 말하기 → 듣기 → (발화 끝) 생각하기(THINKING) → 말하기 → 듣기가 자동으로 이어집니다. 응답이 750ms보다 늦을 때만 "음..."을 한 turn에 한 번 말합니다(`HOYA_THINKING_FILLER_DELAY_MS`, `src/child/hoyaChatController.ts`). 호야가 말하거나 생각하는 동안에는 마이크 소리를 아동 발화로 보내지 않습니다. 호야의 표정·동작(THINKING·TALKING·LISTENING)은 이 대화 상태가 정하며, 대화 제공자(LLM)는 동작을 정하지 않습니다.
+- 재시도와 중복 방지: 브라우저는 발화 1회마다 임의의 요청 ID(`clientRequestId`, UUID)를 만들고, 같은 발화의 재시도에는 같은 ID만 씁니다. 서버는 제공자를 부르기 전에 turn을 `PROCESSING`으로 먼저 저장하고(같은 turn·같은 ID는 한 요청만 성공), 같은 ID가 다시 오면 저장된 답을 돌려주거나 처리 중이면 202를 돌려줍니다. 그래서 응답만 유실돼도 같은 답을 복구하고, 같은 발화로 외부 LLM을 두 번 부르지 않습니다. 브라우저는 결과를 모르는 turn이 있으면 다음 발화를 보내기 전에 그 turn부터 같은 ID로 확인합니다. 서버 중단 등으로 `HOYA_CHAT_STALE_SEC`(기본 30초, 제공자 timeout보다 김)가 지나도 `PROCESSING`인 turn은 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리합니다.
+- 대화 끝: 마지막 허용 turn(`HOYA_CHAT_MAX_TURNS`, 기본 30)을 저장하는 순간 서버가 대화를 끝냅니다. "대화 끝내기"(`/complete`)는 여러 번 불러도 안전합니다.
 - 제공자: 기본은 LLM 없이 동작하는 DEMO 제공자입니다. `HOYA_CHAT_ENABLED=true`, `HOYA_CHAT_PROVIDER=openai`, `HOYA_CHAT_MODEL`(모델 이름, 코드에 고정하지 않음), `OPENAI_API_KEY`를 모두 넣으면 OpenAI Responses API를 씁니다. key가 없거나 시간 초과(`HOYA_CHAT_TIMEOUT_SEC`, 기본 8초)·서버 오류·형식이 틀린 응답·검증 실패가 나면 DEMO 응답으로 대신하고 대화는 계속됩니다.
-- 안전: 서버가 응답의 전략·허용 행동·목표 단어(훈련 단어 목록 안)·금지 표현(교정·진단·치료 기법·개인정보 요청·지시문 노출)을 검사합니다. 아동 발화는 신뢰하지 않는 내용으로 서버 지시와 따로 보냅니다. LLM에는 도구를 주지 않습니다.
+- 안전: 서버가 응답의 형식·전략·목표 단어(훈련 단어 목록 안)·금지 표현(교정·진단·치료 기법·개인정보 요청·지시문 노출)을 검사합니다. 아동 발화는 신뢰하지 않는 내용으로 서버 지시와 따로 보냅니다. LLM에는 도구를 주지 않습니다.
 - 개인정보: 외부 LLM을 켜면 아동 발화의 인식 문장과 최근 대화 몇 turn, 목표 음소·단어·연령대가 설정한 제공자에게 전송됩니다. 이름·계정·play code·원본 음성은 보내지 않습니다. 보호자 동의가 있는 아동만 대화를 시작할 수 있습니다. 대화 문장은 `HoyaChatTurn`에 저장되고, 보존 기간(`TRANSCRIPT_RETENTION_DAYS`)이 지나면 아동 발화와 호야 응답 문장을 비웁니다. 치료사의 음성 자료 삭제는 대화 기록도 지웁니다.
 - 임상 분리: 대화 기록은 진행 지표·임상 요약·활동 제안·임상 관찰에 들어가지 않습니다. 치료사 화면의 대화 보기는 아직 없습니다. 실제 OpenAI 호출은 자동 테스트하지 않았습니다(가짜 transport만 사용).
 
-API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST /api/hoya/chat/sessions/{id}/turns`, `POST /api/hoya/chat/sessions/{id}/complete`입니다. 기존 쿠키 인증·CSRF·Origin 검사를 그대로 쓰고, 아동은 로그인한 계정의 자기 대화만 쓸 수 있습니다.
+API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST /api/hoya/chat/sessions/{id}/turns`, `POST /api/hoya/chat/sessions/{id}/complete`입니다. turn 요청에는 `turnIndex`와 `clientRequestId`가 필요합니다. 기존 쿠키 인증·CSRF·Origin 검사를 그대로 쓰고, 아동은 로그인한 계정의 자기 대화만 쓸 수 있습니다. PR #4 초기 버전으로 만든 로컬 개발 DB의 `hoya_chat_turns` 표는 서버 시작 때 자료를 보존한 채 현재 구조로 옮깁니다(`app/hoya/schema_compat.py`).
 
 ## 사전 요구사항
 
