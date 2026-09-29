@@ -14,13 +14,13 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, engine, get_db, SessionLocal
 from .enums import LEVEL_ORDER
-from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginFailure, Child, GameEvent, ProgressMetric, SpeechAnalysis,
+from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEvent, ClinicalObservation, ClinicalVerification, CookieSession, LoginFailure, Child, GameEvent, HoyaChatSession, HoyaChatTurn, ProgressMetric, SpeechAnalysis,
                      Therapist, TherapistFeedback, TherapistRule, TrainingDecision, TrainingGoal,
                      TrainingPlan, TrainingSession, Utterance, now)
 from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, DemoLoginInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
                       RecommendationDecisionInput, StartInput, UtteranceInput)
 from .security import hash_password, hash_token, verify_dummy_password, verify_password
-from .maintenance import purge_expired_transcripts, retention_loop
+from .maintenance import purge_expired_chat_text, purge_expired_transcripts, retention_loop
 from .auth import COOKIE_NAME, create_session, current_account, require_student, require_therapist, require_admin
 from .seed import seed
 from .demo import demo_account, is_demo_account
@@ -41,6 +41,7 @@ from .games.rounds import GAME_ROUNDS, effective_round, next_difficulty, public_
 from .games.evaluation import evaluate_round
 from .games.conversation import quest_reply
 from .training.content import items
+from .hoya.api import router as hoya_chat_router
 
 
 @asynccontextmanager
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
         logging.warning("개발용 SECRET_KEY가 사용 중입니다. 운영 환경에서는 변경하세요.")
     with SessionLocal() as db:
         purge_expired_transcripts(db, settings.transcript_retention_days)
+        purge_expired_chat_text(db, settings.transcript_retention_days)
     if settings.seed_demo_data:
         with SessionLocal() as db:
             seed(db)
@@ -346,6 +348,11 @@ def delete_speech_data(child_id: str, db: Session = Depends(get_db), therapist: 
         db.execute(delete(ClinicalVerification).where(ClinicalVerification.observation_id.in_(observation_ids)))
         db.execute(delete(ClinicalObservation).where(ClinicalObservation.id.in_(observation_ids)))
     db.execute(delete(ActivityRecommendation).where(ActivityRecommendation.child_id == child_id))
+    # 호야 대화 문장도 아동 음성에서 나온 자료다. 턴을 먼저 지우고 대화 세션을 지운다.
+    chat_ids = db.scalars(select(HoyaChatSession.id).where(HoyaChatSession.child_id == child_id)).all()
+    if chat_ids:
+        db.execute(delete(HoyaChatTurn).where(HoyaChatTurn.session_id.in_(chat_ids)))
+        db.execute(delete(HoyaChatSession).where(HoyaChatSession.id.in_(chat_ids)))
     if utterance_ids:
         db.execute(delete(SpeechAnalysis).where(SpeechAnalysis.utterance_id.in_(utterance_ids)))
     if ids:
@@ -954,6 +961,9 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
     rule.active, rule.deactivated_reason = False, "therapist"
     db.commit()
     return public(rule, ["id", "rule_type", "params", "active"])
+
+
+app.include_router(hoya_chat_router)
 
 
 # 반드시 마지막에 등록한다. 위의 /api 경로가 먼저 일치하고, 나머지 GET만 프로덕션 SPA로 간다.

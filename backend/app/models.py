@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -318,3 +318,37 @@ class TherapistRule(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     source_feedback_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     deactivated_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class HoyaChatSession(Base):
+    """호야와 대화하기 세션. 5라운드 게임의 TrainingSession.runtime_state와 섞지 않는다."""
+    __tablename__ = "hoya_chat_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"))
+    goal_id: Mapped[str] = mapped_column(ForeignKey("training_goals.id"))
+    mode: Mapped[str] = mapped_column(String)
+    is_seed: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String, default="active")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 대화 흐름용 비임상 요약(첫 인사·턴 수). 임상 사실을 저장하지 않는다.
+    summary_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class HoyaChatTurn(Base):
+    """아동 발화 1회와 호야 응답 1회. speech_evidence는 관찰 상태이며 정오 판정이 아니다."""
+    __tablename__ = "hoya_chat_turns"
+    __table_args__ = (UniqueConstraint("session_id", "turn_index"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("hoya_chat_sessions.id"))
+    turn_index: Mapped[int] = mapped_column(Integer)
+    child_transcript: Mapped[str | None] = mapped_column(String, nullable=True)
+    hoya_text: Mapped[str | None] = mapped_column(String, nullable=True)
+    recognizer: Mapped[str] = mapped_column(String)
+    speech_evidence: Mapped[str] = mapped_column(String)
+    strategy: Mapped[str] = mapped_column(String)
+    target_words: Mapped[list] = mapped_column(JSON, default=list)
+    provider: Mapped[str] = mapped_column(String)
+    model_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    fallback_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from .models import Utterance, now
+from .models import HoyaChatTurn, Utterance, now
 
 
 def purge_expired_transcripts(db, retention_days: int, current=None) -> int:
@@ -20,9 +20,21 @@ def purge_expired_transcripts(db, retention_days: int, current=None) -> int:
     return len(rows)
 
 
+def purge_expired_chat_text(db, retention_days: int, current=None) -> int:
+    """보존 기간이 지난 호야 대화의 아동 발화와 호야 응답 문장을 비운다. 호야 응답도 아동 말을 되풀이할 수 있다."""
+    cutoff = (current or now()) - timedelta(days=retention_days)
+    rows = [row for row in db.scalars(select(HoyaChatTurn).where(HoyaChatTurn.created_at < cutoff)).all()
+            if row.child_transcript is not None or row.hoya_text is not None]
+    for turn in rows:
+        turn.child_transcript = None
+        turn.hoya_text = None
+    db.commit()
+    return len(rows)
+
+
 def run_retention_once(session_factory, retention_days: int) -> int:
     with session_factory() as db:
-        return purge_expired_transcripts(db, retention_days)
+        return purge_expired_transcripts(db, retention_days) + purge_expired_chat_text(db, retention_days)
 
 
 async def retention_loop(session_factory, retention_days: int, interval_sec: float) -> None:
