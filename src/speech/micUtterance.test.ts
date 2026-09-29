@@ -64,3 +64,19 @@ describe('실제 마이크 경로: 쉼 후 재개 frame 시나리오', () => {
     expect(run(byName('silence_no_utterance'))).toEqual([])
   })
 })
+
+describe('호야 대화: 다시 듣기 전 발화 조각 버리기', () => {
+  it('resetUtterance는 진행 중 발화를 버리고 잡음 기준은 유지한다', () => {
+    const pipeline = new MicUtterancePipeline('any_sound')
+    const frames = framesOf([[1000, -60], [400, -25]])
+    frames.forEach(frame => pipeline.process(frame))
+    expect(pipeline.vad.state).toBe('voice')
+    const floor = pipeline.vad.noiseFloor
+    pipeline.resetUtterance()
+    expect(pipeline.vad.state).toBe('silence')
+    expect(pipeline.vad.noiseFloor).toBe(floor)
+    // 버린 조각은 VOICE_END 요약이 되지 않는다.
+    const after = framesOf([[1400, -60], [1000, -60]]).map(frame => ({ ...frame, tMs: frame.tMs + 1400 }))
+    expect(after.flatMap(frame => pipeline.process(frame).acoustic ?? [])).toEqual([])
+  })
+})

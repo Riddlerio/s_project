@@ -1,6 +1,24 @@
 # Speech Hero V2 검증 기록
 
-기준 브랜치: `feature/speech-hero-v2-hardening` (PR #2 merge 이후) · 2026-09-28
+기준 브랜치: `feature/speech-hero-v2-hardening` (PR #2 merge 이후) · 2026-09-28. 아래 "호야와 대화하기" 절은 `feature/hoya-adaptive-chat` · 2026-09-29 기준이다.
+
+## 호야와 대화하기 (feature/hoya-adaptive-chat)
+
+| 명령 | 실행 결과 |
+|---|---|
+| 작업 전 main(`09377fc`) baseline | pytest 184개 통과, Vitest 47개 통과(10개 파일), typecheck·build·`git diff --check`·audit 통과 |
+| `backend\.venv\Scripts\python.exe -m pytest backend -q --basetemp backend/test-temp -p no:cacheprovider` | 246개 통과 (`test_hoya_chat.py` 49개, `test_hoya_chat_reliability.py` 13개), 경고 1개. 수정 전 PR #4 baseline은 228개 |
+| `npm.cmd run typecheck` | 통과 |
+| `npm.cmd test` | 74개 통과 (12개 파일). 수정 전 PR #4 baseline은 62개 |
+| `npm.cmd run build` | 통과. dist 13개 파일에서 샘플 계정·`OPENAI_API_KEY`·`HOYA_CHAT_`·`VITE_OPENAI`와 `.env` 파일 없음 |
+| `git diff --check` / `npm.cmd audit` | 공백 오류 없음 / 취약점 0건 |
+| `smoke_api.py` (임시 DB·DEMO 서버) | 기존 흐름과 호야 대화 DEMO 흐름(시작 → 3 turn, 각 turn을 같은 요청 ID로 재전송해 같은 답 확인 → 다른 요청의 중복 turn 409 → 종료) 통과 |
+| 브라우저(Playwright, Vite 개발 서버 + DEMO 백엔드) | DEMO 대화 시작 → 인사 → LISTENING → 입력 → 답변 → 자동 LISTENING, 대화 끝내기 확인. 응답을 2.5초 늦췄을 때 약 0.1초에 THINKING, 0.75초에 "음..." 1회, 응답은 "음..." 재생이 끝난 뒤 시작(겹침 없음). 첫 turn 응답을 브라우저에서 일부러 버렸을 때 같은 요청 ID로 다시 물어 저장된 답을 말하고, 다음 발화는 새 ID·turn 2로 진행(요청 3번, DB turn 2개) |
+
+- 자동 테스트 범위: DEMO·가짜 OpenAI(공식 SDK + mock transport) 정상, 시간 초과·5xx·JSON 아님·schema 불일치·빈 응답 → DEMO 대체, 외부 소켓 연결 차단. 대화 정책 6가지, BANK 재사용·제외 단어·다른 음소 차단, 프롬프트 주입(지시문 노출·전략 변경 거부, 도구 없음), 401·CSRF·Origin·다른 아동 404·보호자 동의·잘못된 본문 4xx, 보존 기간 비우기·음성 자료 삭제 FK·임상 통계 불변, `backend/.env` 위치·OS 환경 변수 우선. 프런트엔드는 THINKING·"음..." Case 1~10(대체 화면 포함)과 기존 게임 매핑 불변을 테스트했다.
+- 신뢰성(`test_hoya_chat_reliability.py`, `src/api/hoyaChat.test.ts`, `hoyaChatController.test.ts`): 응답 유실 뒤 같은 요청 재시도 → 저장된 답(제공자 추가 호출 없음), 처리 중 중복 → 202(제공자 1회), 같은 요청 5개 동시 → 제공자 1회·turn 1개, 조회와 예약 사이 경합 → unique 제약으로 202/409(500 아님), 멈춘 PROCESSING → 제공자 없이 DEMO로 마무리, 마지막 turn 저장 시 서버가 세션 종료·재시도해도 같은 답, `/complete` 멱등, 브라우저의 같은 발화=같은 ID·새 발화=새 ID·재시도 한도. PHASE A 후속(`hoyaChatRecovery.test.ts`, fingerprint·schema 테스트): 응답 유실 → `RECOVERING`(listening=false, 새 발화 거부) → 같은 ID 복구 → 복구한 답 실제 TTS → LISTENING, 마지막 turn 복구 → TTS → ENDED, 복구 중 "음..." turn당 1회, 복구 중 종료 → timer 정리·늦은 답 무시, 끝까지 실패 → 인사 후 종료. 같은 ID에 인식 문장(None 포함)·대체 후보·인식기·음향 요약이 달라지면 409 `REQUEST_ID_REUSED`, JSON key 순서·공백 차이는 같은 fingerprint. 개발 DB 네 가지 구조(표 없음·PR #4 초기·b7dd929·최신) 호환. 브라우저(Playwright, DEMO)에서 첫 응답 유실과 이어진 연결 끊김 4번을 흉내 냈을 때: "음..." 1회 → 복구 안내 → 같은 요청 ID로 6번째 요청에서 복구 → 복구한 답을 말함 → LISTENING. 복구 중 새 발화 버튼은 꺼져 있었고 DB turn은 1개. 수정 뒤 전체 검증: pytest 252개, Vitest 77개(13개 파일) 통과.
+- **실제 OpenAI 호출: NOT MANUALLY VERIFIED** (`backend/.env`의 key·model이 비어 있음). 실물 마이크로 하는 자동 turn(호야 TTS를 다시 듣지 않는지)과 Android 브라우저도 NOT MANUALLY VERIFIED.
+- 대화 근거는 임상 통계에 넣지 않는다. **NOT VALIDATED — NO LABELED DATA.**
 
 ## 자동 검증
 

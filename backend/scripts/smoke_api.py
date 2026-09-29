@@ -1,6 +1,7 @@
 """시연 데이터가 있는 로컬 서버의 쿠키 인증·5라운드 API를 확인한다."""
 
 import sys
+import uuid
 
 import httpx
 
@@ -46,6 +47,26 @@ def main(base_url: str) -> None:
         timeline.raise_for_status()
         assert {row["round_index"] for row in timeline.json()["observations"]} == {1, 2, 3, 4, 5}
         print("[OK] 쿠키 인증, CSRF, 역할 접근, 5라운드, 임상 관찰")
+
+        # 호야와 대화하기(DEMO 제공자): 시작 → 자동 turn → 종료.
+        login = client.post("/api/auth/login", json={"username": "HERO01", "password": "speechhero"})
+        login.raise_for_status()
+        csrf = {"X-CSRF-Token": login.json()["csrfToken"]}
+        chat = client.post("/api/hoya/chat/sessions", headers=csrf, json={"mode": "demo"})
+        chat.raise_for_status()
+        chat_id = chat.json()["sessionId"]
+        for index, text in enumerate(["학교 갔어.", "미술 수업 했어.", None], 1):
+            body = {"turnIndex": index, "transcript": text, "clientRequestId": str(uuid.uuid4())}
+            turn = client.post(f"/api/hoya/chat/sessions/{chat_id}/turns", headers=csrf, json=body)
+            turn.raise_for_status()
+            assert turn.json()["text"] and "틀렸" not in turn.json()["text"]
+            # 응답을 잃은 경우처럼 같은 요청을 다시 보내면 저장된 답이 그대로 온다.
+            again = client.post(f"/api/hoya/chat/sessions/{chat_id}/turns", headers=csrf, json=body)
+            assert again.status_code == 200 and again.json() == turn.json()
+        assert client.post(f"/api/hoya/chat/sessions/{chat_id}/turns", headers=csrf,
+                           json={"turnIndex": 3, "transcript": "또", "clientRequestId": str(uuid.uuid4())}).status_code == 409
+        client.post(f"/api/hoya/chat/sessions/{chat_id}/complete", headers=csrf).raise_for_status()
+        print("[OK] 호야와 대화하기 DEMO 흐름(같은 요청 재시도 포함)")
 
 
 if __name__ == "__main__":

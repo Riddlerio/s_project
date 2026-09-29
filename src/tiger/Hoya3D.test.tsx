@@ -32,4 +32,10 @@ describe('호야 3D 대체 화면', () => {
     boundary.state = { failed: false }
     expect(renderToStaticMarkup(<>{boundary.render()}</>)).toBe('<span>3D</span>')
   })
+
+  it('Case 10: WebGL이 없어도 THINKING은 "호야가 생각하고 있어요"로 보여 준다', () => {
+    const html = renderToStaticMarkup(<Hoya3D action="THINKING" />)
+    expect(html).toContain('data-hoya-fallback="true"')
+    expect(html).toContain('호야가 생각하고 있어요')
+  })
 })

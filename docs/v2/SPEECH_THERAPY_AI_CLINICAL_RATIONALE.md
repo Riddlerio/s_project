@@ -1,7 +1,7 @@
 # Speech Hero V2
 # 언어치료·AI 설계 근거 및 임상적 해석
 
-기준: `feature/speech-hero-v2-hardening`의 `8bcacd7` 코드와 자동 테스트, 2026-09-29 확인한 외부 출처. 이 문서는 현재 제품 구조를 설명하며 진단·치료 효과를 주장하지 않는다.
+기준: `feature/speech-hero-v2-hardening`의 `8bcacd7` 코드와 자동 테스트, 2026-09-29 확인한 외부 출처. §12 호야 적응형 대화는 `feature/hoya-adaptive-chat` 기준이다. 이 문서는 현재 제품 구조를 설명하며 진단·치료 효과를 주장하지 않는다.
 
 ## 1. 문서 목적과 제품의 범위
 
@@ -104,7 +104,7 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 
 ## 8. AI와 언어재활사의 역할
 
-현재 자동화는 VAD, 음향 특징, 외부 브라우저 ASR, 문자 기반 발음 근사, 오류 패턴 태그, 세션 요약과 규칙 기반 추천 지원이다. `ai_confidence`는 데이터 기반으로 보정된 확률이 아니라 코드가 부여한 범주(`LOW`/`MEDIUM`/`UNCERTAIN`)다. 별도 학습형 발음 모델이나 외부 LLM을 실행하지 않는다.
+현재 자동화는 VAD, 음향 특징, 외부 브라우저 ASR, 문자 기반 발음 근사, 오류 패턴 태그, 세션 요약과 규칙 기반 추천 지원이다. `ai_confidence`는 데이터 기반으로 보정된 확률이 아니라 코드가 부여한 범주(`LOW`/`MEDIUM`/`UNCERTAIN`)다. 별도 학습형 발음 모델은 없다. 외부 LLM은 §12의 호야 자유대화에서 설정으로 켰을 때만 **문장 표현**에 쓰이며, 발음 판정·치료 결정에는 쓰이지 않는다.
 
 언어재활사는 목표 음소·위치·단계·단서를 정하고, 문맥·아동의 이해·환경을 고려해 결과를 확인/교정/거부하며 추천을 승인/수정/거절한다. 점수의 높낮이만으로 목표를 바꾸지 않는다. [ASHA 지침](https://www.asha.org/practice-portal/clinical-topics/articulation-and-phonology/)이 강조하는 언어·방언과 맥락을 현재의 단순 규칙이 포괄하지 못한다는 점도 검토해야 한다.
 
@@ -138,11 +138,33 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 
 보호자 동의가 없는 아동의 활동 시작을 막고, 계정·역할·CSRF·Origin을 검사한다. 원본 음성은 앱 서버에 보관하지 않는다. 인식 문장과 대체 후보는 설정된 보존 기간 뒤 서버 시작 시·운영 중 주기 작업으로 비우지만, 다른 음향·관찰 기록까지 자동 삭제하는 정책은 아니다. 브라우저 Web Speech API의 외부 처리·보존은 실제 제공자 조건 확인이 필요하다. DEMO 자료는 임상 집계에 넣지 않는다. [서버 흐름](../../backend/app/main.py), [보존 작업](../../backend/app/maintenance.py).
 
-## 12. 현재 한계와 향후 임상 검증 계획
+## 12. 호야 적응형 대화(Hoya Adaptive Conversation)
+
+게임 밖에서 아동이 호야와 자유롭게 이야기하는 **"호야와 대화하기"** 모드다. 목적은 치료사가 정한 목표 음소가 대화 흐름 안에서 자연스럽게 나올 **기회**를 만드는 것이다. 아이에게는 놀이, 치료사에게는 근거라는 원칙은 같다. 역할은 나뉜다: Speech Engine은 무엇이 관찰됐는지 계산하고, 결정적 대화 정책이 다음 전략을 고르며, 대화 제공자(LLM 또는 DEMO)는 이미 정해진 전략을 한국어 문장으로 표현만 한다. 최종 임상 판단은 치료사가 한다. [대화 서비스](../../backend/app/hoya/service.py), [정책](../../backend/app/hoya/policy.py), [system prompt](../../backend/app/hoya/prompt/system_prompt.md).
+
+### 현재 구현됨
+
+- 근거 상태: 자유대화에는 정해진 목표 단어가 없으므로 정오를 판정하지 않는다. Conversation Quest와 같은 규칙(음질 게이트 + 인식 문장의 목표 음소 검출, [evidence](../../backend/app/hoya/evidence.py))으로 `TARGET_OBSERVED`·`TARGET_NOT_OBSERVED`·`UNCERTAIN`·`NO_SPEECH`만 남긴다. 소리는 들렸는데 인식 문장이 없으면 `UNCERTAIN`이다. ASR이 다르게 들었다는 이유로 오류라고 하지 않는다.
+- 정책: 목표 관찰 → 대화 확장, 미관찰·불확실 → 같은 주제 안의 자연스러운 재유도, 무발화 → 기다리기·쉬운 질문, 불확실 반복 → 고르기 쉬운 질문. 목표 미관찰이 두 번 이어지고 치료사가 허용한 단서가 있을 때만 `ALLOWED_CUE`다. 대화에서 줄 수 있는 단서는 `auditory_model`(호야가 자기 문장 속에서 목표 단어를 먼저 들려줌)뿐이다. `visual_mouth`·`tactile_description`은 음성 대화로 줄 수 없고 치료사가 쓴 단서 문구도 없으므로 재유도로 대체한다. 혀·이 위치, 호흡, 촉각 같은 기법은 만들지 않는다.
+- 목표 단어: [훈련 단어 목록(BANK)](../../backend/app/training/content.py)만 쓰고 `excluded_words`를 뺀다. 다른 음소 단어는 우선 단어로 지정돼도 넣지 않는다. LLM이 만든 단어를 임상 목표 단어로 저장하지 않는다.
+- 안전: 아동 발화는 신뢰하지 않는 내용으로 서버 지시와 다른 메시지에 담는다. 제공자 응답은 schema·전략 일치·목표 단어 범위·금지 표현(교정·진단·치료 기법·개인정보·지시문 노출)을 서버에서 검사하고, 통과하지 못하거나 시간 초과·연결 오류면 DEMO 응답으로 대체한다. 대체 응답은 성공·실패를 기록하지 않는다. 호야의 표정·동작은 브라우저의 대화 상태(생각 중·말하는 중·듣는 중)가 정하며 LLM이 정하지 않는다. 같은 발화의 재시도는 요청 ID와 요청 내용 fingerprint로 묶여 한 turn으로만 저장되므로, 네트워크 재시도가 대화 근거를 중복으로 만들지 않는다. 응답을 잃은 turn은 복구한 호야 답을 아동에게 들려준 뒤에만 다음 발화를 받으므로, 저장된 대화 순서와 아동이 실제로 들은 대화 순서가 같다.
+- 임상 분리: 대화는 별도 `HoyaChatSession`·`HoyaChatTurn`에 저장하고 `ProgressMetric`·임상 요약·활동 제안·`ClinicalObservation`에 넣지 않는다. 치료사 검증 이력도 대화 제공자에게 보내지 않는다.
 
 ### 현재 부분 구현
 
-음소 추정은 ASR 출력 텍스트를 단순 한국어 G2P와 동적 정렬로 비교한다. 직접 음성의 세부 조음 오류를 확정하지 못한다. `ClinicalMeaningMapper`, 정교한 cue hierarchy, 자동 휴식/대체 응답 프로토콜, 실제 대화 모델은 없다. 임상적 `LOW`/`MEDIUM` 신뢰도는 보정된 확률이 아니다. V2의 문맥/자발화 라운드는 관찰 기회이지 일반화 성과의 증명이 아니다.
+- 치료사 화면에는 대화 기록 보기가 아직 없다. 대화 근거는 DB에만 있다.
+- DEMO 제공자는 주제 단어와 음소별 질문 목록을 쓰는 규칙 응답이다. 실제 LLM 응답 품질은 자동 테스트가 아니라 사람이 확인해야 한다(외부 호출은 가짜 transport로만 테스트했다).
+- 목표 음소 "관찰"은 브라우저 ASR 문장의 문자 검출이다. 아동이 목표 음소를 정확히 산출했다는 뜻이 아니다.
+
+### 향후 연구/검증 필요
+
+자유대화에서의 목표 음소 산출 빈도·자연스러움, 재유도 전략의 효과, 청각 모델 단서의 적절성, 아동 반응(부담·흥미)은 검증되지 않았다. **NOT VALIDATED — NO LABELED DATA.** 대화 근거를 임상 통계에 넣으려면 치료사 검토 절차와 라벨 검증이 먼저 필요하다.
+
+## 13. 현재 한계와 향후 임상 검증 계획
+
+### 현재 부분 구현
+
+음소 추정은 ASR 출력 텍스트를 단순 한국어 G2P와 동적 정렬로 비교한다. 직접 음성의 세부 조음 오류를 확정하지 못한다. `ClinicalMeaningMapper`, 정교한 cue hierarchy, 자동 휴식/대체 응답 프로토콜은 없다. Conversation Quest는 여전히 고정 DEMO 응답이며, LLM 대화는 §12의 별도 모드에서 문장 표현에만 쓴다. 임상적 `LOW`/`MEDIUM` 신뢰도는 보정된 확률이 아니다. V2의 문맥/자발화 라운드는 관찰 기회이지 일반화 성과의 증명이 아니다.
 
 ### 향후 연구/검증 필요
 
@@ -151,7 +173,7 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 3. 치료사 판단과 자동 추정의 일치·불일치 사례를 검토하고, 단어→대화 및 실제 생활로의 전이를 별도 과제로 평가한다. 사용성·안전성·부정적 피드백 영향도 함께 확인한다.
 4. 필요하다면 forced alignment, GOP, wav2vec2, HuBERT, WavLM, XLS-R 등을 **향후 연구 후보**로 비교한다. 현재 제품에 구현·학습·검증된 기능이 아니다.
 
-## 13. 참고 문헌과 코드 근거
+## 14. 참고 문헌과 코드 근거
 
 - American Speech-Language-Hearing Association. [Speech Sound Disorders: Articulation and Phonology, Practice Portal](https://www.asha.org/practice-portal/clinical-topics/articulation-and-phonology/). 훈련 일반화, 모방 가능성, 맥락·언어 차이를 설명하는 전문 자료.
 - Macrae, T. (2016). [Comprehensive Assessment of Speech Sound Production in Preschool Children](https://pubs.asha.org/doi/10.1044/persp1.SIG1.39). *Perspectives of the ASHA Special Interest Groups*, 1(1), 39–56. 복수 자료에 근거한 평가의 필요성.

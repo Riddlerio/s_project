@@ -1,4 +1,12 @@
+from pathlib import Path
+
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# 로컬 dotenv는 실행 위치와 관계없이 backend/.env 하나다. OS 환경 변수가 dotenv보다 우선한다.
+# 파일이 없으면 무시하므로 운영 환경은 OS 환경 변수만으로 실행할 수 있다.
+BACKEND_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
@@ -16,7 +24,16 @@ class Settings(BaseSettings):
     content_security_policy: str = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
     # 프로덕션에서 빌드된 프런트엔드(dist) 경로. 비어 있으면 API만 서비스한다.
     frontend_dist: str = ""
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # 호야와 대화하기. 꺼져 있거나 key·model이 없으면 외부 LLM 없이 DemoProvider를 쓴다.
+    hoya_chat_enabled: bool = False
+    hoya_chat_provider: str = "openai"
+    hoya_chat_model: str = ""
+    openai_api_key: SecretStr = SecretStr("")
+    hoya_chat_timeout_sec: float = 8.0
+    hoya_chat_max_turns: int = 30
+    # 이 시간이 지나도 PROCESSING인 turn(서버 중단 등)은 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리한다.
+    hoya_chat_stale_sec: float = 30.0
+    model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()
