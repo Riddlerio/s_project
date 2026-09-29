@@ -20,3 +20,9 @@ coverage/
 .vite/
 *.log
 backend/test-temp/
+# 발음 연구(PHASE B): 원본 데이터·캐시·체크포인트·출력은 커밋하지 않는다
+research/data/
+research/cache/
+research/checkpoints/
+research/outputs/
+models/private/
