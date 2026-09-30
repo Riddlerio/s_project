@@ -1,5 +1,6 @@
 import { api } from './client'
 import type { Progress } from '../shared/types'
+import type { PlanForm, PlanningContext, ProposalResponse, SessionPlan } from '../therapist/planning'
 
 export const login = (username: string, password: string) => api<{ csrfToken: string; role: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
 /** 서버가 DEMO 모드일 때만 샘플 계정 세션을 만든다. 비밀번호를 주고받지 않는다. */
@@ -11,3 +12,13 @@ export const sessionDetail = (id: string, token: string) => api<any>(`/sessions/
 export const saveGoal = (id: string, goal: Record<string, unknown>, token: string) => api<any>(`/children/${id}/goals`, { method: 'POST', body: JSON.stringify(goal) }, token)
 export const decision = (id: string, body: Record<string, unknown>, token: string) => api<any>(`/recommendations/${id}/decision`, { method: 'POST', body: JSON.stringify(body) }, token)
 export const feedback = (id: string, body: Record<string, unknown>, token: string) => api<any>(`/utterances/${id}/feedback`, { method: 'POST', body: JSON.stringify(body) }, token)
+
+// 회기 계획(docs/therapist-workflow.md 6절). 경로 이름은 계약에 고정되어 있다.
+export const planningContext = (childId: string) => api<PlanningContext>(`/children/${childId}/planning-context`)
+export const sessionPlanProposal = (childId: string) => api<ProposalResponse>(`/children/${childId}/session-plan-proposal`, { method: 'POST' })
+export const sessionPlans = (childId: string) => api<SessionPlan[]>(`/children/${childId}/session-plans`)
+export const createSessionPlan = (childId: string, form: PlanForm) => api<SessionPlan>(`/children/${childId}/session-plans`, { method: 'POST', body: JSON.stringify(form) })
+export const updateSessionPlan = (planId: string, form: PlanForm) => api<SessionPlan>(`/session-plans/${planId}`, { method: 'PATCH', body: JSON.stringify(form) })
+export const approveSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/approve`, { method: 'POST' })
+export const cancelSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/cancel`, { method: 'POST' })
+export const cloneSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/clone`, { method: 'POST' })
