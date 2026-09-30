@@ -70,9 +70,11 @@ def _rate(part: int, whole: int) -> float | None:
 
 
 def _level_stats(rows: list[dict]) -> dict:
-    evaluable = [row for row in rows if row["result"] in {"success", "retry"}]
+    # 녹음 불량(POOR) 관찰은 결과와 관계없이 평가 가능 표본에서 빼고 따로 센다. 실패로도 성공으로도 세지 않는다.
+    evaluable = [row for row in rows if row["result"] in {"success", "retry"} and row["audioQuality"] != "POOR"]
     success = sum(row["result"] == "success" for row in evaluable)
     return {"verifiedN": len(rows), "evaluableN": len(evaluable), "successN": success,
+            "poorAudioVerifiedN": sum(row["audioQuality"] == "POOR" for row in rows),
             "retryN": len(evaluable) - success, "successRate": _rate(success, len(evaluable)),
             "uncertainN": sum(row["result"] == "uncertain" for row in rows),
             "noSpeechN": sum(row["result"] == "no_speech" for row in rows),

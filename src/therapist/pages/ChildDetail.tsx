@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
@@ -40,15 +40,24 @@ export default function ChildDetail() {
   const [metrics, setMetrics] = useState<Progress | null>(null)
   const [recs, setRecs] = useState<LegacyRecommendation[]>([])
   const [error, setError] = useState('')
+  // 가장 최근 요청의 아동만 반영한다. 아동을 바꾸는 사이 늦게 온 이전 아동 응답은 버린다.
+  const current = useRef(id)
+  current.current = id
   async function load() {
+    const requested = id
     const [child, planning, planRows, chart, recommendations] = await Promise.all([
       childDetail(id, token) as Promise<ChildDetailData>, planningContext(id), sessionPlans(id), progress(id, token),
       api<LegacyRecommendation[]>(`/children/${id}/recommendations`, {}, token),
     ])
+    if (current.current !== requested) return
     setData(child); setContext(planning); setPlans(planRows); setMetrics(chart); setRecs(recommendations)
   }
   const reload = () => load().catch(cause => setError(String(cause)))
-  useEffect(() => { if (!token) navigate('/therapist/login'); else void reload() }, [id, token, navigate])
+  useEffect(() => {
+    // 이전 아동의 화면·계획을 지워 새 아동 화면에서 이전 계획을 저장·승인하지 못하게 한다.
+    setData(null); setContext(null); setPlans([]); setMetrics(null); setRecs([]); setError('')
+    if (!token) navigate('/therapist/login'); else void reload()
+  }, [id, token, navigate])
   async function attempt(action: () => Promise<unknown>) {
     try { await action(); await load() } catch (cause) { setError(String(cause)) }
   }
@@ -58,7 +67,7 @@ export default function ChildDetail() {
     {context && data && <>
       {tab === 'summary' && <SummaryPanel context={context} playCode={data.child.play_code} />}
       {tab === 'goal' && <GoalPanel goal={data.currentGoal} history={data.goalHistory} onSave={values => attempt(() => saveGoal(id, values, token))} />}
-      {tab === 'next' && <NextSessionPanel childId={id} plans={plans} onChanged={async () => { await reload() }} />}
+      {tab === 'next' && <NextSessionPanel key={id} childId={id} plans={plans} onChanged={async () => { await reload() }} />}
       {tab === 'progress' && <ProgressPanel childId={id} context={context} progress={metrics} sessions={data.sessions} plans={plans}
         recommendations={recs} rules={data.activeRules}
         onDecide={(recId, action, note, level) => { void attempt(() => decision(recId, { action, modifiedGoal: action === 'modify' ? { level } : undefined, note }, token)) }}

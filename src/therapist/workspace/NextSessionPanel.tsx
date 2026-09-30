@@ -55,10 +55,11 @@ export default function NextSessionPanel({ childId, plans, onChanged }: { childI
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    const active = currentDraft(plans) || approvedPlan(plans)
+    const own = plans.filter(row => row.childId === childId)
+    const active = currentDraft(own) || approvedPlan(own)
     setPlan(active)
     setForm(active ? toForm(active) : null)
-  }, [plans])
+  }, [plans, childId])
   async function run(action: () => Promise<void>) {
     setBusy(true)
     try { await action() } catch (cause) { setMessage(String(cause)) } finally { setBusy(false) }

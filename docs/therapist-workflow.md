@@ -80,7 +80,7 @@ DRAFT ──approve──▶ APPROVED ──clone──▶ 새 DRAFT(revision+1)
 - correct인 경우에는 치료사가 교정한 결과를 쓴다.
 
 DEMO, seed, PENDING, REJECTED 자료는 제외하고 건수만 따로 보여 준다.
-UNCERTAIN, NO_SPEECH, POOR_AUDIO는 실패로 바꾸지 않는다. 성공률 분모(`evaluableN`)에서 빼고 따로 센다.
+UNCERTAIN, NO_SPEECH, POOR_AUDIO는 실패로 바꾸지 않는다. 성공률 분모(`evaluableN`)에서 빼고 따로 센다. 녹음 불량(POOR) 관찰은 결과가 success나 retry여도 평가 가능 시도에 넣지 않는다(`poorAudioVerifiedN`).
 호야의 `TARGET_OBSERVED`는 대화 속에서 목표 음소가 나왔다는 뜻일 뿐, 정확한 발음이라는 뜻이 아니다. 성공으로 세지 않는다.
 
 - 계산 범위: 이 아동의 최근 실제 회기 5개.
@@ -129,6 +129,8 @@ LLM 입력은 이미 비식별 구조화 context이며, 켜기 전에 기관의 
 ```
 
 다음 표현이 나오면 출력을 폐기하고 템플릿을 쓴다: 진단, 장애가 개선, 치료 효과 보장, 정확한 발음 판정, AI 확정 등.
+입력에 없는 숫자가 있거나, 비율(%)이 서버가 계산한 비율 값과 다를 때도 같다. `nextSessionSuggestion`은 LLM 문장을 쓰지 않고 항상 서버 규칙의 설명 문장으로 바꾼다. LLM이 새 활동이나 치료법을 제안하지 못하게 하기 위해서다.
+활동 제안(`propose_activity`)은 그 근거 관찰이 모두 화면에 보인 범위(최근 실제 회기 5개) 안에 있을 때만 쓴다.
 
 설정 키(`backend/.env`)는 다음과 같다. 셋 중 하나라도 없으면 LLM을 호출하지 않는다.
 

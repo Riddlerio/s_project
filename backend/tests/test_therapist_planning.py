@@ -27,7 +27,7 @@ def add_child(client, headers, name):
 
 
 def add_session(sessions, child_id, results, mode="real", is_seed=False, level="WORD", decision="confirm",
-                days_ago=0, word="사과"):
+                days_ago=0, word="사과", audio=None):
     """관찰 결과 목록으로 회기 하나를 만든다. decision=None이면 검토 대기(PENDING)로 남긴다."""
     with sessions() as db:
         child = db.get(Child, child_id)
@@ -50,7 +50,7 @@ def add_session(sessions, child_id, results, mode="real", is_seed=False, level="
             observation = ClinicalObservation(
                 session_id=session.id, utterance_id=utterance.id, child_id=child_id, activity="monster_adventure",
                 target_phoneme="ㅅ", word_position="initial", generalization_level=level, attempt_number=1,
-                cue_type="VISUAL", independence="INDEPENDENT", audio_quality="POOR" if result == "uncertain" else "GOOD",
+                cue_type="VISUAL", independence="INDEPENDENT", audio_quality=audio or ("POOR" if result == "uncertain" else "GOOD"),
                 ai_result=result, ai_confidence="MEDIUM", evidence={"targetText": word})
             db.add(observation)
             db.flush()
@@ -352,3 +352,28 @@ def test_template_summary_passes_its_own_validation(api):
     assert result["summary_source"] == "TEMPLATE"
     context = summary_module.build_context(result["goal"], result["metrics"], result["proposal"])
     assert summary_module.validate_summary(SummaryOutput.model_validate(result["summary"]), context) is None
+
+
+def test_poor_audio_is_not_an_evaluable_trial(api):
+    client, sessions = api
+    headers = auth(client)
+    child = add_child(client, headers, "메아리")
+    add_session(sessions, child, ["success"] * 6, audio="POOR")
+    metrics = client.get(f"/api/children/{child}/planning-context").json()["metrics"]
+    assert metrics["evaluableN"] == 0 and metrics["successRate"] is None and metrics["poorAudioVerifiedN"] == 6
+    assert client.post(f"/api/children/{child}/session-plan-proposal", headers=headers).json()["status"] == "INSUFFICIENT_DATA"
+
+
+def test_llm_rate_must_match_server_rate_and_suggestion_is_server_text(api):
+    base = {"observation_summary": "요약입니다.", "evidence_points": [], "limitations": []}
+    result, _fake, _child = _llm_run(api, SummaryOutput(**base, next_session_suggestion="새 치료법을 시도합니다."))
+    assert result["summary_source"] == "LLM"
+    assert result["summary"]["nextSessionSuggestion"] != "새 치료법을 시도합니다."
+    assert result["summary"]["nextSessionSuggestion"].startswith(result["proposal"]["rationale"][0]["text"])
+
+
+@pytest.mark.parametrize("claim", ["성공률은 6%입니다.", "성공 비율 4퍼센트"])
+def test_llm_count_used_as_rate_is_rejected(api, claim):
+    output = SummaryOutput(observation_summary=claim, evidence_points=[], next_session_suggestion="제안", limitations=[])
+    result, _fake, _child = _llm_run(api, output)
+    assert result["summary_source"] == "TEMPLATE" and result["rejection"] == "UNGROUNDED_RATE"

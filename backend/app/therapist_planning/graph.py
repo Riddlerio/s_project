@@ -12,7 +12,7 @@ from ..clinical.activity_recommendation import propose_activity
 from ..models import TrainingGoal
 from .evidence import calculate_metrics, filter_verified, latest_decisions, load_observations, recent_real_sessions
 from .proposal import propose_plan
-from .summary import build_context, llm_summary, template_summary, validate_summary
+from .summary import build_context, finalize, llm_summary, template_summary, validate_summary
 
 
 class PlanningDeps:
@@ -72,7 +72,10 @@ def calculate(state: PlanningState, config) -> PlanningState:
 def generate_plan_proposal(state: PlanningState, config) -> PlanningState:
     deps = _deps(config)
     hint = propose_activity(deps.db, deps.child_id) if state["metrics"]["sufficient"] else None
-    activity = hint["activity"] if hint else None
+    # 활동 제안은 화면에 보인 근거 범위(최근 실제 회기 5개) 안의 관찰에만 기댈 때만 쓴다.
+    window = {row["observationId"] for row in state["verified"]}
+    in_window = hint and all(item["observationId"] in window for item in hint["evidence"])
+    activity = hint["activity"] if in_window else None
     return {"activity_hint": activity, "proposal": propose_plan(state["goal"], state["metrics"], activity)}
 
 
@@ -91,12 +94,13 @@ def validate_output(state: PlanningState, config) -> PlanningState:
         return {}
     from .schemas import SummaryOutput
     context = build_context(state["goal"], state["metrics"], state["proposal"])
-    reason = validate_summary(SummaryOutput.model_validate(state["summary"]), context)
+    draft = SummaryOutput.model_validate(state["summary"])
+    reason = validate_summary(draft, context)
+    fallback = template_summary(state["metrics"], state["proposal"])
     if reason is None:
-        return {}
+        return {"summary": finalize(draft, fallback).model_dump(by_alias=True)}
     # 검증을 통과하지 못한 LLM 문장은 보여 주지 않는다. 다시 부르지 않고 템플릿으로 대체한다.
-    return {"summary": template_summary(state["metrics"], state["proposal"]).model_dump(by_alias=True),
-            "summary_source": "TEMPLATE", "rejection": reason}
+    return {"summary": fallback.model_dump(by_alias=True), "summary_source": "TEMPLATE", "rejection": reason}
 
 
 def build_graph():
