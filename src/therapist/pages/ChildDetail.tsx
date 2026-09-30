@@ -1,57 +1,77 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
-import { childDetail, decision, progress, saveGoal } from '../../api/therapist'
+import { childDetail, decision, planningContext, progress, saveGoal, sessionPlans } from '../../api/therapist'
+import type { Progress } from '../../shared/types'
 import { getToken } from '../auth'
-import SessionTrendChart from '../charts/SessionTrendChart'
-import ActivityRecommendationPanel from '../ActivityRecommendationPanel'
+import type { PlanningContext, SessionPlan } from '../planning'
+import GoalPanel from '../workspace/GoalPanel'
+import type { GoalRow } from '../workspace/GoalPanel'
+import NextSessionPanel from '../workspace/NextSessionPanel'
+import ProgressPanel from '../workspace/ProgressPanel'
+import type { LegacyRecommendation, RuleRow, SessionRow } from '../workspace/ProgressPanel'
+import SummaryPanel from '../workspace/SummaryPanel'
+
+export const WORKSPACE_TABS = [
+  { id: 'summary', label: '요약' }, { id: 'goal', label: '치료 목표' },
+  { id: 'next', label: '다음 회기' }, { id: 'progress', label: '경과 · 기록' },
+] as const
+export type WorkspaceTab = typeof WORKSPACE_TABS[number]['id']
+
+interface ChildDetailData { child: { hero_name: string; child_code: string; play_code: string }; currentGoal: GoalRow | null; goalHistory: GoalRow[]; sessions: SessionRow[]; activeRules: RuleRow[] }
+
+/** 치료사 작업 순서(누구 → 목표 → 이전 회기 → 다음 계획 → 해석)에 맞춘 4영역 작업 공간. */
+export function Workspace({ tab, onTab, title, children }: { tab: WorkspaceTab; onTab: (tab: WorkspaceTab) => void; title: string; children: ReactNode }) {
+  return <main className="therapist-screen"><Link to="/therapist">← 담당 아동 목록</Link><h1>{title}</h1>
+    <nav className="workspace-tabs" role="tablist">{WORKSPACE_TABS.map(item => <button key={item.id} role="tab" aria-selected={tab === item.id} className={tab === item.id ? 'active' : ''} onClick={() => onTab(item.id)}>{item.label}</button>)}</nav>
+    <div role="tabpanel">{children}</div>
+  </main>
+}
 
 export default function ChildDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const token = getToken()
-  const [data, setData] = useState<any>(null)
-  const [metrics, setMetrics] = useState<any>(null)
-  const [recs, setRecs] = useState<any[]>([])
+  const [tab, setTab] = useState<WorkspaceTab>('summary')
+  const [data, setData] = useState<ChildDetailData | null>(null)
+  const [context, setContext] = useState<PlanningContext | null>(null)
+  const [plans, setPlans] = useState<SessionPlan[]>([])
+  const [metrics, setMetrics] = useState<Progress | null>(null)
+  const [recs, setRecs] = useState<LegacyRecommendation[]>([])
   const [error, setError] = useState('')
-  const [level, setLevel] = useState('word')
-  const [reason, setReason] = useState('')
+  // 가장 최근 요청의 아동만 반영한다. 아동을 바꾸는 사이 늦게 온 이전 아동 응답은 버린다.
+  const current = useRef(id)
+  current.current = id
   async function load() {
-    const [child, chart, recommendations] = await Promise.all([
-      childDetail(id, token), progress(id, token), api<any[]>(`/children/${id}/recommendations`, {}, token),
+    const requested = id
+    const [child, planning, planRows, chart, recommendations] = await Promise.all([
+      childDetail(id, token) as Promise<ChildDetailData>, planningContext(id), sessionPlans(id), progress(id, token),
+      api<LegacyRecommendation[]>(`/children/${id}/recommendations`, {}, token),
     ])
-    setData(child); setMetrics(chart); setRecs(recommendations); setLevel(child.currentGoal?.level || 'word')
+    if (current.current !== requested) return
+    setData(child); setContext(planning); setPlans(planRows); setMetrics(chart); setRecs(recommendations)
   }
-  useEffect(() => { if (!token) navigate('/therapist/login'); else void load().catch(cause => setError(String(cause))) }, [id, token, navigate])
-  async function changeGoal() {
-    try { await saveGoal(id, { ...data.currentGoal, level }, token); await load() }
-    catch (cause) { setError(String(cause)) }
+  const reload = () => load().catch(cause => setError(String(cause)))
+  useEffect(() => {
+    // 이전 아동의 화면·계획을 지워 새 아동 화면에서 이전 계획을 저장·승인하지 못하게 한다.
+    setData(null); setContext(null); setPlans([]); setMetrics(null); setRecs([]); setError('')
+    if (!token) navigate('/therapist/login'); else void reload()
+  }, [id, token, navigate])
+  async function attempt(action: () => Promise<unknown>) {
+    try { await action(); await load() } catch (cause) { setError(String(cause)) }
   }
-  async function decide(recId: string, action: string) {
-    try { await decision(recId, { action, modifiedGoal: action === 'modify' ? { level } : undefined, note: action === 'reject' ? reason : '' }, token); await load() }
-    catch (cause) { setError(String(cause)) }
-  }
-  async function deactivate(ruleId: string) {
-    try { await api(`/rules/${ruleId}/deactivate`, { method: 'POST' }, token); await load() }
-    catch (cause) { setError(String(cause)) }
-  }
-  return <main className="therapist-screen"><Link to="/therapist">← 아동 현황</Link>
-    <h1>{data?.child?.hero_name} · {data?.child?.child_code}</h1>
-    <p>아동 로그인 아이디: <strong>{data?.child?.play_code}</strong></p>{error && <p role="alert">{error}</p>}
-    <section className="card"><h2>현재 목표 v{data?.currentGoal?.version}</h2>
-      <p>목표 음소 /{data?.currentGoal?.target_phoneme}/ · 현재 단계 {data?.currentGoal?.level}</p>
-      <label>다음 목표 단계 <select value={level} onChange={event => setLevel(event.target.value)}><option value="syllable">음절</option><option value="word">단어</option><option value="short_sentence">짧은 문장</option></select></label>
-      <button onClick={() => { void changeGoal() }}>목표 저장</button><p>목표 변경은 다음 세션부터 적용됩니다.</p>
-    </section>
-    <section className="card"><h2>기존 모험 진행 추이</h2><p>V2 게임의 별·XP는 이 그래프에 포함하지 않습니다.</p>
-      <SessionTrendChart sessions={metrics?.sessions || []} />
-      {metrics?.sessions?.length ? <table><thead><tr><th>세션</th><th>목표</th><th>첫 시도 성공률</th><th>재시도 비율</th><th>모드</th></tr></thead><tbody>{metrics.sessions.map((session: any) => <tr key={session.sessionId}><td><Link to={`/therapist/sessions/${session.sessionId}`}>{session.index}</Link></td><td>v{session.goalVersion}</td><td>{session.firstTrySuccessRate}%</td><td>{session.retryRate}%</td><td>{session.isSeed ? '샘플' : session.mode}</td></tr>)}</tbody></table> : <p>관찰 세션이 부족합니다.</p>}
-    </section>
-    {id && <ActivityRecommendationPanel childId={id} />}
-    <section className="card"><h2>기존 목표 추천 · 치료사 결정</h2>
-      {recs.map(rec => <article key={rec.id}><h3>{rec.observation}</h3><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map((e: any) => `${e.label}: ${e.value}`).join(' · ')}</p><p>신뢰도: {rec.confidence} · {rec.status}</p>{rec.status === 'pending' && <div><button onClick={() => { void decide(rec.id, 'accept') }}>수락</button><button onClick={() => { void decide(rec.id, 'modify') }}>선택 단계로 수정</button><input aria-label="거절 사유" value={reason} onChange={event => setReason(event.target.value)} placeholder="거절 사유" /><button disabled={!reason.trim()} onClick={() => { void decide(rec.id, 'reject') }}>거절</button></div>}</article>)}
-    </section>
-    <section className="card"><h2>적용 규칙</h2>{data?.activeRules?.map((rule: any) => <p key={rule.id}>{rule.rule_type} · {JSON.stringify(rule.params)} <button onClick={() => { void deactivate(rule.id) }}>비활성화</button></p>)}</section>
-    <section><h2>세션 기록</h2>{data?.sessions?.map((session: any) => <p key={session.id}><Link to={`/therapist/sessions/${session.id}`}>{new Date(session.startedAt).toLocaleString()} · {session.mode} · {session.status}</Link></p>)}</section>
-  </main>
+  const title = data ? `${data.child.hero_name} · ${data.child.child_code}` : '불러오는 중'
+  return <Workspace tab={tab} onTab={setTab} title={title}>
+    {error && <p role="alert">{error}</p>}
+    {context && data && <>
+      {tab === 'summary' && <SummaryPanel context={context} playCode={data.child.play_code} />}
+      {tab === 'goal' && <GoalPanel goal={data.currentGoal} history={data.goalHistory} onSave={values => attempt(() => saveGoal(id, values, token))} />}
+      {tab === 'next' && <NextSessionPanel key={id} childId={id} plans={plans} onChanged={async () => { await reload() }} />}
+      {tab === 'progress' && <ProgressPanel childId={id} context={context} progress={metrics} sessions={data.sessions} plans={plans}
+        recommendations={recs} rules={data.activeRules}
+        onDecide={(recId, action, note, level) => { void attempt(() => decision(recId, { action, modifiedGoal: action === 'modify' ? { level } : undefined, note }, token)) }}
+        onDeactivate={ruleId => { void attempt(() => api(`/rules/${ruleId}/deactivate`, { method: 'POST' }, token)) }} />}
+    </>}
+  </Workspace>
 }

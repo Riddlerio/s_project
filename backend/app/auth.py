@@ -51,6 +51,17 @@ def require_therapist(account: Account = Depends(current_account), db: Session =
     return therapist
 
 
+def owned_child(db, child_id, therapist):
+    """담당 치료사의 아동만 돌려준다. 다른 치료사의 아동은 존재 여부를 숨기고 거부 기록을 남긴다."""
+    child = db.get(Child, child_id)
+    if not child or child.therapist_id != therapist.id:
+        db.add(AuditEvent(actor_id=therapist.id, action="ACCESS_DENIED", resource_id=child.id if child else hash_token(child_id)[:36],
+                          result="DENIED"))
+        db.commit()
+        raise HTTPException(404, "아동을 찾을 수 없습니다")
+    return child
+
+
 def require_admin(account: Account = Depends(current_account), db: Session = Depends(get_db)) -> Account:
     if account.role != "ADMIN":
         db.add(AuditEvent(actor_id=account.id, action="ROLE_ACCESS_DENIED", resource_id=account.id, result="DENIED"))

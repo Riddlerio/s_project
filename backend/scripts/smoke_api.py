@@ -48,6 +48,19 @@ def main(base_url: str) -> None:
         assert {row["round_index"] for row in timeline.json()["observations"]} == {1, 2, 3, 4, 5}
         print("[OK] 쿠키 인증, CSRF, 역할 접근, 5라운드, 임상 관찰")
 
+        # 치료사 회기 계획: 근거 context → 제안 → 초안 → 승인 → 승인본 수정 거부.
+        therapist_csrf = {"X-CSRF-Token": therapist.json()["csrfToken"]}
+        child_id = client.get("/api/children").json()[0]["id"]
+        client.get(f"/api/children/{child_id}/planning-context").raise_for_status()
+        proposal = client.post(f"/api/children/{child_id}/session-plan-proposal", headers=therapist_csrf)
+        proposal.raise_for_status()
+        form = proposal.json()["proposal"]["form"]
+        plan = client.post(f"/api/children/{child_id}/session-plans", headers=therapist_csrf, json=form)
+        plan.raise_for_status()
+        client.post(f"/api/session-plans/{plan.json()['id']}/approve", headers=therapist_csrf).raise_for_status()
+        assert client.patch(f"/api/session-plans/{plan.json()['id']}", headers=therapist_csrf, json=form).status_code == 409
+        print(f"[OK] 치료사 회기 계획 제안({proposal.json()['status']})·초안·승인·승인본 불변")
+
         # 호야와 대화하기(DEMO 제공자): 시작 → 자동 turn → 종료.
         login = client.post("/api/auth/login", json={"username": "HERO01", "password": "speechhero"})
         login.raise_for_status()
