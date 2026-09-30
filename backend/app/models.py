@@ -364,3 +364,50 @@ class HoyaChatTurn(Base):
     fallback_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=now)
+
+
+class TherapistSessionPlan(Base):
+    """치료사가 승인하는 "다음 한 회기" 계획. TrainingGoal(장기 목표)·TrainingPlan(실행 계획)과 다른 개념이다.
+
+    DRAFT만 수정할 수 있다. APPROVED는 바꾸지 않고 clone으로 새 revision을 만든다(당시 계획 재현).
+    ACTIVE·COMPLETED 같은 실행 상태는 다음 Phase의 TherapyRun이 가진다.
+    """
+    __tablename__ = "therapist_session_plans"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), index=True)
+    therapist_id: Mapped[str] = mapped_column(ForeignKey("therapists.id"))
+    goal_id: Mapped[str] = mapped_column(ForeignKey("training_goals.id"))
+    parent_plan_id: Mapped[str | None] = mapped_column(ForeignKey("therapist_session_plans.id"), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String, default="DRAFT")
+    target_phoneme: Mapped[str] = mapped_column(String)
+    word_position: Mapped[str] = mapped_column(String)
+    start_level: Mapped[str] = mapped_column(String)
+    target_level: Mapped[str] = mapped_column(String)
+    duration_min: Mapped[int] = mapped_column(Integer)
+    repetition_target: Mapped[int] = mapped_column(Integer)
+    preferred_cue: Mapped[str] = mapped_column(String)
+    priority_targets: Mapped[list] = mapped_column(JSON, default=list)
+    excluded_words: Mapped[list] = mapped_column(JSON, default=list)
+    conversation_theme: Mapped[str] = mapped_column(String, default="")
+    therapist_note: Mapped[str] = mapped_column(String, default="")
+    # 승인 시점의 목표·근거 지표와 결정적 제안. transcript·원음성은 담지 않는다.
+    evidence_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
+    recommendation_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TherapistSessionPlanStep(Base):
+    """회기 계획의 활동 순서. 다음 Phase의 LangGraph 회기 오케스트레이터가 이 순서를 그대로 읽는다."""
+    __tablename__ = "therapist_session_plan_steps"
+    __table_args__ = (UniqueConstraint("plan_id", "step_order"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("therapist_session_plans.id"), index=True)
+    step_order: Mapped[int] = mapped_column(Integer)
+    step_type: Mapped[str] = mapped_column(String)
+    activity: Mapped[str] = mapped_column(String)
+    target_level: Mapped[str | None] = mapped_column(String, nullable=True)
+    parameters: Mapped[dict] = mapped_column(JSON, default=dict)

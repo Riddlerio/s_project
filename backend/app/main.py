@@ -21,7 +21,7 @@ from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteI
                       RecommendationDecisionInput, StartInput, UtteranceInput)
 from .security import hash_password, hash_token, verify_dummy_password, verify_password
 from .maintenance import purge_expired_chat_text, purge_expired_transcripts, retention_loop
-from .auth import COOKIE_NAME, create_session, current_account, require_student, require_therapist, require_admin
+from .auth import COOKIE_NAME, create_session, current_account, owned_child, require_student, require_therapist, require_admin
 from .seed import seed
 from .demo import demo_account, is_demo_account
 from . import static_site
@@ -42,6 +42,7 @@ from .games.evaluation import evaluate_round
 from .games.conversation import quest_reply
 from .training.content import items
 from .hoya.api import router as hoya_chat_router
+from .therapist_planning.api import router as session_planning_router
 from .hoya.schema_compat import upgrade_hoya_chat_schema
 
 
@@ -161,16 +162,6 @@ def current_goal(db, child_id):
 
 
 therapist_auth = require_therapist
-
-
-def owned_child(db, child_id, therapist):
-    child = db.get(Child, child_id)
-    if not child or child.therapist_id != therapist.id:
-        db.add(AuditEvent(actor_id=therapist.id, action="ACCESS_DENIED", resource_id=child.id if child else hash_token(child_id)[:36],
-                          result="DENIED"))
-        db.commit()
-        raise HTTPException(404, "아동을 찾을 수 없습니다")
-    return child
 
 
 def play_session(db, session_id, account):
@@ -967,6 +958,7 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
 
 
 app.include_router(hoya_chat_router)
+app.include_router(session_planning_router)
 
 
 # 반드시 마지막에 등록한다. 위의 /api 경로가 먼저 일치하고, 나머지 GET만 프로덕션 SPA로 간다.
