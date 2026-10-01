@@ -365,13 +365,13 @@ def test_nonfinite_json_is_rejected(api, literal):
 
 def test_activity_recommendation_requires_verified_real_evidence_and_therapist_acceptance(api):
     client, sessions = api
+    # 임상 근거는 seed가 아닌 실제 아동의 실제 음성 회기에서만 나온다.
+    _student, created = real_child_auth(client)
+    child_id = created["id"]
     therapist = auth(client)
-    with sessions() as db:
-        child = db.query(Child).filter(Child.child_code == "C-0001").one()
-        child_id = child.id
     no_data = client.post(f"/api/children/{child_id}/activity-recommendations", headers=therapist).json()
     assert no_data["status"] == "INSUFFICIENT_DATA"
-    student = student_auth(client)
+    student = child_login(client, created)
     assert client.post(f"/api/children/{child_id}/activity-recommendations", headers=student).status_code == 403
     start = client.post("/api/activities", headers=student, json={"game": "magic_beam", "mode": "real"}).json()
     result = client.post(f"/api/activities/{start['sessionId']}/utterances", headers=student,
@@ -396,3 +396,18 @@ def test_activity_recommendation_requires_verified_real_evidence_and_therapist_a
     with sessions() as db:
         assert db.get(Child, child_id).collection_json["assignedActivity"] == rec["activity"]
         assert db.get(ActivityRecommendation, rec["id"]).status == "ACCEPTED"
+
+
+def real_child_auth(client):
+    """seed가 아닌 실제 아동을 치료사가 등록하고, 그 아동으로 로그인한다. 임상 근거 테스트는 이 아동을 쓴다."""
+    therapist = auth(client)
+    created = client.post("/api/children", headers=therapist, json={"heroName": "실제아동", "guardianConsent": True})
+    assert created.status_code == 200, created.text
+    body = created.json()
+    return child_login(client, body), body
+
+
+def child_login(client, child):
+    response = client.post("/api/auth/login", json={"username": child["play_code"], "password": child["initialPassword"]})
+    assert response.status_code == 200
+    return {"X-CSRF-Token": response.json()["csrfToken"]}

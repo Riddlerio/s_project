@@ -86,6 +86,26 @@ describe('치료사 홈과 작업 공간', () => {
   })
 })
 
+describe('legacy 추천 출처', () => {
+  const rec = (demoPractice: boolean) => ({ id: demoPractice ? 'demo' : 'real', observation: '관찰', suggestion_text: '제안', confidence: 'low', status: 'pending',
+    provenance: { sessionMode: demoPractice ? 'demo' : 'real', sessionIsSeed: false, clinicalEligible: !demoPractice, demoPractice } })
+  const html = (demoPractice: boolean) => render(<ProgressPanel childId="c1" context={context()} progress={null} sessions={[]} plans={[]}
+    recommendations={[rec(demoPractice)]} rules={[]} onDecide={noop} onDeactivate={noop} />)
+
+  it('DEMO 연습 기반 추천은 표시를 붙이고 수락·수정 버튼을 숨긴다', () => {
+    const demo = html(true)
+    expect(demo).toContain('DEMO 연습 기반')
+    expect(demo).not.toContain('>수락<')
+    expect(demo).toContain('거절')
+  })
+
+  it('임상 근거 회기의 추천은 기존처럼 수락할 수 있다', () => {
+    const real = html(false)
+    expect(real).toContain('>수락<')
+    expect(real).not.toContain('data-provenance')
+  })
+})
+
 describe('다음 회기 계획', () => {
   it('제안 전에는 제안 만들기 버튼만 있다', () => {
     const html = view({})

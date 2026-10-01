@@ -25,3 +25,17 @@ export function sampleText(row: SummaryRow): string {
 export function rateText(row: SummaryRow): string {
   return row.verifiedRate === null ? '자료 없음' : `${row.verifiedRate}% (${row.verifiedEvaluatedN}건)`
 }
+
+/** 회기 출처. 입력 모드(mode)와 대상(isSeed)은 다른 축이다. seed 아동의 회기는 모드와 관계없이 샘플이다. */
+export function sessionSourceText(session: { mode?: string; isSeed?: boolean }): '샘플' | '실제' | 'DEMO' {
+  return session.isSeed ? '샘플' : session.mode === 'real' ? '실제' : 'DEMO'
+}
+
+export type RecommendationProvenance = { sessionMode: string | null; sessionIsSeed: boolean; clinicalEligible: boolean; demoPractice: boolean }
+
+/** legacy 추천 카드의 출처 표시. 임상 근거 회기에서 나온 추천에는 표시가 없다. */
+export function recommendationBadges(provenance?: RecommendationProvenance): string[] {
+  if (!provenance || provenance.clinicalEligible) return []
+  if (provenance.sessionIsSeed) return ['샘플 회기 기반', '임상 근거 아님']
+  return ['DEMO 연습 기반', '임상 근거 아님']
+}

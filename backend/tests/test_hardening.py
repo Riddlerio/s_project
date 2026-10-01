@@ -10,7 +10,7 @@ from app import main as api_module
 from app import maintenance
 from app.games.rounds import GAME_ROUNDS, public_round
 from app.models import Child, ClinicalObservation, TrainingPlan, TrainingSession, Utterance, now
-from test_api_flow import api, auth, student_auth
+from test_api_flow import api, auth, child_login, real_child_auth, student_auth
 
 
 GOOD = {"noiseFloorDb": -60, "meanRmsDb": -35}
@@ -262,7 +262,7 @@ def test_demo_observation_is_marked_and_review_is_not_clinical_verification(api)
 
 def test_real_observation_is_clinically_eligible(api):
     client, _ = api
-    student = student_auth(client)
+    student, _child = real_child_auth(client)
     started = _start(client, student, "magic_beam")
     _say(client, student, started["sessionId"], 1, started["firstItem"],
          {**GOOD, "durationMs": 1300, "activeMs": 1200, "bestRunMs": 1200, "fricationMs": 1200})
@@ -278,7 +278,7 @@ def test_real_observation_is_clinically_eligible(api):
 
 def test_summary_separates_evaluable_from_uncertain_and_no_speech(api):
     client, _ = api
-    student = student_auth(client)
+    student, _child = real_child_auth(client)
     started = _start(client, student, "magic_beam")
     session_id, item = started["sessionId"], started["firstItem"]
     _say(client, student, session_id, 1, item, {**GOOD, "durationMs": 900, "activeMs": 0})
@@ -298,7 +298,7 @@ def test_summary_separates_evaluable_from_uncertain_and_no_speech(api):
 
 def test_sound_recommendation_ignores_confirmed_uncertain_observations(api):
     client, sessions = api
-    student = student_auth(client)
+    student, created = real_child_auth(client)
     for _ in range(2):
         started = _start(client, student, "magic_beam")
         # 음질 불량 발화의 짧은 bestRunMs가 '지속이 짧다'는 근거로 쓰이면 안 된다.
@@ -309,10 +309,9 @@ def test_sound_recommendation_ignores_confirmed_uncertain_observations(api):
             assert observation["ai_result"] == "uncertain"
             client.post(f"/api/observations/{observation['id']}/decision", headers=therapist,
                         json={"action": "confirm"}).raise_for_status()
-        student = student_auth(client)
+        student = child_login(client, created)
     therapist = auth(client)
-    with sessions() as db:
-        child_id = db.query(Child).filter(Child.child_code == "C-0001").one().id
+    child_id = created["id"]
     proposal = client.post(f"/api/children/{child_id}/activity-recommendations", headers=therapist).json()
     assert proposal["recommendation"]["activity"] != "magic_beam"
 

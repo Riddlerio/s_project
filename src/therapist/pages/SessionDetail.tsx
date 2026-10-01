@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { feedback, sessionDetail } from '../../api/therapist'
 import { getToken } from '../auth'
 import ClinicalTimeline from '../ClinicalTimeline'
+import { sessionSourceText } from '../clinicalLabels'
 
 export default function SessionDetail() {
   const { id = '' } = useParams()
@@ -18,7 +19,7 @@ export default function SessionDetail() {
   }
   const v2 = Boolean(data?.session?.activityGame)
   return <main className="therapist-screen"><Link to="/therapist">← 아동 현황</Link><h1>세션 상세</h1>
-    <p>{data?.session?.mode} · {data?.session?.status} · {data?.session?.isSeed ? '샘플 데이터' : '실제 진행'}</p>
+    <p>{data?.session?.mode} · {data?.session?.status} · {data?.session ? `${sessionSourceText(data.session)} 회기` : ''}</p>
     <p>목표 v{data?.goal?.version} · /{data?.goal?.target_phoneme}/ · {data?.goal?.level}</p>
     {error && <p role="alert">{error}</p>}
     {v2 ? <section className="card"><h2>게임 진행</h2><p>{data?.session?.activityGame} · 5라운드</p><p>게임 완료·별·XP는 임상 정확도 지표가 아닙니다. 아래 관찰 근거를 검토해 주세요.</p></section>
