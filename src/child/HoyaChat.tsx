@@ -10,8 +10,8 @@ import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { HoyaChatController, type HoyaChatState, type Speak } from './hoyaChatController'
 
 const STATUS: Record<HoyaChatState, string> = {
-  IDLE: '', LISTENING: '호야가 듣고 있어요', PROCESSING: '호야가 생각하고 있어요', FILLER_SPEAKING: '호야가 생각하고 있어요',
-  RECOVERING: '호야가 생각하고 있어요', RESPONSE_SPEAKING: '호야가 말하고 있어요', ENDED: '대화가 끝났어요',
+  IDLE: '', LISTENING: '두두가 듣고 있어요', PROCESSING: '두두가 생각하고 있어요', FILLER_SPEAKING: '두두가 생각하고 있어요',
+  RECOVERING: '두두가 생각하고 있어요', RESPONSE_SPEAKING: '두두가 말하고 있어요', ENDED: '대화가 끝났어요',
 }
 
 /** 브라우저 TTS 한 번. 다른 음성과 겹치지 않게 이전 재생을 비우고, onend가 오지 않는 브라우저를 위해 안전 timer를 둔다. */
@@ -39,7 +39,7 @@ export default function HoyaChat() {
   const [session, setSession] = useState<HoyaChatSession | null>(null)
   const [chatState, setChatState] = useState<HoyaChatState>('IDLE')
   const [action, setAction] = useState<HoyaAction>('IDLE')
-  const [hoyaText, setHoyaText] = useState('호야랑 이야기할래?')
+  const [hoyaText, setHoyaText] = useState('두두랑 이야기할래?')
   const [preparing, setPreparing] = useState(false)
   const [micText, setMicText] = useState('')
   const [demoText, setDemoText] = useState('')
@@ -75,7 +75,7 @@ export default function HoyaChat() {
       const { events, acoustic } = pipeline.process(frame)
       for (const event of events) {
         if (event.type === 'VOICE_START') {
-          setMicText('호야가 네 말을 듣고 있어요')
+          setMicText('두두가 네 말을 듣고 있어요')
           try { recognizer.start() } catch { /* 음성 인식이 없으면 소리 정보만 보낸다 */ }
         }
         if (event.type === 'VOICE_END' && acoustic) {
@@ -107,14 +107,14 @@ export default function HoyaChat() {
       controller.current = chat
       setSession(started)
       if (mode === 'real') {
-        setMicText('호야가 귀를 준비하고 있어요')
+        setMicText('두두가 귀를 준비하고 있어요')
         await listenWithMicrophone(chat)
         // 처음 1초는 주변 소리 기준을 잡는다. 그 뒤에 호야가 인사한다.
         startTimer.current = window.setTimeout(() => { setMicText('마이크가 켜져 있어요'); chat.start(started.openingText) }, CALIBRATION_MS + 100)
       } else chat.start(started.openingText)
     } catch (cause) {
       capture.current?.stop()
-      setError(cause instanceof Error ? cause.message : '지금은 호야와 대화할 수 없어요')
+      setError(cause instanceof Error ? cause.message : '지금은 두두와 대화할 수 없어요')
     } finally { setPreparing(false) }
   }
 
@@ -134,24 +134,24 @@ export default function HoyaChat() {
 
   const listening = chatState === 'LISTENING'
   return <main className="child-screen game-screen">
-    <h1>호야와 대화하기</h1>
+    <h1>두두와 대화하기</h1>
     <div style={{ height: '48vh', minHeight: 300, width: '100%' }}><Hoya3D action={action} /></div>
-    <p className="speech-bubble" aria-live="polite">{hoyaText}</p>
+    <p className="speech-bubble" aria-live="polite">{hoyaText.replace(/호야|루미/g, '두두')}</p>
     <p aria-live="polite">{STATUS[chatState]}</p>
     {!session && <div>
       <button disabled={preparing || !realSupported} onClick={() => { void begin('real') }}>대화 시작 (마이크)</button>
       <button disabled={preparing} onClick={() => { void begin('demo') }}>DEMO로 대화 시작</button>
       {!realSupported && <p className="small">{missingText('conversation_quest', capabilities)}</p>}
     </div>}
-    {session?.mode === 'real' && chatState !== 'ENDED' && <p className="small">{listening ? micText || '마이크가 켜져 있어요' : '호야가 말할 때는 마이크가 잠시 쉬어요'}</p>}
+    {session?.mode === 'real' && chatState !== 'ENDED' && <p className="small">{listening ? micText || '마이크가 켜져 있어요' : '두두가 말할 때는 마이크가 잠시 쉬어요'}</p>}
     {session?.mode === 'demo' && chatState !== 'ENDED' && <div>
-      <label>호야에게 할 말<input value={demoText} maxLength={80} onChange={event => setDemoText(event.target.value)}
+      <label>두두에게 할 말<input value={demoText} maxLength={80} onChange={event => setDemoText(event.target.value)}
         onKeyDown={event => { if (event.key === 'Enter') sendDemo() }} /></label>
-      <button disabled={!listening} onClick={sendDemo}>호야에게 말하기</button>
+      <button disabled={!listening} onClick={sendDemo}>두두에게 말하기</button>
       <p className="small">DEMO 대화입니다. 글자로 입력한 말이며 실제 음성 자료가 아닙니다.</p>
     </div>}
     {session && chatState !== 'ENDED' && <button onClick={finish}>대화 끝내기</button>}
-    {chatState === 'ENDED' && <button onClick={() => navigate('/play/home')}>호야의 집으로</button>}
+    {chatState === 'ENDED' && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
     {!session && <button className="quiet" onClick={() => navigate('/play/home')}>돌아가기</button>}
     {error && <p role="alert">{error}</p>}
   </main>

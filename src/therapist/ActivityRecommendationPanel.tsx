@@ -4,7 +4,7 @@ import { api } from '../api/client'
 type Recommendation = { id: string; activity: string; clinical_purpose: string; reason: string; evidence: { observationId: string; sessionId: string }[]; confidence: string; status: string; selected_activity: string | null; decision_note: string }
 const games = [
   { id: 'magic_beam', title: '빛의 마법' }, { id: 'sky_climb', title: '하늘 오르기' },
-  { id: 'monster_adventure', title: '몬스터 모험' }, { id: 'conversation_quest', title: '호야와 소풍' },
+  { id: 'monster_adventure', title: '몬스터 모험' }, { id: 'conversation_quest', title: '두두와 소풍' },
 ]
 
 export default function ActivityRecommendationPanel({ childId }: { childId: string }) {
@@ -34,7 +34,7 @@ export default function ActivityRecommendationPanel({ childId }: { childId: stri
     {rows.map(row => <article key={row.id}><h3>{games.find(game => game.id === row.activity)?.title || row.activity} · {row.status}</h3>
       <p>관찰 목적: {row.clinical_purpose}</p><p>이유: {row.reason}</p><p>근거: {row.evidence.length}건 · 확신도 {row.confidence}</p>
       {row.status === 'PENDING' ? <div><label>수정할 게임<select value={selected} onChange={event => setSelected(event.target.value)}>{games.map(game => <option key={game.id} value={game.id}>{game.title}</option>)}</select></label><label>결정 이유<input value={note} onChange={event => setNote(event.target.value)} maxLength={500} /></label><button onClick={() => { void decide(row.id, 'accept') }}>수락</button><button disabled={!note.trim()} onClick={() => { void decide(row.id, 'modify') }}>수정</button><button disabled={!note.trim()} onClick={() => { void decide(row.id, 'reject') }}>거부</button></div>
-        : <p>적용 게임: {row.selected_activity || '없음'} · 결정 메모: {row.decision_note || '없음'}</p>}
+        : <p>적용 게임: {games.find(game => game.id === row.selected_activity)?.title || row.selected_activity || '없음'} · 결정 메모: {row.decision_note || '없음'}</p>}
     </article>)}
   </section>
 }

@@ -12,7 +12,7 @@ import { MicUtterancePipeline } from '../speech/micUtterance'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 
-const gameNames = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '호야와 소풍' }
+const gameNames = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍' }
 
 export default function ActivitySession() {
   const { id } = useParams()
@@ -23,7 +23,7 @@ export default function ActivitySession() {
   const [item, setItem] = useState<ActivityItem | null>(session?.firstItem || null)
   const [attempt, setAttempt] = useState(1)
   const [action, setAction] = useState<HoyaAction>('IDLE')
-  const [message, setMessage] = useState('호야가 기다리고 있어!')
+  const [message, setMessage] = useState('두두가 기다리고 있어!')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [demoSpeech, setDemoSpeech] = useState(session?.firstItem.displayText || '')
@@ -67,7 +67,7 @@ export default function ActivitySession() {
     if (!session || !round || !item || submitting.current) return
     submitting.current = true
     setBusy(true)
-    setMessage('호야가 듣고 있어…')
+    setMessage('두두가 듣고 있어…')
     try {
       const result = await sendActivityUtterance(session, item, round.index, attempt, transcript, acoustic)
       const kinds = new Set(result.events.map(event => event.type))
@@ -122,7 +122,7 @@ export default function ActivitySession() {
           onsetLatency.current = Math.min(60000, Math.max(0, performance.now() - promptShownAt.current))
           pipeline.onsetLatencyMs = onsetLatency.current
           signal.dispatch(session.game, { type: 'VOICE_START' })
-          setMessage('호야가 힘을 모으고 있어!')
+          setMessage('두두가 힘을 모으고 있어!')
           if (session.game === 'monster_adventure' || session.game === 'conversation_quest') recognizer.start(item as Parameters<WebSpeechRecognizer['start']>[0])
         }
         if (event.type === 'VOICE_CONTINUE') signal.dispatch(session.game, { type: 'VOICE_CONTINUE', energy01: pipeline.tracker.energy01 })
@@ -142,7 +142,7 @@ export default function ActivitySession() {
     began.current = performance.now()
     onsetLatency.current = Math.min(60000, Math.max(0, began.current - promptShownAt.current))
     signal.dispatch(session.game, { type: 'VOICE_START' })
-    setMessage('호야가 힘을 모으고 있어!')
+    setMessage('두두가 힘을 모으고 있어!')
   }
   function end(transcriptOverride?: string) {
     if (!session || !round || !item || began.current === null) return
@@ -167,16 +167,16 @@ export default function ActivitySession() {
 
   if (!session || !round || !item) return null
   if (!ready) return <main className="child-screen game-screen"><p>모험을 다시 불러오는 중…</p>{error && <p role="alert">{error}</p>}</main>
-  return <main className="child-screen game-screen">
-    <h1>{gameNames[session.game]}</h1>
-    <div aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} style={{ margin: 8 }}>{completed.includes(value.index) ? '⭐' : value.index === round.index ? '🔵' : '○'} {value.index}</span>)}</div>
-    <h2>{round.childTitle}</h2><p>{round.childPrompt}</p>
-    <div style={{ height: '52vh', minHeight: 310 }}><Hoya3D action={action} /></div>
-    <p className="target">{item.displayText}</p><p aria-live="polite">{message}</p>
-    {session.mode === 'demo' && session.game === 'conversation_quest' && <div><label>호야에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
-    {session.mode === 'demo' && <button disabled={busy} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 (Space)</button>}
-    {!realSupported && <p role="alert">{missingText(session.game, capabilities)}</p>}
-    {error && <p role="alert">{error}</p>}
-    <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
-  </main>
+  return <main className={`child-screen game-screen activity-game activity-${session.game}`}><div className="activity-shell">
+    <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span></header>
+    <div className="activity-progress" aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} className={completed.includes(value.index) ? 'completed' : value.index === round.index ? 'current' : ''} aria-current={value.index === round.index ? 'step' : undefined}><small>{String(value.index).padStart(2, '0')}</small><span>{completed.includes(value.index) ? '완료' : value.index === round.index ? '진행 중' : '다음'}</span></span>)}</div>
+    <section className="activity-stage"><div className="activity-stage-art"><div className="activity-art-ring" aria-hidden="true" />{session.game === 'monster_adventure' && <><div className="monster-path" aria-hidden="true" /><div className={`monster-opponent ${action === 'ATTACK' ? 'monster-hit' : ''}`} role="img" aria-label={action === 'ATTACK' ? '몬스터가 물러나요' : '숲의 몬스터가 길 앞에 있어요'}><span className="monster-horn monster-horn-left" /><span className="monster-horn monster-horn-right" /><span className="monster-body"><span className="monster-eye monster-eye-left" /><span className="monster-eye monster-eye-right" /><span className="monster-mouth" /></span><span className="monster-feet" /></div>{action === 'CAST' && <span className="monster-voice-wave" aria-hidden="true" />}<span className="monster-caption">숲의 몬스터</span></>}<div className="activity-character"><Hoya3D action={action} /></div><span className="activity-art-caption">DUDU IS WITH YOU</span></div><div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p></div></section>
+    <div className="activity-controls">
+      {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
+      {session.mode === 'demo' && <button className="activity-hold" disabled={busy} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
+      {!realSupported && <p role="alert" className="notice">{missingText(session.game, capabilities)}</p>}
+      {error && <p role="alert" className="notice">{error}</p>}
+      <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
+    </div>
+  </div></main>
 }

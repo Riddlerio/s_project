@@ -27,10 +27,5 @@ export default function PlayEntry() {
       navigate('/play/home')
     } catch (cause) { setError(cause instanceof Error ? cause.message : '로그인에 실패했습니다') }
   }
-  return <main className="child-screen"><h1>호야와 모험하기</h1><p>계정으로 로그인해 주세요.</p>
-    <label>아이디<input value={code} onChange={e => setCode(e.target.value)} maxLength={12} /></label>
-    <label>비밀번호<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-    <button onClick={() => { void enter() }}>모험 시작</button>{error && <p role="alert">{error}</p>}
-    {demoMode && <p className="small">DEMO 서버입니다. <button type="button" onClick={() => { void enter(true) }}>DEMO 아동으로 시작</button></p>}
-  </main>
+  return <main className="child-screen entry-screen"><div className="child-shell"><header className="child-header"><span className="child-brand">D <span>두두의 모험</span></span><span className="child-header-status">나의 모험으로</span></header><div className="entry-layout"><div className="entry-copy"><p className="eyebrow">YOUR ADVENTURE STARTS HERE</p><h1>천천히,<br />같이 가보자.</h1><p>준비되면 두두가 기다리는 집으로 들어가요.</p><div className="entry-decoration" aria-hidden="true">✦ <span>작은 소리, 큰 모험</span></div></div><form className="entry-form" onSubmit={event => { event.preventDefault(); void enter() }}><p className="eyebrow">SIGN IN</p><h2>모험 시작</h2><label>아이디<input value={code} onChange={e => setCode(e.target.value)} maxLength={12} autoComplete="username" /></label><label>비밀번호<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label><button type="submit">두두 만나기 <span aria-hidden="true">→</span></button>{error && <p role="alert" className="notice">{error}</p>}{demoMode && <div className="entry-demo"><p className="small">DEMO 서버에서는 가상 입력으로 화면을 체험할 수 있어요.</p><button type="button" className="secondary-action" onClick={() => { void enter(true) }}>DEMO 아동으로 시작</button></div>}</form></div></div></main>
 }

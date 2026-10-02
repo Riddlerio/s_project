@@ -14,7 +14,7 @@ const PlaySession = lazy(() => import('./child/PlaySession'))
 const ChildDetail = lazy(() => import('./therapist/pages/ChildDetail'))
 const SessionDetail = lazy(() => import('./therapist/pages/SessionDetail'))
 
-export default function App() { return <Suspense fallback={<main>호야가 준비하고 있어요…</main>}><Routes>
+export default function App() { return <Suspense fallback={<main>두두가 준비하고 있어요…</main>}><Routes>
   <Route path="/" element={<Landing />} />
   <Route path="/play" element={<PlayEntry />} />
   <Route path="/play/home" element={<CharacterHome />} />
