@@ -32,8 +32,12 @@ git switch --track origin/feat/dudu-mascot-3d-ui
 | `references/original_dudu_2d.jpg` | 사용자가 제공한 원래 백호 정면 도안 | 두두의 정체성·무늬·망토·흉장 기준 |
 | `references/dudu_3d_target_front.png`, `dudu_3d_target_poses.png` | 새로 제공된 생성 이미지 | 둥근 조형·털/천 재질·동작 **목표**. 실행 모델은 아님 |
 | `references/dudu_home_concept.png` | 새로 제공된 화면 생성 이미지 | 캐릭터 배치·인사 포즈·분위기 참고. 글자·수치·메뉴 요구사항은 아님 |
+| `references/dudu_turnaround_front_side_back.jpg` | 2026-10-03 사용자가 추가한 정면·측면·후면 조형 도면(1300mm 입상·받침 200mm 표기)과 흉장 상세(368C, Malong Company 표기) | 측·후면 형태의 기준. 444×450px 저해상도라 곡면·세부 비례는 추정이 필요하다. 흉장 사용 권한은 별도 확인 |
+| `references/dudu_official_sheet_poses.jpg` | 2026-10-03 사용자가 추가한 대구대학교 제2세대 캐릭터 두두 소개·기본형·응용형 포즈 모음 | 성격 설명과 동작·표정 참고. 응용형의 소품·문구(학위모·깃발·축제 문구 등)는 요구사항이 아님 |
 | `screenshots/actual_*.png` | 별도 샘플 DB로 촬영한 실제 앱 | 새 화면과 현재 2.5D 캐릭터의 실행 증거. 임상 효과·스킬 권한 증거는 아님 |
 | `poster/` | 편집 가능한 PPTX·제공 양식·미리보기·제작 코드 | 제출 전 재검토할 시안 |
+
+2026-10-03 추가 자료로 측·후면 **도면**은 받았다. 편집 가능한 모델 파일(`.blend`·`.glb`)은 아직 없으므로 현재 `Hoya3D.tsx`는 여전히 2.5D 시제품이다. 두 도면의 원본 파일은 사용자의 Orca 원래 작업 폴더 `두두 참고자료/`에 있다.
 
 편집 가능한 [Figma 설계판](https://www.figma.com/design/TtG2zP2Sfa9GtCcePqSrGu)에는 원본과 실제 홈·게임 화면, 치료사 스킬 승인 **시안**이 함께 있다. Figma 화면을 앱의 작동 증거로 쓰지 않는다.
 
