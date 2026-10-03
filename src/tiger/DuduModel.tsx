@@ -2,10 +2,11 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type Ref } from 'react'
 import {
   BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, DoubleSide, FrontSide,
-  LatheGeometry, MathUtils, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace, SphereGeometry, TubeGeometry,
+  Color, LatheGeometry, MathUtils, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace, SphereGeometry, TubeGeometry,
   Vector2, Vector3, type Group, type Mesh,
 } from 'three'
 import type { HoyaAction } from '../control/speechGameSignal'
+import { emblemTexture } from './duduEmblem'
 
 /*
  * 두두 절차형 3D 시제품. 원래 정면 도안(정체성 기준)과 2026-10-03에 받은 정면·측면·후면 조형 도면을
@@ -89,7 +90,7 @@ const BODY_STRIPES: Stripe[] = mirror([
 ])
 // 팔·다리(CapsuleGeometry): 바깥쪽(az=90)에만 띠를 둔다. h는 0(아래)~1(위).
 const LIMB_MAP: Mapping = { u: az => az / 360, v: h => 1 - h, width: 256, height: 256 }
-const limbStripes = (heights: number[]): Stripe[] => heights.map(h => ({ a0: 30, a1: 150, h0: h, h1: h + 0.02, w: 0.07 }))
+const limbStripes = (heights: number[]): Stripe[] => heights.map(h => ({ a0: 52, a1: 128, h0: h, h1: h + 0.03, w: 0.05 }))
 // 꼬리(TubeGeometry): u는 길이 방향이다.
 function paintTail() {
   if (typeof document === 'undefined') return null
@@ -110,8 +111,17 @@ function bodyRadius(y: number) {
   // 아래(엉덩이)에서 위(목)까지. 측면 도면처럼 몸통은 짧고 둥글다.
   const t = (y - BODY_BOTTOM) / (BODY_TOP - BODY_BOTTOM)
   if (t <= 0 || t >= 1) return 0.001
-  return 0.56 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.06)), 0.45) * (1 - 0.32 * t * t)
+  return 0.6 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.06)), 0.45) * (1 - 0.32 * t * t)
 }
+
+/** 흉장은 배의 곡면 기울기를 따라 놓아야 아래쪽이 배에 묻히지 않는다. */
+const BADGE = (() => {
+  const y = -0.62, dy = 0.01, zScale = 0.86
+  const slope = ((bodyRadius(y + dy) - bodyRadius(y - dy)) / (2 * dy)) * zScale
+  const tilt = Math.atan(slope)
+  const lift = 0.035
+  return { tilt, position: [0, y + Math.sin(-tilt) * lift, bodyRadius(y) * zScale + Math.cos(tilt) * lift] as [number, number, number] }
+})()
 
 /** 머리 타원체 표면 위의 점과 법선(머리 중심 기준 좌표). */
 function onHead(x: number, y: number, lift = 0.004): { p: [number, number, number]; r: [number, number, number] } {
@@ -168,25 +178,6 @@ function shapeCape(geometry: BufferGeometry, flare: number, time: number) {
   geometry.computeBoundingSphere()
 }
 
-function drawSeal() {
-  if (typeof document === 'undefined') return null
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = 256
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-  const c = 128
-  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(c, c, 124, 0, Math.PI * 2); ctx.fill()
-  ctx.strokeStyle = '#303334'; ctx.lineWidth = 6
-  ctx.beginPath(); ctx.arc(c, c, 118, 0, Math.PI * 2); ctx.stroke()
-  ctx.beginPath(); ctx.arc(c, c, 78, 0, Math.PI * 2); ctx.stroke()
-  // 흉장은 근사 표현이다. 공식 엠블럼의 정확한 형태·사용 권한은 별도로 확인한다.
-  ctx.fillStyle = '#0086b8'; ctx.beginPath(); ctx.moveTo(126, 72); ctx.lineTo(170, 94); ctx.lineTo(166, 148); ctx.lineTo(126, 170); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#78bd22'; ctx.beginPath(); ctx.moveTo(126, 72); ctx.lineTo(88, 102); ctx.lineTo(96, 150); ctx.lineTo(126, 170); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#edcc28'; ctx.beginPath(); ctx.moveTo(126, 74); ctx.lineTo(150, 105); ctx.lineTo(138, 140); ctx.lineTo(106, 156); ctx.lineTo(96, 110); ctx.closePath(); ctx.fill()
-  const texture = new CanvasTexture(canvas); texture.colorSpace = SRGBColorSpace
-  return texture
-}
-
 // ---------- 동작 ----------
 interface Pose {
   x: number; y: number; z: number; yaw: number; pitch: number; roll: number; squash: number
@@ -235,8 +226,9 @@ function useMaterials() {
     const armMap = paintStripes(limbStripes([0.52, 0.72]), LIMB_MAP)
     const legMap = paintStripes(limbStripes([0.42, 0.66]), LIMB_MAP)
     const tailMap = paintTail()
-    const seal = drawSeal()
-    const fur = (map: CanvasTexture | null) => new MeshStandardMaterial({ color: '#ffffff', map, roughness: 0.93 })
+    const seal = emblemTexture()
+    // 짧은 털의 부드러운 결을 sheen으로 흉내 낸다. 실제 털 시뮬레이션은 아니다.
+    const fur = (map: CanvasTexture | null) => new MeshPhysicalMaterial({ color: '#ffffff', map, roughness: 0.9, sheen: 1, sheenRoughness: 0.55, sheenColor: new Color('#ffffff') })
     const m = {
       head: fur(headMap), body: fur(bodyMap), arm: fur(armMap), leg: fur(legMap), tail: fur(tailMap), plain: fur(null),
       ink: new MeshStandardMaterial({ color: STRIPE, roughness: 0.6 }),
@@ -250,7 +242,9 @@ function useMaterials() {
       scarf: new MeshStandardMaterial({ color: SCARF, roughness: 0.85 }),
       capeOut: new MeshStandardMaterial({ color: CAPE, roughness: 0.82, side: FrontSide }),
       capeIn: new MeshStandardMaterial({ color: LINING, roughness: 0.85, side: BackSide }),
-      seal: new MeshStandardMaterial({ map: seal, roughness: 0.5, transparent: true, side: DoubleSide }),
+      seal: new MeshStandardMaterial({ map: seal, roughness: 0.45, transparent: true, side: DoubleSide }),
+      badgeRim: new MeshStandardMaterial({ color: '#e9ece8', roughness: 0.35, metalness: 0.25 }),
+      pad: new MeshStandardMaterial({ color: '#4b4a4e', roughness: 0.6 }),
       shadow: new MeshStandardMaterial({ color: '#2d4a3d', transparent: true, opacity: 0.16, depthWrite: false }),
     }
     return { m, textures: [headMap, bodyMap, armMap, legMap, tailMap, seal] }
@@ -276,8 +270,8 @@ function useGeometries() {
       small: new SphereGeometry(1, 20, 14),
       tail: new TubeGeometry(tailCurve, 40, 0.085, 12, false),
       tailTip: tailCurve.getPoint(1),
-      browL: new TubeGeometry(brow(-1), 16, 0.024, 8, false),
-      browR: new TubeGeometry(brow(1), 16, 0.024, 8, false),
+      browL: new TubeGeometry(brow(-1), 16, 0.03, 8, false),
+      browR: new TubeGeometry(brow(1), 16, 0.03, 8, false),
       smile: new TubeGeometry(surfaceCurve([[-0.3, -0.31], [-0.17, -0.42], [0, -0.45], [0.17, -0.42], [0.3, -0.31]], 0.01), 32, 0.02, 8, false),
       philtrum: new TubeGeometry(surfaceCurve([[0, -0.25], [0, -0.44]], 0.01), 6, 0.018, 8, false),
       cape: makeCape(),
@@ -297,6 +291,9 @@ function Limb({ side, pivot, upper, fore, materials, g }: {
       <group ref={fore} position={[0, -0.38, 0]}>
         <mesh geometry={g.fore} material={materials.arm} position={[0, -0.16, 0]} rotation={[0, flip, 0]} />
         <mesh geometry={g.small} material={materials.plain} position={[0, -0.34, 0.01]} scale={[0.18, 0.17, 0.17]} />
+        {/* 손바닥 젤리와 앞쪽 손가락 선(원래 도안의 주먹 표현) */}
+        <mesh geometry={g.small} material={materials.pad} position={[-0.155 * side, -0.36, 0.04]} scale={[0.02, 0.075, 0.065]} />
+        {[-0.045, 0.045].map(x => <mesh key={x} geometry={g.small} material={materials.ink} position={[x * side, -0.42, 0.165]} rotation={[0.5, 0, 0]} scale={[0.011, 0.05, 0.011]} />)}
       </group>
     </group>
   </group>
@@ -355,13 +352,16 @@ export function DuduModel({ action }: { action: HoyaAction }) {
 
   const eye = (sx: number) => {
     const { p, r } = onHead(0.29 * sx, 0.06, -0.012)
-    const shine = onHead(0.29 * sx + 0.035, 0.12, 0.03)
+    const shine = onHead(0.29 * sx + 0.035, 0.125, 0.034)
+    const glint = onHead(0.29 * sx - 0.03, 0.0, 0.03)
     return <group key={sx}>
-      <mesh geometry={g.small} material={m.eye} position={p} rotation={r} scale={[0.078, 0.112, 0.05]} />
-      <mesh geometry={g.small} material={m.shine} position={shine.p} scale={[0.021, 0.026, 0.012]} />
+      <mesh geometry={g.small} material={m.eye} position={p} rotation={r} scale={[0.086, 0.122, 0.055]} />
+      <mesh geometry={g.small} material={m.shine} position={shine.p} scale={[0.026, 0.032, 0.014]} />
+      <mesh geometry={g.small} material={m.shine} position={glint.p} scale={[0.011, 0.013, 0.008]} />
     </group>
   }
   const nose = onHead(0, -0.19, -0.02)
+  const noseShine = onHead(0.035, -0.155, 0.05)
   const mouthAt = onHead(0, -0.47, -0.012)
 
   return <group>
@@ -383,11 +383,15 @@ export function DuduModel({ action }: { action: HoyaAction }) {
       </group>
 
       <mesh geometry={g.body} material={m.body} scale={[1, 1, 0.86]} />
-      <mesh material={m.seal} position={[0, -0.66, bodyRadius(-0.66) * 0.86 + 0.006]} rotation={[0.06, 0, 0]}><circleGeometry args={[0.16, 40]} /></mesh>
+      {/* 대구대학교 흉장(근사 재현): 테두리가 있는 배지 */}
+      <group position={BADGE.position} rotation={[BADGE.tilt, 0, 0]}>
+        <mesh material={m.seal}><circleGeometry args={[0.175, 48]} /></mesh>
+        <mesh material={m.badgeRim}><torusGeometry args={[0.178, 0.012, 8, 48]} /></mesh>
+      </group>
 
       <group ref={tail} position={[0.08, -1.3, -0.25]}>
         <mesh geometry={g.tail} material={m.tail} position={[-0.08, 1.3, 0.25]} />
-        <mesh geometry={g.small} material={m.ink} position={[g.tailTip.x - 0.08, g.tailTip.y + 1.3, g.tailTip.z + 0.25]} scale={0.088} />
+        <mesh geometry={g.small} material={m.ink} position={[g.tailTip.x - 0.08, g.tailTip.y + 1.3, g.tailTip.z + 0.25]} scale={0.07} />
       </group>
 
       <Limb side={1} pivot={rPivot} upper={rUpper} fore={rFore} materials={m} g={g} />
@@ -413,7 +417,8 @@ export function DuduModel({ action }: { action: HoyaAction }) {
           </group>
           <mesh geometry={g.browL} material={m.ink} />
           <mesh geometry={g.browR} material={m.ink} />
-          <mesh geometry={g.small} material={m.nose} position={nose.p} rotation={nose.r} scale={[0.13, 0.085, 0.08]} />
+          <mesh geometry={g.small} material={m.nose} position={nose.p} rotation={nose.r} scale={[0.135, 0.088, 0.085]} />
+          <mesh geometry={g.small} material={m.shine} position={noseShine.p} scale={[0.022, 0.012, 0.01]} />
           <mesh geometry={g.philtrum} material={m.ink} />
           <mesh geometry={g.smile} material={m.ink} />
           <mesh ref={mouth} geometry={g.small} material={m.mouth} position={mouthAt.p} rotation={mouthAt.r} scale={[0.11, 0.004, 0.03]} />
