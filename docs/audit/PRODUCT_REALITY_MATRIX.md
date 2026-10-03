@@ -17,6 +17,7 @@
 1. **임상 무결성 결함.** `backend/app/main.py`의 `start()`(390행)와 `start_activity()`(554행)는 `TrainingSession`을 만들 때 `is_seed`를 넘기지 않는다. 기본값이 False다.
    - 그래서 seed 아동이 "실제 음성" 모드로 플레이한 회기는 `clinical_eligible()`을 통과한다.
    - 이 회기의 관찰은 임상 근거, 회기 계획, 활동 제안에 들어갈 수 있다. 이 경우를 다루는 테스트는 없다.
+   - **Phase 1에서 수정(2026-10-04):** 두 경로와 호야 대화 모두 `is_seed=child.is_seed`로 저장하고 `test_clinical_integrity.py`가 확인한다. 수정 전에 잘못 저장된 과거 행은 읽기 전용 `backend/scripts/audit_seed_provenance.py`로 세기만 하며, 수리 여부는 사용자가 정한다.
 2. **"AI" 이름이 붙은 기능 가운데 학습된 ML 모델은 없다.** 외부 LLM은 호야 대화와 치료사 요약 두 곳뿐이고, 둘 다 기본값이 꺼짐이다.
 3. **heuristic 수치 중 연구 근거가 확인된 값은 없다.** 자세한 내용은 `HEURISTIC_REGISTER.md`에 있다.
 4. **시각 요소는 대부분 placeholder다.**
@@ -105,11 +106,11 @@
 6. 호야 대화는 DemoProvider를 쓴다.
 7. 치료사 검토는 `DEMO_*` 상태로 기록된다.
 
-**DEMO가 REAL로 오인될 수 있는 지점**
-1. `is_seed` 누락: seed 아동의 실제 모드 회기가 임상 근거로 들어간다.
-2. `/progress` 추이 그래프(`SessionTrendChart`)가 모드와 seed를 구분하지 않는다. 고급 정보 안에 경고 문구만 있다.
-3. legacy 추천이 DEMO 자료로 만들어지고, 대시보드의 "대기 중인 추천 N건"에 섞인다.
-4. Overview 최근 세션에 seed 표시가 없다.
+**DEMO가 REAL로 오인될 수 있는 지점** (아래 네 항목은 Phase 1에서 수정했다. 계산은 바꾸지 않고 출처를 분리·표시한다)
+1. `is_seed` 누락: seed 아동의 실제 모드 회기가 임상 근거로 들어간다. → 수정.
+2. `/progress` 추이 그래프(`SessionTrendChart`)가 모드와 seed를 구분하지 않는다. 고급 정보 안에 경고 문구만 있다. → x축에 실제·DEMO·샘플을 표시.
+3. legacy 추천이 DEMO 자료로 만들어지고, 대시보드의 "대기 중인 추천 N건"에 섞인다. → 실제 아동의 DEMO 연습에서는 만들지 않고, 과거 행은 대기 수에서 빼며 거절만 할 수 있다. 비교 회기도 같은 출처만 쓴다.
+4. Overview 최근 세션에 seed 표시가 없다. → 실제·DEMO·샘플 표시.
 5. SessionDetail은 seed가 아닌 모든 세션을 "실제 진행"으로 표시한다. 모드는 따로 표시된다.
 6. 목표 이력의 `source=recommendation`이 seed 자동 수락으로 생긴 것일 수 있다.
 7. 호야 대화가 "실제" 모드여도 DemoProvider로 동작할 수 있는데, 아동 화면에 표시가 없다.
@@ -122,7 +123,7 @@
 | 인증·CSRF·IDOR | `test_api_flow.py`, `test_hardening.py`, `test_therapist_planning.py` | 쿠키, 역할, CSRF, 소유권 404, throttle | 프록시 환경, 세션 회전 | 낮음 |
 | 보안 헤더·CSP·dist | `test_review_blockers.py`, `src/build/csp.test.ts`, `scripts/check-dist.mjs` | 헤더, meta CSP, dist 안의 비밀 문자열 | 실제 브라우저 CSP 위반 | 낮음 |
 | 5라운드 엔진 | `test_round_engine.py`, `test_hardening.py`, `test_sustain_v2.py` | 라운드 규칙, 이어하기, 재개 | 실제 아동 음성 | 중간 |
-| 임상 무결성 | `test_clinical_integrity.py`, `test_therapist_planning.py`, `src/therapist/clinicalLabels.test.ts` | 분모 제외, DEMO 분리, 검증 자료만 사용 | **`is_seed` 누락**, legacy 경로 혼입 | **높음** |
+| 임상 무결성 | `test_clinical_integrity.py`, `test_therapist_planning.py`, `src/therapist/clinicalLabels.test.ts` | 분모 제외, DEMO 분리, 검증 자료만 사용, seed 출처·legacy 추천 출처(Phase 1) | 과거에 잘못 저장된 행의 수리 여부 미결정 | **높음** |
 | 호야 대화 | `test_hoya_chat.py`, `test_hoya_chat_reliability.py`, `src/child/hoyaChat*.test.ts`, `src/api/hoyaChat.test.ts` | 중복 방지, 복구, 금지 표현, mock OpenAI | 실제 OpenAI, 실제 음성 대화 | 중간 |
 | 음성 DSP | `src/speech/*.test.ts`, `src/game/game.test.ts` | 합성 frame으로 VAD, 음질, 지속 | 실제 마이크, 기기 편차 | 높음 |
 | 호야 3D | `src/tiger/Hoya3D.test.tsx` | WebGL 확인 로직, fallback 문구 정적 렌더 | WebGL 화면, 시각 품질 | 중간 |
