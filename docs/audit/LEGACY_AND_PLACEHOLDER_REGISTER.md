@@ -15,7 +15,7 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 | 7 | `/api/children/{id}/progress`와 `SessionTrendChart` | legacy 지표 | 치료사 "고급 정보"에 있음 | AI 추정값과 DEMO가 섞임 | Phase 1 완료(회기 출처 표시, 계산 동일). 정리는 Phase 7 |
 | 8 | `GameType`(`monster_tower`, `magic_beam`; `enums.py`, `src/shared/levels.ts`)과 `GameKind`(V2 4종) | legacy 게임 enum | 둘 다 사용. PlaySession에 `monster_tower`를 `monster_adventure`로 바꾸는 대응이 있음 | 혼동 | Phase 5 |
 | 9 | 규칙 사본: 음질(`audio_quality.py`, `audioQuality.ts`), 빔(`pipeline.py`, `evaluation.py`), 종료 유예(`rounds.py`, `vad.ts`) | 손으로 옮겨 적음 | 모두 사용 | **음질 규칙은 이미 어긋남** | heuristic을 정리하는 Phase에서 처리 |
-| 10 | `TherapistRule`·`TherapistFeedback` | 치료사 교정 기능 | V2 점수 계산과 호야 `allowed_cue`에 영향 | `params.variant`에 transcript가 저장되는데 보존 기간 삭제 대상이 아님 | 유지. 보존 범위는 Phase 6 |
+| 10 | `TherapistRule`·`TherapistFeedback` | 치료사 교정 기능 | legacy 분석·정책·계획과 호야 `allowed_cue`에 영향. V2 라운드 판정(`evaluate_round`)은 규칙을 쓰지 않는다(2026-10-04 확인) | `params.variant`에 transcript가 저장되는데 보존 기간 삭제 대상이 아님 | 유지. 보존 범위는 Phase 6 |
 
 ## 2. 미사용 코드(Phase 0.5 정리 PR에서 삭제하기로 승인됨)
 

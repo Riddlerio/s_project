@@ -18,7 +18,6 @@ export interface SkillStatus {
 export const getMagicBeamGrant = (childId: string) => api<SkillStatus>(`/children/${childId}/skills/magic_beam`)
 export const decideMagicBeam = (childId: string, action: 'grant' | 'revoke', decision: SkillDecision) =>
   api<SkillStatus>(`/children/${childId}/skills/magic_beam/${action}`, { method: 'POST', body: JSON.stringify(decision) })
-export const getMySkills = () => api<{ magicBeam: boolean }>('/me/skills')
 
 export interface AdventureInventory { inventory: { rice: number; tuna: number }; crafted: { tunaSushi: number } }
 export interface ActiveActivity { sessionId: string; game: GameKind; mode: 'real' | 'demo'; roundIndex: number; completedRounds: number[]; paused: boolean }

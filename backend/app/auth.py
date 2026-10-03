@@ -70,19 +70,6 @@ def require_admin(account: Account = Depends(current_account), db: Session = Dep
     return account
 
 
-def require_child_access(child_id: str, account: Account = Depends(current_account), db: Session = Depends(get_db)) -> Child:
-    child = db.get(Child, child_id)
-    if child is None:
-        raise HTTPException(404, "아동을 찾을 수 없습니다")
-    if account.role == "STUDENT" and account.child_id == child_id:
-        return child
-    if account.role == "THERAPIST" and account.therapist_id == child.therapist_id:
-        return child
-    if account.role == "ADMIN":
-        return child
-    raise HTTPException(404, "아동을 찾을 수 없습니다")
-
-
 def create_session(db: Session, account: Account) -> tuple[str, str]:
     token = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)

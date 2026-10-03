@@ -1,9 +1,6 @@
 import hashlib
 import hmac
 import secrets
-from datetime import timedelta
-
-from .models import AuthToken, now
 
 
 def hash_password(password: str, salt: str) -> str:
@@ -26,10 +23,3 @@ def verify_dummy_password(password: str) -> bool:
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def issue_token(db, therapist_id: str) -> str:
-    token = secrets.token_urlsafe(32)
-    db.add(AuthToken(token_hash=hash_token(token), therapist_id=therapist_id, expires_at=now() + timedelta(hours=12)))
-    db.commit()
-    return token

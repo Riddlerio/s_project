@@ -10,7 +10,6 @@ export interface ActivityResponse { events: { type: string; payload: Record<stri
 export const startActivity = (game: GameKind, mode: 'real' | 'demo') =>
   api<ActivityStart>('/activities', { method: 'POST', body: JSON.stringify({ game, mode }) })
 
-export const resumeActivity = (sessionId: string) => api<ActivityStart>(`/activities/${sessionId}`)
 
 export const sendActivityUtterance = (session: ActivityStart, item: ActivityItem, roundIndex: number, attemptIndex: number,
   transcript: string | null, acoustic: Acoustic, attack: 'basic' | 'magic_beam' = 'basic') =>

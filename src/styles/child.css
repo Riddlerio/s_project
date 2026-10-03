@@ -115,14 +115,9 @@
 /* 기존 게임·대화 화면의 기능을 유지하면서 배경과 타이포만 맞춘다. */
 .child-screen:not(.home-screen):not(.map-screen):not(.reward-screen) { max-width: 850px; margin: auto; padding: 2rem; text-align: center; background: #f5f6f1; }
 .child-screen .target { font-size: clamp(2.5rem, 7vw, 4rem); font-weight: 900; color: var(--forest); margin: 1.4rem; }
-.map { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; margin: 2rem auto; }
-.map span { border-radius: 18px; background: #dfe8e1; padding: 1rem; color: #677b70; }
-.map .unlocked { background: #e8efb9; color: #486225; }
 .game-top { display: flex; justify-content: space-between; }
 .monster { font-size: 8rem; animation: float 2s ease-in-out infinite; }
 .game-screen { display: flex; flex-direction: column; align-items: center; }
-.beam-track { width: min(90%, 500px); height: 30px; border-radius: 20px; background: #a4bcb0; overflow: hidden; }
-.beam-fill { height: 100%; background: linear-gradient(90deg, #41ac94, #d5ed84); transition: width .05s linear; }
 .quiet { background: transparent; color: #526e61; font-size: .8rem !important; }
 @keyframes float { 50% { transform: translateY(-12px); } }
 .beam-canvas { max-width: 100%; height: auto; border-radius: 20px; }
@@ -168,27 +163,6 @@
 .activity-monster_adventure .activity-stage-art::before { content: ''; position: absolute; inset: 49% -10% -20%; z-index: 0; background: linear-gradient(145deg, #508b71 0 24%, transparent 24% 35%, #609a77 35% 62%, transparent 62% 70%, #4b876b 70%), linear-gradient(#82af81, #3e785e); clip-path: polygon(0 62%, 18% 26%, 33% 54%, 47% 12%, 67% 53%, 82% 19%, 100% 62%, 100% 100%, 0 100%); opacity: .52; }
 .activity-monster_adventure .activity-stage-art::after { content: ''; position: absolute; z-index: 0; top: 10%; right: 8%; width: 95px; height: 95px; border-radius: 50%; background: #fff6c88a; box-shadow: 0 0 0 24px #fff6c82c; }
 .activity-monster_adventure .activity-character { position: absolute; z-index: 2; width: 100%; height: 100%; top: 0; left: 0; transform: translateX(-10%) scale(.82); transform-origin: left center; }
-.monster-path { position: absolute; z-index: 1; left: 24%; right: -15%; bottom: -9%; height: 36%; border-radius: 50% 50% 0 0; transform: rotate(-6deg); background: linear-gradient(135deg, #d5d3a3, #afb97e); box-shadow: 0 -7px 0 #4c896a77; }
-.monster-opponent { position: absolute; z-index: 3; top: 37%; right: 9%; width: 145px; height: 185px; filter: drop-shadow(0 14px 10px #1a553b44); transform-origin: center bottom; animation: monster-breathe 2.8s ease-in-out infinite; }
-.monster-opponent.monster-hit { animation: monster-hit .75s ease-in-out both; }
-.monster-body { position: absolute; inset: 20px 0 12px; border: 3px solid #1d483b; border-radius: 46% 46% 36% 36%; background: radial-gradient(circle at 45% 25%, #3b8569, #205d4b 70%); box-shadow: inset -12px -9px 0 #0e4d40; }
-.monster-horn { position: absolute; z-index: -1; top: 3px; width: 47px; height: 62px; border: 3px solid #1d483b; border-radius: 80% 12% 40% 12%; background: #b5d78f; }
-.monster-horn-left { left: 12px; transform: rotate(-24deg); }
-.monster-horn-right { right: 12px; transform: scaleX(-1) rotate(-24deg); }
-.monster-eye { position: absolute; top: 54px; width: 20px; height: 24px; border-radius: 50%; background: #fff8e6; }
-.monster-eye::after { content: ''; position: absolute; top: 8px; left: 8px; width: 7px; height: 10px; border-radius: 50%; background: #143e36; }
-.monster-eye-left { left: 32px; }
-.monster-eye-right { right: 32px; }
-.monster-mouth { position: absolute; left: 50%; top: 93px; width: 24px; height: 9px; transform: translateX(-50%); border-bottom: 3px solid #143e36; border-radius: 50%; }
-.monster-feet { position: absolute; z-index: -1; left: 20px; right: 20px; bottom: 0; height: 30px; border-radius: 45% 45% 30% 30%; background: #164d3d; }
-.monster-voice-wave { position: absolute; z-index: 4; left: 43%; top: 47%; width: 58px; height: 98px; border-right: 3px solid #e8ffdf; border-radius: 50%; filter: drop-shadow(0 0 8px #e8ffdf); opacity: .78; animation: monster-voice-wave .8s ease-out infinite; pointer-events: none; }
-.monster-voice-wave::before, .monster-voice-wave::after { content: ''; position: absolute; top: 16px; right: 8px; width: 38px; height: 64px; border-right: 2px solid #e8ffdf; border-radius: 50%; }
-.monster-voice-wave::after { top: 29px; right: 17px; width: 19px; height: 38px; }
-.monster-caption { position: absolute; z-index: 4; top: 1.5rem; right: 1.5rem; border: 1px solid #c7e2ca; border-radius: 100px; background: #f7fff0cb; padding: .3rem .7rem; color: #205643; font-size: .72rem; font-weight: 900; }
-@keyframes monster-breathe { 50% { transform: translateY(-5px) scale(1.02); } }
-@keyframes monster-hit { 35% { transform: translate(17px, -9px) rotate(11deg); opacity: .72; } 75% { transform: translate(8px, 2px) rotate(-5deg); } 100% { transform: translate(0, 0); } }
-@keyframes monster-voice-wave { 50% { opacity: .35; transform: translateX(6px); } }
 @media (max-width: 1050px) { .journey-grid { grid-template-columns: repeat(2, 1fr); } .journey-card { min-height: 310px; } }
 @media (max-width: 760px) { .home-layout { grid-template-columns: 1fr; gap: 0; } .home-copy { padding-bottom: 0; } .home-character { order: -1; height: 440px; min-height: 440px; margin-top: 1.5rem; } .home-shortcuts { margin-top: 2rem; } .map-intro { align-items: start; } .map-foot-grid { grid-template-columns: 1fr; } .entry-layout { grid-template-columns: 1fr; gap: 1rem; padding: 2rem 0; } .entry-copy h1 { font-size: 3.7rem; } .entry-decoration { display: none; } .activity-stage { grid-template-columns: 1fr; } .activity-stage-art { height: 390px; min-height: 390px; } .activity-instruction { padding: 0; } }
 @media (max-width: 520px) { .child-header { min-height: 70px; } .home-copy h1 { font-size: 3.2rem; } .home-character { height: 360px; min-height: 360px; } .home-actions button { width: 100%; } .home-shortcuts button { font-size: .78rem; padding-right: .4rem; } .home-shortcuts button:last-child { padding-left: .75rem; } .map-intro { flex-direction: column; padding: 2rem 0 1.3rem; } .map-level { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; } .map-level strong { font-size: 1.3rem; } .map-options fieldset { width: 100%; } .journey-grid { grid-template-columns: 1fr; } .journey-card { min-height: 270px; } .reward-stats { gap: .5rem; } .reward-sun { width: 120px; height: 120px; font-size: 3.2rem; } .monster-opponent { right: 5%; top: 39%; transform: scale(.78); } .monster-caption { top: .8rem; right: .8rem; } }
-@media (max-width: 520px) { .monster-opponent { scale: .78; transform-origin: right bottom; } }
