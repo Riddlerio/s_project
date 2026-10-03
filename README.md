@@ -2,7 +2,7 @@
 
 Speech Hero는 만 4~7세 아동이 음성으로 두두와 네 가지 게임을 진행하고, 치료사가 관찰 근거를 검토해 목표를 조정하는 웹 앱입니다. 아동에게 임상 점수를 보여주지 않고, 치료사 화면에서 발화·결정·추천의 근거를 확인합니다.
 
-2026-10-03 기능 브랜치의 실제 구현·검사·남은 한계는 [새 기기 작업 기록](docs/handoff/dudu_2026-10-03/05_DEVICE_CONTINUATION.md), Orca/Claude Code 이어하기 명령은 [Orca 작업 안내](docs/handoff/dudu_2026-10-03/06_ORCA_CLAUDE_HANDOFF.md)를 먼저 확인합니다. 이 문서의 오래된 V2 검사 수치는 당시 기록이며 현재 브랜치의 최종 검사 결과가 아닙니다. 현재 `Hoya3D.tsx`는 **최종 3D 모델이 아닌 2.5D 시제품**이고, 측·후면 원화와 모델 파일을 받은 뒤 최종 제작합니다.
+2026-10-03 기능 브랜치의 실제 구현·검사·남은 한계는 [새 기기 작업 기록](docs/handoff/dudu_2026-10-03/05_DEVICE_CONTINUATION.md), Orca/Claude Code 이어하기 명령은 [Orca 작업 안내](docs/handoff/dudu_2026-10-03/06_ORCA_CLAUDE_HANDOFF.md)를 먼저 확인합니다. 이 문서의 오래된 V2 검사 수치는 당시 기록이며 현재 브랜치의 최종 검사 결과가 아닙니다. 현재 두두는 측·후면 조형 도면을 참고한 **절차형 3D 시제품**(`src/tiger/DuduModel.tsx`)이며 최종 모델 파일이 아닙니다. 이후 작업 결과는 [Claude 이어하기 기록](docs/handoff/dudu_2026-10-03/07_CLAUDE_FLOW_AND_3D.md)에, 남은 Phase·3D 제작 과정·범위 정리는 [로드맵](docs/ROADMAP.md)에 있습니다.
 
 ## 현재 상태
 
