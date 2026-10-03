@@ -1,0 +1,41 @@
+/* 말하기 버튼과 선택지를 목표 낱말 바로 아래(오른쪽 열)에 둔다. 노트북 높이에서도 첫 화면에 보이게 한다. */
+.activity-instruction .activity-controls { align-items: stretch; width: 100%; max-width: none; margin: .6rem 0 0; }
+.activity-instruction .activity-hold { width: 100%; min-height: 70px; font-size: 1.15rem; }
+.activity-instruction .dudu-round-feedback { margin: .2rem 0 .4rem; }
+.activity-instruction .activity-controls [role=status] { display: flex; flex-direction: column; align-items: center; gap: .4rem; margin-bottom: .6rem; }
+.activity-instruction .activity-demo-dialogue label { justify-content: flex-start; }
+.activity-instruction .activity-demo-dialogue input { min-width: 0; flex: 1; }
+.activity-instruction .activity-demo-dialogue > div { justify-content: flex-start; }
+.activity-footnote { margin: 1rem 0 0; color: var(--muted); font-size: .75rem; text-align: center; }
+
+/* 휴대폰: 말하기 버튼을 화면 아래 엄지 영역에 고정한다. 장면·선택지는 그 위로 스크롤된다. */
+@media (max-width: 760px) {
+  .activity-game .activity-shell { padding-bottom: 7.5rem; }
+  .activity-game .activity-header { flex-wrap: wrap; align-items: center; row-gap: .3rem; }
+  .activity-game .activity-header > div { flex: 1 1 100%; min-width: 0; }
+  .activity-game .activity-header h1 { font-size: 2rem; white-space: nowrap; }
+  .activity-game .activity-header > span { padding-bottom: 0; }
+  .activity-game .dudu-save-exit { padding: .5rem .8rem; font-size: .85rem; }
+  .activity-game .activity-progress > span { justify-content: center; min-height: 36px; padding: .3rem; }
+  /* 좁은 화면에서는 번호와 색으로 보여 주고, 상태 글자는 화면 낭독기에만 남긴다. */
+  .activity-game .activity-progress > span > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .activity-game .activity-stage-art { height: 330px; min-height: 330px; }
+  .activity-instruction .activity-hold { position: fixed; z-index: 30; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: auto; min-height: 72px; box-shadow: 0 6px 0 var(--forest-deep), 0 10px 30px #0e625540; }
+}
+
+@media (min-width: 761px) and (max-height: 920px) {
+  .activity-game .activity-shell { padding-top: 1.1rem; }
+  .activity-game .activity-header { padding-bottom: .6rem; }
+  .activity-game .activity-header h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+  .activity-game .activity-progress { margin: .7rem 0 .9rem; }
+  .activity-game .activity-progress > span { min-height: 36px; }
+  .activity-game .activity-stage-art { height: min(55vw, 470px, calc(100vh - 200px)); min-height: 340px; }
+  .activity-game .activity-instruction { justify-content: flex-start; padding-top: .2rem; }
+  .activity-game .activity-instruction h2 { margin-bottom: .3rem; font-size: clamp(1.5rem, 2.2vw, 2.2rem); }
+  .activity-game .activity-target { margin: .7rem 0 .5rem; padding: .4rem .9rem; }
+  .activity-game .activity-target strong { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+  .activity-game .activity-message { min-height: 1.8rem; }
+  .activity-game .dudu-tools { margin-top: .5rem; }
+  .activity-game .dudu-tool { min-height: 96px; padding: .5rem .4rem; }
+  .activity-game .dudu-tool-icon { width: 44px; height: 44px; }
+}

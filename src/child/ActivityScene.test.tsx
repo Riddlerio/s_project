@@ -22,3 +22,21 @@ describe('승인된 첫 소풍 데모 장면', () => {
     expect(html).not.toContain('정확도')
   })
 })
+
+describe('장면 효과와 공격 선택', () => {
+  it('서버 결과의 공격 종류에 맞는 효과만 보여 준다', () => {
+    const beam = renderToStaticMarkup(<ActivityScene game="monster_adventure" action="ATTACK" fx={{ id: 1, result: 'hit', attack: 'magic_beam', stars: 3, material: 'tuna' }} />)
+    expect(beam).toContain('fx-beam')
+    expect(beam).toContain('반짝!')
+    expect(beam).toContain('fx-loot')
+    const basic = renderToStaticMarkup(<ActivityScene game="monster_adventure" action="ATTACK" fx={{ id: 2, result: 'hit', attack: 'basic' }} />)
+    expect(basic).toContain('첨벙!')
+    expect(basic).not.toContain('fx-beam')
+    expect(basic).not.toContain('fx-loot')
+  })
+  it('다시 해보기는 실패 표시 없이 잔잔한 물결만 보여 준다', () => {
+    const html = renderToStaticMarkup(<ActivityScene game="monster_adventure" action="ENCOURAGE" fx={{ id: 3, result: 'retry', attack: 'basic' }} />)
+    expect(html).toContain('fx-ripple')
+    expect(html).not.toMatch(/실패|틀렸|fx-word/)
+  })
+})

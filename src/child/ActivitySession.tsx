@@ -5,7 +5,9 @@ import { sendActivityUtterance, type ActivityItem, type ActivityRound, type Acti
 import type { Acoustic } from '../shared/types'
 import { HoyaActionController } from '../control/HoyaActionController'
 import type { HoyaAction } from '../control/speechGameSignal'
-import { ActivityScene, RoundFeedback } from './ActivityScene'
+import { ActivityScene, RoundFeedback, type SceneFx } from './ActivityScene'
+import { AttackChoice } from './AttackChoice'
+import './activityLayout.css'
 import { claimActivity, heartbeatActivity, pauseActivity } from '../api/adventure'
 import { AudioCapture } from '../speech/audioCapture'
 import { DEFAULT_VAD } from '../speech/vad'
@@ -47,6 +49,8 @@ export default function ActivitySession() {
   const attackRef = useRef(attack)
   attackRef.current = attack
   const [feedback, setFeedback] = useState<{ stars: number; praise: string; material?: 'rice' | 'tuna' } | null>(null)
+  const [fx, setFx] = useState<SceneFx | null>(null)
+  const fxCount = useRef(0)
   const [captureReadyKey, setCaptureReadyKey] = useState<string | null>(null)
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = !session || session.mode !== 'real' || supportsRealMode(session.game, capabilities)
@@ -204,15 +208,18 @@ export default function ActivitySession() {
       if (!mounted.current) return
       actionTimers.current.forEach(window.clearTimeout)
       actionTimers.current = []
+      const usedAttack = session.game === 'monster_adventure' ? attackRef.current : 'basic'
       applyMagicBeam(result.magicBeamAvailable)
       const kinds = new Set(result.events.map(event => event.type))
       const clear = result.events.find(event => event.type === 'ROUND_CLEAR')
       const stars = clear?.payload.stars
       const praise = clear?.payload.praise
-      if (typeof stars === 'number' && stars >= 1 && stars <= 3 && typeof praise === 'string') {
-        const material = clear?.payload.material
-        setFeedback({ stars, praise, ...(material === 'rice' || material === 'tuna' ? { material } : {}) })
-      }
+      const material = clear?.payload.material === 'rice' || clear?.payload.material === 'tuna' ? clear.payload.material : undefined
+      const validStars = typeof stars === 'number' && stars >= 1 && stars <= 3 ? stars : undefined
+      if (validStars && typeof praise === 'string') setFeedback({ stars: validStars, praise, ...(material ? { material } : {}) })
+      // 장면 효과는 서버가 돌려준 결과만 옮긴다. 다시 해보기는 실패 표시 없이 잔잔하게 보여 준다.
+      const hitKind = kinds.has('TARGET_SUCCESS') ? 'hit' : kinds.has('TARGET_RETRY') ? 'retry' : 'none'
+      if (hitKind !== 'none' || validStars) setFx({ id: ++fxCount.current, result: hitKind, attack: usedAttack, ...(validStars ? { stars: validStars } : {}), ...(material ? { material } : {}) })
       if (kinds.has('TARGET_SUCCESS')) { signal.dispatch(session.game, { type: 'TARGET_SUCCESS' }); setMessage('좋아! 다음 모험으로 가자!') }
       else if (kinds.has('LISTEN_AGAIN')) { signal.dispatch(session.game, { type: 'UNCERTAIN' }); setMessage('앗, 내가 잘 못 들었나 봐. 천천히 다시 말해줄래?') }
       else if (kinds.has('NO_SPEECH')) { signal.dispatch(session.game, { type: 'NO_SPEECH' }); setMessage('괜찮아, 준비되면 들려줘!') }
@@ -353,19 +360,22 @@ export default function ActivitySession() {
   return <main className={`child-screen game-screen activity-game activity-${session.game}`}><div className="activity-shell">
     <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span><button className="quiet dudu-save-exit" disabled={busy} onClick={() => void saveAndExit()}>저장하고 집으로</button></header>
     <div className="activity-progress" aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} className={completed.includes(value.index) ? 'completed' : value.index === round.index ? 'current' : ''} aria-current={value.index === round.index ? 'step' : undefined}><small>{String(value.index).padStart(2, '0')}</small><span>{completed.includes(value.index) ? '완료' : value.index === round.index ? '진행 중' : '다음'}</span></span>)}</div>
-    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} /><div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p></div></section>
-    {feedback && <RoundFeedback {...feedback} />}
-    {session.game === 'monster_adventure' && <fieldset className="dudu-attack-choice"><legend>낚시 도구</legend><label><input type="radio" name="attack" checked={attack === 'basic'} onChange={() => setAttack('basic')} disabled={busy || speaking} /> 기본 공격</label><label><input type="radio" name="attack" checked={attack === 'magic_beam'} onChange={() => setAttack('magic_beam')} disabled={!magicBeamGranted || busy || speaking} /> 매직빔 {magicBeamGranted ? '(치료사 승인)' : '(치료사 승인 필요)'}</label><small>기본 공격으로도 끝까지 진행할 수 있어요.</small></fieldset>}
-    <div className="activity-controls">
-      {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button>
-        {needsTakeover && <><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button></>}</div>}
-      {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
-      {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
-      {speaking && <p className="small" aria-live="polite">두두가 말한 뒤 네 차례가 와요.</p>}
-      {session.mode === 'real' && captureReadyKey !== captureKey && <p role="status">주변 소리를 확인할게. 잠깐 조용히 기다려줘!</p>}
-      {!realSupported && <p role="alert" className="notice">{missingText(session.game, capabilities)}</p>}
-      {error && <p role="alert" className="notice">{error}</p>}
-      <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
-    </div>
+    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} fx={fx} />
+      <div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p>
+        {feedback && <RoundFeedback key={fx?.id} {...feedback} />}
+        {session.game === 'monster_adventure' && <AttackChoice value={attack} magicBeam={magicBeamGranted} disabled={busy || speaking} onChange={setAttack} />}
+        <div className="activity-controls">
+          {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button>
+            {needsTakeover && <><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button></>}</div>}
+          {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
+          {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
+          {speaking && <p className="small" aria-live="polite">두두가 말한 뒤 네 차례가 와요.</p>}
+          {session.mode === 'real' && captureReadyKey !== captureKey && <p role="status">주변 소리를 확인할게. 잠깐 조용히 기다려줘!</p>}
+          {!realSupported && <p role="alert" className="notice">{missingText(session.game, capabilities)}</p>}
+          {error && <p role="alert" className="notice">{error}</p>}
+        </div>
+      </div>
+    </section>
+    <p className="activity-footnote">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>
   </div></main>
 }
