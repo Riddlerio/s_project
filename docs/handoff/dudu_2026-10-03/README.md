@@ -1,6 +1,6 @@
 # 두두 작업 인수 · 2026-10-03
 
-이 폴더는 다른 기기에서 `feat/dudu-mascot-3d-ui` 브랜치를 받아 작업을 이어가기 위한 묶음이다. **실제 앱 코드 변경은 저장소 루트의 `src/`에 있다.** 이 폴더에는 Git에 없던 기획·포스터·참고 이미지·실행 캡처와 인수 설명을 넣었다. `sources/`의 동기화 문서는 수정하지 않았다.
+이 폴더는 다른 기기에서 `feat/dudu-mascot-3d-ui` 브랜치를 받아 작업을 이어가기 위한 묶음이다. **실제 앱 변경은 저장소 루트의 `src/`와 `backend/`에 있다.** `01`~`04`는 최초 인수 당시 스냅샷이고, 그 뒤의 구현·검사는 `05`, Orca에서의 안전한 명령과 Claude Code 프롬프트는 `06`을 따른다. `sources/`의 동기화 문서는 수정하지 않았다.
 
 ## 먼저 볼 파일
 
@@ -9,6 +9,8 @@
 3. [03_WEEK_SCOPE.md](03_WEEK_SCOPE.md): 1인·1주일 시연과 포스터의 구현 범위.
 4. [04_FULL_ARCHITECTURE.md](04_FULL_ARCHITECTURE.md): 치료 게임·대화·치료사 권한·AI 하네스의 전체 연결.
 5. [poster/speech_hero_poster_review.pptx](poster/speech_hero_poster_review.pptx)와 [미리보기](poster/poster_preview.png): 사용자 제공 90×120 cm 규격의 **검토본**. 이름·지도교수·전공은 빈칸이며, 승인 스킬·재료 제작·다른 기기 이어하기는 설계로 표시되어 있다.
+6. [05_DEVICE_CONTINUATION.md](05_DEVICE_CONTINUATION.md): 새 기기에서 받은 사용자 승인·기능 구현·검사 상태. 원래 인수 시점 이후의 변경은 이 기록으로 확인한다.
+7. [06_ORCA_CLAUDE_HANDOFF.md](06_ORCA_CLAUDE_HANDOFF.md): Orca 독립 작업 폴더·실행·검사 명령, Claude Code 첫 프롬프트, Figma MCP 확인·설치 안내.
 
 ## 다른 기기에서 받기
 
@@ -19,7 +21,7 @@ git fetch origin
 git switch --track origin/feat/dudu-mascot-3d-ui
 ```
 
-이미 복제한 저장소라면 `git fetch origin` 후 위 `git switch --track ...`만 실행한다. 같은 이름의 로컬 브랜치가 있으면 `git switch feat/dudu-mascot-3d-ui`를 사용한다. **`main`이나 `fix/phase1-clinical-integrity`에 자동 병합하지 않는다.** 현재 구현·자료는 이 브랜치에서 검토한 뒤 통합한다.
+이미 복제한 저장소라면 현재 변경을 `git status`로 확인한다. 미커밋 자료가 있는 Orca 폴더에서 강제 전환하지 말고 [독립 worktree 명령](06_ORCA_CLAUDE_HANDOFF.md)을 따른다. **`main`이나 `fix/phase1-clinical-integrity`에 자동 병합하지 않는다.**
 
 앱 실행은 저장소 [README.md](../../../README.md)의 Windows 안내를 따른다. 프런트엔드 `npm.cmd install`, 백엔드 `backend/requirements.txt` 설치 후, 로컬 데모 DB에서만 `SEED_DEMO_DATA=true`, `COOKIE_SECURE=false`로 실행한다. 샘플 로그인은 화면의 DEMO 버튼을 사용한다. `backend/.env`, 데모 DB, API 키, 실제 아동 자료는 이 인수 묶음에 넣지 않았다.
 
@@ -37,6 +39,6 @@ git switch --track origin/feat/dudu-mascot-3d-ui
 
 `poster/build_poster_source.mjs`는 이번 로컬 작업의 제작 소스다. 전용 `@oai/artifact-tool` 런타임과 환경 변수(`POSTER_TEMPLATE`, `POSTER_WORKSPACE`, `SKILL_DIR`, `RUNTIME_PYTHON`, `SOURCE_SHA256`)를 요구하고 이전 작업 폴더 구조를 참조한다. 다른 기기에서는 PPTX를 직접 편집하거나 경로와 환경을 맞춘 뒤 다시 생성한다. 이 스크립트를 일반 Node 프로젝트에서 바로 실행되는 명령으로 소개하지 않는다.
 
-## 다음 검토의 기준
+## 최초 인수 시점의 기준
 
-원본 `fix/phase1-clinical-integrity`의 `83bf0dd`에서 분기했다. 앱의 3D·화면층은 변경됐지만 동결 백엔드 계약은 변경하지 않았다. `docs/audit/FROZEN_CORE_CONTRACT.md`는 동결 경로 변경 전 **파일·이유·계약 영향·회귀 명령을 제시한 사용자 승인**을 요구한다. 특히 치료사 승인 스킬의 서버 권한, 재료 저장, 음성 순서는 [01_LOCAL_PROGRESS.md](01_LOCAL_PROGRESS.md)의 남은 작업에 따라 검토한다.
+최초 인수 브랜치는 `fix/phase1-clinical-integrity`의 `83bf0dd`에서 분기했다. 이후 사용자가 동결 변경 범위를 각각 승인했고, 새 기기 작업에서 음성 교대·스킬 권한·재료·이어하기 코드를 수정했다. 현재 계약 영향과 검사 상태는 [05_DEVICE_CONTINUATION.md](05_DEVICE_CONTINUATION.md)에 있다. 앞으로도 [동결 계약](../../audit/FROZEN_CORE_CONTRACT.md)은 변경 전 **파일·이유·계약 영향·회귀 명령을 제시한 사용자 승인**을 요구한다.

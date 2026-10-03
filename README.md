@@ -1,12 +1,14 @@
 # Speech Hero
 
-Speech Hero는 만 4~7세 아동이 음성으로 호야와 네 가지 게임을 진행하고, 치료사가 관찰 근거를 검토해 목표를 조정하는 웹 앱입니다. 아동에게 임상 점수를 보여주지 않고, 치료사 화면에서 발화·결정·추천의 근거를 확인합니다.
+Speech Hero는 만 4~7세 아동이 음성으로 두두와 네 가지 게임을 진행하고, 치료사가 관찰 근거를 검토해 목표를 조정하는 웹 앱입니다. 아동에게 임상 점수를 보여주지 않고, 치료사 화면에서 발화·결정·추천의 근거를 확인합니다.
+
+2026-10-03 기능 브랜치의 실제 구현·검사·남은 한계는 [새 기기 작업 기록](docs/handoff/dudu_2026-10-03/05_DEVICE_CONTINUATION.md), Orca/Claude Code 이어하기 명령은 [Orca 작업 안내](docs/handoff/dudu_2026-10-03/06_ORCA_CLAUDE_HANDOFF.md)를 먼저 확인합니다. 이 문서의 오래된 V2 검사 수치는 당시 기록이며 현재 브랜치의 최종 검사 결과가 아닙니다. 현재 `Hoya3D.tsx`는 **최종 3D 모델이 아닌 2.5D 시제품**이고, 측·후면 원화와 모델 파일을 받은 뒤 최종 제작합니다.
 
 ## 현재 상태
 
 | 항목 | 상태 |
 |---|---|
-| M1 (음성 입력·3D 호야·Magic Beam 경로) | PARTIAL |
+| M1 (음성 입력·두두 시제품·Magic Beam 경로) | PARTIAL |
 | M2 (네 게임 5라운드·임상 관찰·치료사 검증) | PARTIAL |
 | M3 (추천·대화·운영 준비) | PARTIAL |
 | Production Ready | **NO** |
@@ -17,11 +19,12 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 ## 주요 기능
 
-- 아동: 계정 로그인, 3D 호야 홈, 네 게임의 5라운드, 호야와 대화하기(자유대화), DEMO 또는 실제 음성 입력, XP·뱃지·카드 확인
+- 아동: 계정 로그인, 두두 시제품 홈, 네 게임의 5라운드, 두두와 대화하기(자유대화), DEMO 또는 실제 음성 입력, XP·뱃지·카드 확인
+- 데모 확장: 치료사가 승인·철회하는 매직빔, 다른 기기에서 명시적으로 이어받는 회기, 농사/낚시 장면의 재료와 참치초밥 한 가지 제작, 라운드 참여별. 임상 판단과 제작 보상은 분리합니다.
 - 치료사: 로그인, 담당 아동 목록, 아동별 4영역 작업 공간(요약·치료 목표·다음 회기·경과 · 기록), 검증된 근거로 다음 회기 계획 작성·승인, 세션 기록·발화 교정, 기존 AI 추천과 규칙(고급 정보)
 - 서버: FastAPI·SQLite, 쿠키 세션·역할 접근 제어·CSRF 방어, 발화 분석, 라운드 이벤트와 임상 관찰·치료사 검증 기록
 
-음향·발음 판정은 **기초 근사 분석**이며 임상 진단이나 치료사의 판단을 대체하지 않습니다. 5라운드 난이도 규칙은 제품 운영 규칙입니다. 원본 음성은 앱 서버에 저장하지 않습니다. 실제 음성 모드에서 브라우저의 Web Speech API 제공업체로 음성이 전송될 수 있습니다. DEMO는 스크립트 인식 결과를 사용하며 아동 화면에 명시됩니다. 학습 모델 재훈련은 하지 않습니다. 외부 LLM은 아래 "호야와 대화하기"에서 서버 설정으로 켰을 때만 대화 문장을 만드는 데 쓰입니다. 발음 판정·치료 결정에는 쓰이지 않습니다. 학습형 발음 모델 도입 가능성은 [발음 연구 최종 결정](research/pronunciation/reports/pronunciation_final.md)에서 검토했으며, Speech Hero 목표에 맞는 공개 한국 아동 데이터가 없어 실험하지 않았습니다(DATASET_NOT_SUITABLE). 제품 동작은 바뀌지 않았습니다.
+음향·발음 판정은 **기초 근사 분석**이며 임상 진단이나 치료사의 판단을 대체하지 않습니다. 5라운드 난이도 규칙은 제품 운영 규칙입니다. 원본 음성은 앱 서버에 저장하지 않습니다. 실제 음성 모드에서 브라우저의 Web Speech API 제공업체로 음성이 전송될 수 있습니다. DEMO는 스크립트 인식 결과를 사용하며 아동 화면에 명시됩니다. 학습 모델 재훈련은 하지 않습니다. 외부 LLM은 아래 "두두와 대화하기"에서 서버 설정으로 켰을 때만 대화 문장을 만드는 데 쓰입니다. 발음 판정·치료 결정에는 쓰이지 않습니다. 학습형 발음 모델 도입 가능성은 [발음 연구 최종 결정](research/pronunciation/reports/pronunciation_final.md)에서 검토했으며, Speech Hero 목표에 맞는 공개 한국 아동 데이터가 없어 실험하지 않았습니다(DATASET_NOT_SUITABLE). 제품 동작은 바뀌지 않았습니다.
 
 ## 구조와 음성 처리
 
@@ -31,9 +34,9 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 라운드별 임상 요약은 실제 음성 관찰 전체(`totalObservedN`)와 평가 가능한 표본(`evaluableN`, AI가 성공·재시도로 판단한 관찰)을 나눕니다. 불확실(`uncertainN`)·발화 없음(`noSpeechN`)은 따로 세며 실패가 아닙니다. 치료사 확인 비율은 성공·재시도로 확인된 관찰만 분모로 씁니다. 자료가 없으면 0%가 아니라 "자료 없음"입니다. DEMO·샘플 관찰은 카드에 DEMO로 표시되고, 치료사가 검토해도 `DEMO_CONFIRMED`처럼 기록되어 임상 검증 통계와 활동 제안에 쓰이지 않습니다. 모든 라운드 항목은 기존 훈련 단어 목록에서 고르므로 Monster Adventure R4는 미훈련 단어가 아니라 "새 장면에서 훈련 단어 산출"로 표시합니다. 자세한 구조는 [아키텍처](docs/ARCHITECTURE.md)에 있습니다.
 
-## 호야와 대화하기
+## 두두와 대화하기
 
-호야 홈의 "호야와 대화하기"(`/play/chat`)는 게임 밖 자유대화입니다. 아동이 말하면 기존 음성 경로(AudioCapture·MicUtterancePipeline·VAD·WebSpeechRecognizer)로 발화를 요약하고, 서버가 목표 음소가 관찰됐는지(`TARGET_OBSERVED`·`TARGET_NOT_OBSERVED`·`UNCERTAIN`·`NO_SPEECH`)만 기록합니다. 정해진 목표 단어가 없으므로 발음의 정오를 판정하지 않습니다. 결정적 대화 정책이 다음 전략을 정하고, 대화 제공자는 그 전략을 짧은 한국어 문장으로 표현만 합니다. 호야는 아동이 한 말에 먼저 반응하고, 같은 주제 안에서 목표 음소가 자연스럽게 나올 질문을 합니다.
+두두 홈의 "두두와 대화하기"(`/play/chat`)는 게임 밖 자유대화입니다. 아동이 말하면 기존 음성 경로(AudioCapture·MicUtterancePipeline·VAD·WebSpeechRecognizer)로 발화를 요약하고, 서버가 목표 음소가 관찰됐는지(`TARGET_OBSERVED`·`TARGET_NOT_OBSERVED`·`UNCERTAIN`·`NO_SPEECH`)만 기록합니다. 정해진 목표 단어가 없으므로 발음의 정오를 판정하지 않습니다. 결정적 대화 정책이 다음 전략을 정하고, 대화 제공자는 그 전략을 짧은 한국어 문장으로 표현만 합니다. 두두는 아동이 한 말에 먼저 반응하고, 같은 주제 안에서 목표 음소가 자연스럽게 나올 질문을 합니다.
 
 - 흐름: "대화 시작"을 한 번 누르면 호야 말하기 → 듣기 → (발화 끝) 생각하기(THINKING) → 말하기 → 듣기가 자동으로 이어집니다. 응답이 750ms보다 늦을 때만 "음..."을 한 turn에 한 번 말합니다(`HOYA_THINKING_FILLER_DELAY_MS`, `src/child/hoyaChatController.ts`). 호야가 말하거나 생각하는 동안에는 마이크 소리를 아동 발화로 보내지 않습니다. 호야의 표정·동작(THINKING·TALKING·LISTENING)은 이 대화 상태가 정하며, 대화 제공자(LLM)는 동작을 정하지 않습니다.
 - 재시도와 중복 방지: 브라우저는 발화 1회마다 임의의 요청 ID(`clientRequestId`, UUID)를 만들고, 같은 발화의 재시도에는 같은 ID만 씁니다. 서버는 제공자를 부르기 전에 turn을 `PROCESSING`으로 먼저 저장하고(같은 turn·같은 ID는 한 요청만 성공), 같은 ID가 다시 오면 저장된 답을 돌려주거나 처리 중이면 202를 돌려줍니다. 같은 ID는 내용이 정확히 같은 요청(turn 번호·인식 문장·대체 후보·인식기·음향 요약의 SHA-256 fingerprint가 같음)에만 쓸 수 있고, 다르면 `409 REQUEST_ID_REUSED`입니다. 그래서 응답만 유실돼도 같은 답을 복구하고, 같은 발화로 외부 LLM을 두 번 부르지 않습니다. 응답을 못 받으면 브라우저는 `RECOVERING`이 되어 새 발화를 받지 않고(마이크 입력도 보내지 않음) 같은 ID로만 다시 묻습니다. 복구한 호야 답을 실제로 말한 뒤에만 다시 듣고, 여러 번 실패하면 인사하고 대화를 끝냅니다. 그래서 서버에 저장된 대화와 아이가 실제로 들은 대화가 같습니다. fingerprint는 인식 문장에서 나온 값이므로 보존 기간이 지나면 문장과 함께 비웁니다. 서버 중단 등으로 `HOYA_CHAT_STALE_SEC`(기본 30초, 제공자 timeout보다 김)가 지나도 `PROCESSING`인 turn은 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리합니다.
@@ -107,7 +110,7 @@ npm.cmd run dev
 
 ## 사용 방법
 
-1. 아동 계정으로 로그인해 호야 홈을 거쳐 모험 지도를 엽니다.
+1. 아동 계정으로 로그인해 두두 홈을 거쳐 모험 지도를 엽니다.
 2. DEMO를 선택하면 `Space`를 누르는 동안 발성합니다. 마이크가 없을 때도 `Space`로 발성 시간을 입력할 수 있으며 음성 인식 결과는 스크립트입니다.
 3. 실제 음성 모드를 선택하면 마이크 권한을 허용합니다. 발성 시작과 끝을 감지해 게임이 진행됩니다.
 4. 치료사 화면에서 세션 기록과 추천 근거를 확인하고 목표를 결정합니다. 목표 변경은 다음 세션에 적용됩니다.
@@ -120,11 +123,11 @@ npm.cmd run dev
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
-backend\.venv\Scripts\python.exe -m pytest backend -q
+backend\.venv\Scripts\python.exe -m pytest backend\tests -q --basetemp backend\test-temp\readme-full -p no:cacheprovider
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
-pytest가 Windows 기본 임시 폴더 접근 오류를 내면 `--basetemp backend/test-temp -p no:cacheprovider`를 덧붙여 실행합니다(`backend/test-temp/`는 추적하지 않습니다). 2026-09-29 호야 대화 검증에서는 백엔드 228개 테스트, 프런트엔드 62개 테스트, 타입 검사와 빌드(dist 자격 증명·LLM key 검사 포함)가 통과했습니다. 실물 마이크와 브라우저 3D 렌더는 수동 검증하지 않았습니다. 최신 결과와 남은 한계는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)에 있습니다.
+pytest가 Windows 임시 폴더 접근 오류를 내면 `backend/tests`를 대상으로, 새 `--basetemp` 경로와 `-p no:cacheprovider`를 지정합니다. 2026-09-29 백엔드 228개·프런트엔드 62개 통과는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)의 과거 수치입니다. 현재 브랜치의 실행 결과와 실물 마이크 미검수 상태는 [새 기기 작업 기록](docs/handoff/dudu_2026-10-03/05_DEVICE_CONTINUATION.md)에 기록합니다.
 
 ## 환경 변수와 API
 

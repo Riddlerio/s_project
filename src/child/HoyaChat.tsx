@@ -5,31 +5,14 @@ import type { HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
 import { AudioCapture } from '../speech/audioCapture'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
-import { CALIBRATION_MS, MicUtterancePipeline } from '../speech/micUtterance'
+import { MicUtterancePipeline } from '../speech/micUtterance'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
-import { HoyaChatController, type HoyaChatState, type Speak } from './hoyaChatController'
+import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
+import { KoreanTts } from '../speech/koreanTts'
 
 const STATUS: Record<HoyaChatState, string> = {
   IDLE: '', LISTENING: '두두가 듣고 있어요', PROCESSING: '두두가 생각하고 있어요', FILLER_SPEAKING: '두두가 생각하고 있어요',
   RECOVERING: '두두가 생각하고 있어요', RESPONSE_SPEAKING: '두두가 말하고 있어요', ENDED: '대화가 끝났어요',
-}
-
-/** 브라우저 TTS 한 번. 다른 음성과 겹치지 않게 이전 재생을 비우고, onend가 오지 않는 브라우저를 위해 안전 timer를 둔다. */
-const speakKorean: Speak = (text, events) => {
-  let finished = false
-  let safety: number | undefined
-  const finish = () => { if (finished) return; finished = true; window.clearTimeout(safety); events.onEnd() }
-  const synth = typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null
-  safety = window.setTimeout(finish, Math.min(15000, 1500 + text.length * 250))
-  if (!synth) { window.setTimeout(() => { events.onStart(); finish() }, 0); return { cancel: () => { finished = true; window.clearTimeout(safety) } } }
-  synth.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'ko-KR'; utterance.rate = 0.9
-  utterance.onstart = () => { if (!finished) events.onStart() }
-  utterance.onend = finish
-  utterance.onerror = finish
-  synth.speak(utterance)
-  return { cancel: () => { finished = true; window.clearTimeout(safety); synth.cancel() } }
 }
 
 export default function HoyaChat() {
@@ -46,27 +29,50 @@ export default function HoyaChat() {
   const [error, setError] = useState('')
   const controller = useRef<HoyaChatController | null>(null)
   const capture = useRef<AudioCapture | null>(null)
-  const startTimer = useRef<number | undefined>(undefined)
+  const voice = useRef<KoreanTts | null>(null)
+  const recognizerRef = useRef<WebSpeechRecognizer | null>(null)
+  const recognizing = useRef(false)
+  const microphoneToken = useRef(0)
+  const mounted = useRef(false)
 
-  useEffect(() => () => {
-    controller.current?.dispose()
-    capture.current?.stop()
-    window.clearTimeout(startTimer.current)
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+  useEffect(() => {
+    mounted.current = true
+    const tts = new KoreanTts()
+    voice.current = tts
+    return () => {
+      mounted.current = false
+      controller.current?.dispose()
+      stopMicrophone()
+      tts.dispose()
+    }
   }, [])
 
-  function listenWithMicrophone(chat: HoyaChatController) {
+  function stopMicrophone() {
+    microphoneToken.current++
+    capture.current?.stop()
+    if (recognizing.current) void recognizerRef.current?.stop().catch(() => undefined)
+    recognizing.current = false
+    recognizerRef.current = null
+  }
+
+  function listenWithMicrophone(chat: HoyaChatController, onReady: () => void) {
     const pipeline = new MicUtterancePipeline('any_sound')
     const recognizer = new WebSpeechRecognizer()
+    recognizerRef.current = recognizer
+    const token = ++microphoneToken.current
     let wasListening = false
     let capturing = false
     const audio = new AudioCapture()
     capture.current = audio
     return audio.start(frame => {
+      if (token !== microphoneToken.current) return
       // 호야가 말하거나 생각하는 동안의 소리(호야 자신의 TTS 포함)는 아동 발화로 처리하지 않는다.
       // 시작 전 보정(첫 1초)만 호야가 말하기 전에 처리한다.
       if (!chat.listening || capturing) {
-        if (!pipeline.calibrated) pipeline.process(frame)
+        if (chat.state === 'IDLE' && !voice.current?.blocked && !pipeline.calibrated) {
+          pipeline.process(frame)
+          if (pipeline.calibrated) { pipeline.resetUtterance(); onReady() }
+        }
         wasListening = false
         return
       }
@@ -76,11 +82,13 @@ export default function HoyaChat() {
       for (const event of events) {
         if (event.type === 'VOICE_START') {
           setMicText('두두가 네 말을 듣고 있어요')
-          try { recognizer.start() } catch { /* 음성 인식이 없으면 소리 정보만 보낸다 */ }
+          try { recognizer.start(); recognizing.current = true } catch { /* 음성 인식이 없으면 소리 정보만 보낸다 */ }
         }
         if (event.type === 'VOICE_END' && acoustic) {
           capturing = true
           void recognizer.stop().catch(() => ({ transcript: null, alternatives: [] as string[] })).then(result => {
+            if (token !== microphoneToken.current) return
+            recognizing.current = false
             capturing = false
             chat.submit({ transcript: result.transcript?.slice(0, 80) ?? null, alternatives: result.alternatives.slice(0, 5).map(value => value.slice(0, 80)),
               acoustic, recognizer: 'web_speech' })
@@ -93,29 +101,38 @@ export default function HoyaChat() {
 
   async function begin(mode: 'real' | 'demo') {
     if (preparing || session) return
+    const tts = voice.current
+    if (!tts) return
     setPreparing(true); setError('')
     try {
       const started = await startHoyaChat(mode)
+      if (!mounted.current || voice.current !== tts) return
       const chat = new HoyaChatController({
-        speak: speakKorean,
+        speak: (text, events) => tts.speak(text, events),
         // 같은 발화는 같은 요청 ID로만 재시도한다. 서버가 이미 끝낸 turn이면 저장된 답을 받는다.
         requestReply: request => sendHoyaTurn(started.sessionId, request),
         resync: () => getHoyaChat(started.sessionId).then(value => ({ nextTurnIndex: value.nextTurnIndex, active: value.status === 'active' })),
         onState: setChatState, onAction: setAction, onText: setHoyaText,
-        onComplete: () => { void completeHoyaChat(started.sessionId).catch(() => undefined); capture.current?.stop() },
+        onComplete: () => { void completeHoyaChat(started.sessionId).catch(() => undefined); stopMicrophone() },
       })
       controller.current = chat
       setSession(started)
       if (mode === 'real') {
         setMicText('두두가 귀를 준비하고 있어요')
-        await listenWithMicrophone(chat)
-        // 처음 1초는 주변 소리 기준을 잡는다. 그 뒤에 호야가 인사한다.
-        startTimer.current = window.setTimeout(() => { setMicText('마이크가 켜져 있어요'); chat.start(started.openingText) }, CALIBRATION_MS + 100)
+        // 실제 frame으로 1초 보정이 끝난 뒤 인사한다. 단순 시간 경과는 마이크 준비를 보장하지 않는다.
+        await listenWithMicrophone(chat, () => {
+          if (!mounted.current || voice.current !== tts) return
+          setMicText('마이크가 켜져 있어요'); chat.start(started.openingText)
+        })
       } else chat.start(started.openingText)
     } catch (cause) {
-      capture.current?.stop()
+      if (!mounted.current || voice.current !== tts) return
+      controller.current?.dispose()
+      voice.current?.cancel()
+      stopMicrophone()
+      setSession(null)
       setError(cause instanceof Error ? cause.message : '지금은 두두와 대화할 수 없어요')
-    } finally { setPreparing(false) }
+    } finally { if (mounted.current && voice.current === tts) setPreparing(false) }
   }
 
   function sendDemo() {
@@ -127,7 +144,7 @@ export default function HoyaChat() {
 
   function finish() {
     controller.current?.end()
-    capture.current?.stop()
+    stopMicrophone()
     if (session) void completeHoyaChat(session.sessionId).catch(() => undefined)
     setMicText('')
   }
@@ -136,7 +153,7 @@ export default function HoyaChat() {
   return <main className="child-screen game-screen">
     <h1>두두와 대화하기</h1>
     <div style={{ height: '48vh', minHeight: 300, width: '100%' }}><Hoya3D action={action} /></div>
-    <p className="speech-bubble" aria-live="polite">{hoyaText.replace(/호야|루미/g, '두두')}</p>
+    <p className="speech-bubble" aria-live="polite">{hoyaText}</p>
     <p aria-live="polite">{STATUS[chatState]}</p>
     {!session && <div>
       <button disabled={preparing || !realSupported} onClick={() => { void begin('real') }}>대화 시작 (마이크)</button>

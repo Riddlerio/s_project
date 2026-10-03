@@ -3,8 +3,9 @@ import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 
 import { CanvasTexture, CatmullRomCurve3, MathUtils, Shape, SRGBColorSpace, Vector3, type Group, type Mesh } from 'three'
 import type { HoyaAction } from '../control/speechGameSignal'
 
-// 원본 백호의 둥근 실루엣은 정면에 보존하고, 깊이와 관절은 별도 3D 메시로 만든다.
-// 옆면·뒷면 도안이 아직 없으므로 큰 몸 회전은 의도적으로 제한한다.
+// 현재 두두는 정면 도형 압출과 간단한 파츠 동작으로 만든 2.5D 시제품이다. 최종 3D 모델이 아니다.
+// 털·천 텍스처와 완전한 리그는 없으며, 옆면·뒷면은 원화 수령 전 임시 설계로 둔다.
+// 원본 정면의 윤곽을 참고하되 측·후면 재현을 확정하지 않으므로 큰 몸 회전은 제한한다.
 const INK = '#17191a'
 const STRIPE = '#343638'
 const FUR = '#fffefe'
@@ -368,11 +369,11 @@ function Tiger({ action }: { action: HoyaAction }) {
 }
 
 const ACTION_TEXT: Partial<Record<HoyaAction, string>> = {
-  LISTENING: '호야가 귀 기울이고 있어요', TALKING: '호야가 말하고 있어요', CHARGE: '호야가 힘을 모으고 있어요',
-  BEAM: '호야가 빛을 쏘고 있어요', RELEASE: '호야가 빛을 놓았어요', FLY: '호야가 날고 있어요', LAND: '호야가 내려앉았어요',
-  CAST: '호야가 주문을 외우고 있어요', ATTACK: '호야가 몬스터에게 마법을 보냈어요', WALK_TO: '호야가 걸어가고 있어요',
-  PICK_UP: '호야가 물건을 집었어요', PUT_IN_BAG: '호야가 가방에 넣었어요', WAVE: '호야가 손을 흔들어요',
-  CHEER: '호야가 신나 해요', ENCOURAGE: '호야가 응원하고 있어요', THINKING: '호야가 생각하고 있어요',
+  LISTENING: '두두가 귀 기울이고 있어요', TALKING: '두두가 말하고 있어요', CHARGE: '두두가 힘을 모으고 있어요',
+  BEAM: '두두가 빛을 쏘고 있어요', RELEASE: '두두가 빛을 놓았어요', FLY: '두두가 날고 있어요', LAND: '두두가 내려앉았어요',
+  CAST: '두두가 주문을 외우고 있어요', ATTACK: '두두가 몬스터에게 마법을 보냈어요', WALK_TO: '두두가 걸어가고 있어요',
+  PICK_UP: '두두가 물건을 집었어요', PUT_IN_BAG: '두두가 가방에 넣었어요', WAVE: '두두가 손을 흔들어요',
+  CHEER: '두두가 신나 해요', ENCOURAGE: '두두가 응원하고 있어요', THINKING: '두두가 생각하고 있어요',
 }
 
 /** WebGL을 쓸 수 없을 때 보여 주는 간단한 대체 화면. 3D 렌더가 아니다. */
@@ -380,8 +381,8 @@ export function HoyaFallback({ action = 'IDLE' }: { action?: HoyaAction }) {
   return <div role="img" aria-label="두두 그림(간단한 대체 화면)" data-hoya-fallback="true"
     style={{ display: 'grid', placeItems: 'center', minHeight: 280, textAlign: 'center' }}>
     <span aria-hidden="true" style={{ fontSize: 120 }}>🐯</span>
-    <p>{ACTION_TEXT[action] || '호야가 옆에 있어요'}</p>
-    <p className="small">호야가 간단한 모습으로 함께해요. 게임은 그대로 할 수 있어요.</p>
+    <p>{ACTION_TEXT[action] || '두두가 옆에 있어요'}</p>
+    <p className="small">두두가 간단한 모습으로 함께해요. 게임은 그대로 할 수 있어요.</p>
   </div>
 }
 
@@ -401,7 +402,7 @@ export function canUseWebGL(doc: CanvasDocument | undefined = typeof document ==
 export class HoyaErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() { return { failed: true } }
-  componentDidCatch(error: unknown) { console.warn('3D 호야를 표시하지 못해 대체 화면을 사용합니다', error) }
+  componentDidCatch(error: unknown) { console.warn('3D 두두를 표시하지 못해 대체 화면을 사용합니다', error) }
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 

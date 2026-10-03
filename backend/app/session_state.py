@@ -65,6 +65,13 @@ class RoundSnapshot(_State):
     independence: StrictStr | None = None
 
 
+class RoundRewardSnapshot(_State):
+    index: StrictInt = Field(ge=1, le=5)
+    stars: StrictInt = Field(ge=1, le=3)
+    praise: StrictStr
+    successRate: Number | None = Field(default=None, ge=0, le=1)
+
+
 class ActivityState(_State):
     activityGame: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
     roundIndex: StrictInt = Field(ge=1, le=5)
@@ -84,6 +91,8 @@ class ActivityState(_State):
     currentCue: StrictStr
     currentItem: ActivityItem
     roundDefinition: RoundSnapshot
+    roundsComplete: StrictBool = False
+    roundStars: list[RoundRewardSnapshot] = Field(default_factory=list)
 
     @field_validator("roundStartedAt")
     @classmethod

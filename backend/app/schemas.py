@@ -58,6 +58,7 @@ class UtteranceInput(ApiModel):
     recognizer: str = "demo_script"
     acoustic: AcousticSummary = Field(default_factory=AcousticSummary)
     elapsed_sec: int = Field(default=0, ge=0, le=600)
+    attack: Literal["basic", "magic_beam"] = "basic"
 
     @field_validator("alternatives")
     @classmethod

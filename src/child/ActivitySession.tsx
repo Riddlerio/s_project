@@ -1,24 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { resumeActivity, sendActivityUtterance, type ActivityItem, type ActivityRound, type ActivityStart } from '../api/activities'
+import { sendActivityUtterance, type ActivityItem, type ActivityRound, type ActivityStart } from '../api/activities'
 import type { Acoustic } from '../shared/types'
 import { HoyaActionController } from '../control/HoyaActionController'
 import type { HoyaAction } from '../control/speechGameSignal'
-import { Hoya3D } from '../tiger/Hoya3D'
+import { ActivityScene, RoundFeedback } from './ActivityScene'
+import { claimActivity, getMySkills, heartbeatActivity, pauseActivity } from '../api/adventure'
 import { AudioCapture } from '../speech/audioCapture'
 import { DEFAULT_VAD } from '../speech/vad'
 import { MicUtterancePipeline } from '../speech/micUtterance'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
+import { KoreanTts } from '../speech/koreanTts'
 
 const gameNames = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍' }
 
 export default function ActivitySession() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const saved = sessionStorage.getItem('speechHero.activity')
-  const session = saved ? JSON.parse(saved) as ActivityStart : null
+  const [session, setSession] = useState<ActivityStart | null>(() => {
+    try { const saved = JSON.parse(sessionStorage.getItem('speechHero.activity') || 'null') as ActivityStart | null; return saved?.sessionId === id ? saved : null }
+    catch { return null }
+  })
   const [round, setRound] = useState<ActivityRound | null>(session?.currentRound || null)
   const [item, setItem] = useState<ActivityItem | null>(session?.firstItem || null)
   const [attempt, setAttempt] = useState(1)
@@ -26,9 +30,21 @@ export default function ActivitySession() {
   const [message, setMessage] = useState('두두가 기다리고 있어!')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [demoSpeech, setDemoSpeech] = useState(session?.firstItem.displayText || '')
+  const [demoSpeech, setDemoSpeech] = useState(session?.firstItem?.displayText || '')
   const [completed, setCompleted] = useState<number[]>([])
   const [ready, setReady] = useState(false)
+  const [suspended, setSuspended] = useState(false)
+  const suspendedRef = useRef(false)
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+  const claimRequest = useRef<{ id: string; promise: Promise<ActivityStart> } | null>(null)
+  const [speaking, setSpeaking] = useState(false)
+  const [magicBeamGranted, setMagicBeamGranted] = useState(false)
+  const [attack, setAttack] = useState<'basic' | 'magic_beam'>('basic')
+  const attackRef = useRef(attack)
+  attackRef.current = attack
+  const [feedback, setFeedback] = useState<{ stars: number; praise: string; material?: 'rice' | 'tuna' } | null>(null)
+  const [captureReadyKey, setCaptureReadyKey] = useState<string | null>(null)
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = !session || session.mode !== 'real' || supportsRealMode(session.game, capabilities)
   const began = useRef<number | null>(null)
@@ -36,86 +52,226 @@ export default function ActivitySession() {
   const promptShownAt = useRef(performance.now())
   const onsetLatency = useRef(0)
   const modelSpeaking = useRef(false)
+  const modelPending = useRef(false)
+  const lastModeledItem = useRef<string | null>(null)
   const submitting = useRef(false)
+  const voice = useRef<KoreanTts | null>(null)
+  const pipelineRef = useRef<MicUtterancePipeline | null>(null)
+  const mounted = useRef(false)
+  const actionTimers = useRef<number[]>([])
   const controller = useRef<HoyaActionController | null>(null)
   if (!controller.current) controller.current = new HoyaActionController(setAction)
   const signal = controller.current
+  const captureKey = `${session?.sessionId}:${round?.index}:${item?.itemId}:${attempt}`
+  const modelKey = `${session?.sessionId}:${round?.index}:${item?.itemId}`
 
   useEffect(() => {
-    if (!session || session.sessionId !== id) { navigate('/play/map'); return }
     let active = true
-    resumeActivity(session.sessionId).then(live => {
+    getMySkills().then(value => { if (active) setMagicBeamGranted(value.magicBeam) }).catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    mounted.current = true
+    const tts = new KoreanTts({ onBlockedChange: blocked => {
+      modelSpeaking.current = blocked
+      if (!mounted.current) return
+      pipelineRef.current?.resetUtterance()
+      if (!blocked) promptShownAt.current = performance.now()
+      setSpeaking(blocked)
+    } })
+    voice.current = tts
+    return () => {
+      mounted.current = false
+      tts.dispose()
+      actionTimers.current.forEach(window.clearTimeout)
+      actionTimers.current = []
+    }
+  }, [])
+
+  function adopt(live: ActivityStart) {
+    setSession(live); sessionRef.current = live
+    setRound(live.currentRound); setItem(live.firstItem)
+    setAttempt(live.nextAttemptIndex ?? 1); setCompleted(live.completedRounds ?? [])
+    sessionStorage.setItem('speechHero.activity', JSON.stringify(live))
+    suspendedRef.current = false; setSuspended(false); setError(''); setReady(true)
+  }
+
+  useEffect(() => {
+    if (!id) { navigate('/play/map'); return }
+    let active = true
+    setReady(false)
+    // StrictMode의 effect 재실행에도 최초 진행 권한을 두 번 발급받지 않는다.
+    if (claimRequest.current?.id !== id) claimRequest.current = { id,
+      promise: claimActivity(id, false, sessionRef.current?.sessionId === id ? sessionRef.current.leaseToken : undefined) }
+    claimRequest.current.promise.then(live => {
       if (!active) return
-      setRound(live.currentRound); setItem(live.firstItem)
-      setAttempt(live.nextAttemptIndex ?? 1); setCompleted(live.completedRounds ?? [])
-      sessionStorage.setItem('speechHero.activity', JSON.stringify(live))
-      setReady(true)
+      adopt(live)
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '세션을 다시 열 수 없어요') })
     return () => { active = false }
   }, [id])
+
+  useEffect(() => {
+    if (!ready || !session?.leaseToken) return
+    let active = true
+    const pause = () => {
+      const current = sessionRef.current
+      suspendedRef.current = true; setSuspended(true); began.current = null
+      voice.current?.cancel()
+      if (current) void pauseActivity(current).catch(() => undefined)
+    }
+    const visibility = () => { if (document.hidden) pause() }
+    document.addEventListener('visibilitychange', visibility)
+    window.addEventListener('pagehide', pause)
+    const heartbeat = window.setInterval(() => {
+      const current = sessionRef.current
+      if (!current || document.hidden || suspendedRef.current) return
+      void heartbeatActivity(current).catch(cause => {
+        if (!active) return
+        suspendedRef.current = true; setSuspended(true); began.current = null; voice.current?.cancel()
+        setError(cause instanceof Error ? cause.message : '연결을 확인한 뒤 다시 계속해 주세요')
+      })
+    }, 15000)
+    return () => {
+      active = false; window.clearInterval(heartbeat)
+      document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pagehide', pause)
+      void pauseActivity(session).catch(() => undefined)
+    }
+  }, [ready, session?.sessionId, session?.leaseToken])
+
+  async function continueHere(takeover = false) {
+    if (!id || busy) return
+    setBusy(true)
+    try { const live = await claimActivity(id, takeover, sessionRef.current?.leaseToken); if (mounted.current) adopt(live) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요') }
+    finally { if (mounted.current) setBusy(false) }
+  }
+
+  async function saveAndExit() {
+    if (!session || busy) return
+    suspendedRef.current = true; setSuspended(true); began.current = null; voice.current?.cancel(); setBusy(true)
+    try { await pauseActivity(session); navigate('/play/home') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '저장 연결을 확인해 주세요') }
+    finally { if (mounted.current) setBusy(false) }
+  }
+
+  async function finishActivity(live: ActivityStart) {
+    const reward = await api<Record<string, unknown>>(`/play/sessions/${live.sessionId}/complete`, {
+      method: 'POST', headers: { 'X-Activity-Lease': live.leaseToken ?? '' },
+      body: JSON.stringify({ elapsedSec: Math.floor((Date.now() - startedAt.current) / 1000) }) })
+    if (!mounted.current) return
+    sessionStorage.removeItem('speechHero.activity')
+    sessionStorage.setItem('speechHero.result', JSON.stringify(reward))
+    navigate('/play/reward')
+  }
+
+  useEffect(() => {
+    if (!ready || !session?.sessionComplete || suspended) return
+    let active = true
+    setBusy(true)
+    void finishActivity(session).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '완료 저장을 다시 시도해 주세요') })
+      .finally(() => { if (active) setBusy(false) })
+    return () => { active = false }
+  }, [ready, session, suspended])
   useEffect(() => { if (item) { setDemoSpeech(item.displayText); promptShownAt.current = performance.now() } }, [item?.itemId])
   useEffect(() => {
-    if (!ready || !round || !item || round.elicitationType !== 'DIRECT_IMITATION' || !('speechSynthesis' in window)) return
-    const speech = new SpeechSynthesisUtterance(item.displayText)
-    speech.lang = 'ko-KR'; speech.rate = 0.8
-    speech.onstart = () => { modelSpeaking.current = true; signal.command('TALKING') }
-    speech.onend = () => { modelSpeaking.current = false; signal.command('LISTENING') }
-    window.speechSynthesis.speak(speech)
-  }, [ready, round?.index, item?.itemId])
+    if (!ready || suspended || session?.sessionComplete || !round || !item || round.elicitationType !== 'DIRECT_IMITATION') return
+    if (session?.mode === 'real' && captureReadyKey !== captureKey) return
+    if (lastModeledItem.current === modelKey) { modelPending.current = false; return }
+    modelPending.current = true
+    const speech = voice.current?.speak(item.displayText, {
+      onStart: () => signal.command('TALKING'),
+      onEnd: () => { lastModeledItem.current = modelKey; modelPending.current = false; signal.command('LISTENING') },
+    }, { rate: 0.8 })
+    return () => speech?.cancel()
+  }, [ready, suspended, session?.sessionComplete, round?.index, item?.itemId, captureReadyKey])
 
   async function submit(acoustic: Acoustic, transcript: string | null) {
-    if (!session || !round || !item || submitting.current) return
+    if (!ready || suspendedRef.current || !session || !round || !item || submitting.current || modelSpeaking.current || !mounted.current) return
     submitting.current = true
     setBusy(true)
+    setError('')
     setMessage('두두가 듣고 있어…')
     try {
-      const result = await sendActivityUtterance(session, item, round.index, attempt, transcript, acoustic)
+      const result = await sendActivityUtterance(session, item, round.index, attempt, transcript, acoustic, session.game === 'monster_adventure' ? attackRef.current : 'basic')
+      if (!mounted.current) return
+      actionTimers.current.forEach(window.clearTimeout)
+      actionTimers.current = []
       const kinds = new Set(result.events.map(event => event.type))
+      const clear = result.events.find(event => event.type === 'ROUND_CLEAR')
+      const stars = clear?.payload.stars
+      const praise = clear?.payload.praise
+      if (typeof stars === 'number' && stars >= 1 && stars <= 3 && typeof praise === 'string') {
+        const material = clear?.payload.material
+        setFeedback({ stars, praise, ...(material === 'rice' || material === 'tuna' ? { material } : {}) })
+      }
       if (kinds.has('TARGET_SUCCESS')) { signal.dispatch(session.game, { type: 'TARGET_SUCCESS' }); setMessage('좋아! 다음 모험으로 가자!') }
       else if (kinds.has('LISTEN_AGAIN')) { signal.dispatch(session.game, { type: 'UNCERTAIN' }); setMessage('앗, 내가 잘 못 들었나 봐. 천천히 다시 말해줄래?') }
       else if (kinds.has('NO_SPEECH')) { signal.dispatch(session.game, { type: 'NO_SPEECH' }); setMessage('괜찮아, 준비되면 들려줘!') }
       else if (kinds.has('ITEM_ADVANCE')) { signal.dispatch(session.game, { type: 'UNCERTAIN' }); setMessage('다음 모험을 해보자!') }
       else if (kinds.has('STORY_CONTINUE')) { setMessage(result.dialogue?.text || '좋아, 같이 가자!'); signal.command('WALK_TO') }
       else { signal.dispatch(session.game, { type: 'TARGET_RETRY' }); setMessage('좋아, 같이 한 번 더 해보자!') }
-      if (result.dialogue) {
+      const spoken = [typeof praise === 'string' ? praise : '', result.dialogue?.text ?? ''].filter(Boolean).join(' ')
+      if (spoken) {
+        if (result.dialogue) {
         result.dialogue.hoyaActions.forEach((command, index) => {
-          window.setTimeout(() => signal.command(command as HoyaAction), index * 450)
+          actionTimers.current.push(window.setTimeout(() => {
+            if (mounted.current) signal.command(command as HoyaAction)
+          }, index * 450))
         })
-        if ('speechSynthesis' in window) {
-          const speech = new SpeechSynthesisUtterance(result.dialogue.text)
-          speech.lang = 'ko-KR'; speech.rate = 0.9
-          speech.onstart = () => signal.command('TALKING')
-          speech.onend = () => signal.command('IDLE')
-          window.speechSynthesis.speak(speech)
         }
+        await voice.current?.speak(spoken, {
+          onStart: () => signal.command('TALKING'), onEnd: () => signal.command('IDLE'),
+        }).finished
+        if (!mounted.current || suspendedRef.current) return
+        actionTimers.current.forEach(window.clearTimeout)
+        actionTimers.current = []
       }
       if (kinds.has('ROUND_CLEAR')) setCompleted(value => [...value, round.index])
       if (result.sessionComplete) {
-        const reward = await api<Record<string, unknown>>(`/play/sessions/${session.sessionId}/complete`, { method: 'POST', body: JSON.stringify({ elapsedSec: Math.floor((Date.now() - startedAt.current) / 1000) }) })
-        sessionStorage.removeItem('speechHero.activity')
-        sessionStorage.setItem('speechHero.result', JSON.stringify(reward))
-        navigate('/play/reward')
+        setSession({ ...session, sessionComplete: true })
         return
       }
       if (result.nextItem && result.currentRound) {
         if (!kinds.has('ROUND_CLEAR')) await new Promise(resolve => window.setTimeout(resolve, 1200))
+        if (!mounted.current) return
         setRound(result.currentRound)
         setItem(result.nextItem)
         setAttempt(result.nextAttemptIndex)
       }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요') }
-    finally { submitting.current = false; began.current = null; setBusy(false) }
+    } catch (cause) {
+      if (mounted.current) {
+        setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요')
+        suspendedRef.current = true; setSuspended(true); voice.current?.cancel()
+        if (attackRef.current === 'magic_beam') { setAttack('basic'); void getMySkills().then(value => { if (mounted.current) setMagicBeamGranted(value.magicBeam) }).catch(() => undefined) }
+      }
+    }
+    finally { submitting.current = false; began.current = null; if (mounted.current) setBusy(false) }
   }
 
   useEffect(() => {
-    if (!ready || !session || !round || !item || session.mode !== 'real' || !realSupported) return
+    if (!ready || suspended || !session || session.sessionComplete || !round || !item || session.mode !== 'real' || !realSupported) return
     const capture = new AudioCapture()
     // 발화 뒤 기다리는 시간은 라운드가 정한다. 쉼 후 재개 라운드는 한 발화 안에서 자연스러운 쉼을 허용한다.
     const pipeline = new MicUtterancePipeline(session.game === 'magic_beam' ? 'fricative' : 'any_sound', round.endHoldMs ?? DEFAULT_VAD.endHoldMs)
+    pipelineRef.current = pipeline
     const recognizer = new WebSpeechRecognizer()
+    setCaptureReadyKey(null)
+    modelPending.current = round.elicitationType === 'DIRECT_IMITATION' && lastModeledItem.current !== modelKey
     let disposed = false
+    let recognizing = false
+    let awaitingRecognition = false
+    let wasListening = false
     capture.start(frame => {
-      if (disposed || submitting.current || modelSpeaking.current) return
+      // 모델 음성은 초기 주변 소리 보정에도 넣지 않는다.
+      if (disposed || suspendedRef.current || awaitingRecognition || submitting.current || modelSpeaking.current) { wasListening = false; return }
+      if (!pipeline.calibrated) {
+        pipeline.process(frame)
+        if (pipeline.calibrated) { pipeline.resetUtterance(); setCaptureReadyKey(captureKey) }
+        return
+      }
+      if (modelPending.current) return
+      if (!wasListening) { pipeline.resetUtterance(); wasListening = true }
       const { events, acoustic } = pipeline.process(frame)
       for (const event of events) {
         if (event.type === 'VOICE_START') {
@@ -123,29 +279,47 @@ export default function ActivitySession() {
           pipeline.onsetLatencyMs = onsetLatency.current
           signal.dispatch(session.game, { type: 'VOICE_START' })
           setMessage('두두가 힘을 모으고 있어!')
-          if (session.game === 'monster_adventure' || session.game === 'conversation_quest') recognizer.start(item as Parameters<WebSpeechRecognizer['start']>[0])
+          if (session.game === 'monster_adventure' || session.game === 'conversation_quest') {
+            try {
+              recognizer.start(item as Parameters<WebSpeechRecognizer['start']>[0])
+              recognizing = true
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : '음성 인식을 다시 시작해 주세요')
+            }
+          }
         }
         if (event.type === 'VOICE_CONTINUE') signal.dispatch(session.game, { type: 'VOICE_CONTINUE', energy01: pipeline.tracker.energy01 })
         if (event.type === 'VOICE_END' && acoustic) {
           signal.dispatch(session.game, { type: 'VOICE_END' })
           if (session.game === 'monster_adventure' || session.game === 'conversation_quest') {
-            void recognizer.stop().then(result => submit(acoustic, result.transcript))
+            awaitingRecognition = true
+            void recognizer.stop().then(result => {
+              recognizing = false; awaitingRecognition = false
+              if (!disposed) return submit(acoustic, result.transcript)
+            }).catch(cause => {
+              recognizing = false; awaitingRecognition = false
+              if (!disposed) setError(cause instanceof Error ? cause.message : '음성 인식을 다시 시작해 주세요')
+            })
           } else void submit(acoustic, null)
         }
       }
-    }).catch(cause => setError(cause instanceof Error ? cause.message : '마이크를 사용할 수 없어요'))
-    return () => { disposed = true; capture.stop() }
-  }, [ready, item?.itemId, round?.index, round?.endHoldMs, attempt, session?.mode, realSupported])
+    }).catch(cause => { if (!disposed) setError(cause instanceof Error ? cause.message : '마이크를 사용할 수 없어요') })
+    return () => {
+      disposed = true; capture.stop()
+      if (pipelineRef.current === pipeline) pipelineRef.current = null
+      if (recognizing) void recognizer.stop().catch(() => undefined)
+    }
+  }, [ready, suspended, item?.itemId, round?.index, round?.endHoldMs, attempt, session?.mode, session?.sessionComplete, realSupported])
 
   function begin() {
-    if (!session || busy || began.current !== null) return
+    if (!ready || suspendedRef.current || !session || sessionRef.current?.sessionComplete || busy || submitting.current || modelSpeaking.current || began.current !== null) return
     began.current = performance.now()
     onsetLatency.current = Math.min(60000, Math.max(0, began.current - promptShownAt.current))
     signal.dispatch(session.game, { type: 'VOICE_START' })
     setMessage('두두가 힘을 모으고 있어!')
   }
   function end(transcriptOverride?: string) {
-    if (!session || !round || !item || began.current === null) return
+    if (!mounted.current || !session || !round || !item || began.current === null) return
     const duration = Math.max(300, performance.now() - began.current)
     began.current = null
     signal.dispatch(session.game, { type: 'VOICE_END' })
@@ -163,17 +337,22 @@ export default function ActivitySession() {
     const up = (event: KeyboardEvent) => { if (event.code === 'Space') { event.preventDefault(); end() } }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [session?.mode, round?.index, item?.itemId, busy])
+  }, [session?.mode, round?.index, item?.itemId, busy, ready])
 
-  if (!session || !round || !item) return null
-  if (!ready) return <main className="child-screen game-screen"><p>모험을 다시 불러오는 중…</p>{error && <p role="alert">{error}</p>}</main>
+  if (ready && session?.sessionComplete) return <main className="child-screen game-screen"><p>다섯 라운드를 마쳤어! 완료를 저장하고 있어요.</p>{error && <><p role="alert">{error}</p><button disabled={busy} onClick={() => void continueHere()}>완료 저장 다시 시도</button></>}</main>
+  if (!ready || !session || !round || !item) return <main className="child-screen game-screen"><p>{error ? '모험을 열기 전에 확인해 주세요.' : '모험을 다시 불러오는 중…'}</p>{error && <><p role="alert">{error}</p><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button><button className="quiet" onClick={() => navigate('/play/map')}>모험 지도로</button></>}</main>
   return <main className={`child-screen game-screen activity-game activity-${session.game}`}><div className="activity-shell">
-    <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span></header>
+    <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span><button className="quiet dudu-save-exit" disabled={busy} onClick={() => void saveAndExit()}>저장하고 집으로</button></header>
     <div className="activity-progress" aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} className={completed.includes(value.index) ? 'completed' : value.index === round.index ? 'current' : ''} aria-current={value.index === round.index ? 'step' : undefined}><small>{String(value.index).padStart(2, '0')}</small><span>{completed.includes(value.index) ? '완료' : value.index === round.index ? '진행 중' : '다음'}</span></span>)}</div>
-    <section className="activity-stage"><div className="activity-stage-art"><div className="activity-art-ring" aria-hidden="true" />{session.game === 'monster_adventure' && <><div className="monster-path" aria-hidden="true" /><div className={`monster-opponent ${action === 'ATTACK' ? 'monster-hit' : ''}`} role="img" aria-label={action === 'ATTACK' ? '몬스터가 물러나요' : '숲의 몬스터가 길 앞에 있어요'}><span className="monster-horn monster-horn-left" /><span className="monster-horn monster-horn-right" /><span className="monster-body"><span className="monster-eye monster-eye-left" /><span className="monster-eye monster-eye-right" /><span className="monster-mouth" /></span><span className="monster-feet" /></div>{action === 'CAST' && <span className="monster-voice-wave" aria-hidden="true" />}<span className="monster-caption">숲의 몬스터</span></>}<div className="activity-character"><Hoya3D action={action} /></div><span className="activity-art-caption">DUDU IS WITH YOU</span></div><div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p></div></section>
+    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} /><div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p></div></section>
+    {feedback && <RoundFeedback {...feedback} />}
+    {session.game === 'monster_adventure' && <fieldset className="dudu-attack-choice"><legend>낚시 도구</legend><label><input type="radio" name="attack" checked={attack === 'basic'} onChange={() => setAttack('basic')} disabled={busy || speaking} /> 기본 공격</label><label><input type="radio" name="attack" checked={attack === 'magic_beam'} onChange={() => setAttack('magic_beam')} disabled={!magicBeamGranted || busy || speaking} /> 매직빔 {magicBeamGranted ? '(치료사 승인)' : '(치료사 승인 필요)'}</label><small>기본 공격으로도 끝까지 진행할 수 있어요.</small></fieldset>}
     <div className="activity-controls">
-      {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
-      {session.mode === 'demo' && <button className="activity-hold" disabled={busy} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
+      {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button></div>}
+      {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
+      {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
+      {speaking && <p className="small" aria-live="polite">두두가 말한 뒤 네 차례가 와요.</p>}
+      {session.mode === 'real' && captureReadyKey !== captureKey && <p role="status">주변 소리를 확인할게. 잠깐 조용히 기다려줘!</p>}
       {!realSupported && <p role="alert" className="notice">{missingText(session.game, capabilities)}</p>}
       {error && <p role="alert" className="notice">{error}</p>}
       <p className="small">{session.mode === 'demo' ? 'DEMO 입력입니다. 실제 발음 평가가 아닙니다.' : '음향 특징과 브라우저 인식 결과를 사용한 기초 추정입니다.'}</p>

@@ -1,11 +1,11 @@
-"""LLM 없이 쓰는 결정적 호야 대화. Conversation Quest의 DEMO_RULES(quest_reply)와 별개다.
+"""LLM 없이 쓰는 결정적 두두 대화. Conversation Quest의 DEMO_RULES(quest_reply)와 별개다.
 
 아동 말의 주제에 먼저 반응하고, 전략에 맞춰 목표 음소가 나올 만한 질문 하나를 붙인다.
 """
 from ..prompt.prompt_builder import HoyaDialogueContext
 from ..schemas import ProviderOutput
 
-OPENING = "안녕! 나는 호야야. 오늘 뭐 하고 놀았어?"
+OPENING = "안녕! 나는 두두야. 오늘 뭐 하고 놀았어?"
 
 # (주제 단어, 반응, 음소별 이어 가는 질문). 질문은 그 주제를 유지하면서 목표 음소가 들어간 대답이 나오기 쉽게 고른다.
 TOPICS = [
@@ -23,7 +23,7 @@ TOPICS = [
      {"ㅅ": "같이 무슨 놀이 했어?", "ㅈ": "같이 뭐 할 때 제일 재미있어?", "ㄹ": "같이 어디 놀러 갔어?"}),
 ]
 GENERIC = ("그랬구나!", {"ㅅ": "그때 무슨 소리가 났어?", "ㅈ": "그거 재미있었어?", "ㄹ": "그다음에는 어디로 갔어?"})
-WAIT = ["천천히 생각해도 괜찮아. 오늘 뭐 하고 놀았어?", "호야는 기다릴 수 있어. 좋아하는 놀이가 뭐야?",
+WAIT = ["천천히 생각해도 괜찮아. 오늘 뭐 하고 놀았어?", "두두는 기다릴 수 있어. 좋아하는 놀이가 뭐야?",
         "괜찮아! 오늘 기분은 어때?"]
 
 
@@ -59,15 +59,15 @@ class DemoProvider:
         if strategy == "SIMPLIFY":
             if len(lexicon) >= 2:
                 first, second = lexicon[(context.turn_index - 1) % len(lexicon)], lexicon[context.turn_index % len(lexicon)]
-                return ProviderOutput(text=f"호야가 잘 못 들었나 봐. {first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?",
+                return ProviderOutput(text=f"두두가 잘 못 들었나 봐. {first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?",
                                       strategy=strategy, target_words=[first, second])
-            return ProviderOutput(text="호야가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy)
+            return ProviderOutput(text="두두가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy)
         # 불확실할 때는 인식 문장을 믿지 않으므로 주제 반응을 일반 문장으로 한다.
         ack, questions = _topic(context.child_transcript if context.evidence != "UNCERTAIN" else None)
         question = questions.get(phoneme, GENERIC[1].get(phoneme, "그다음엔 뭐 했어?"))
         if strategy == "ALLOWED_CUE" and word:
-            # 치료사가 허용한 청각 모델: 호야가 자기 말 속에서 목표 단어를 먼저 들려준다. 따라 하라고 시키지 않는다.
-            return ProviderOutput(text=f"{ack} 호야는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너는 뭐 좋아해?",
+            # 치료사가 허용한 청각 모델: 두두가 자기 말 속에서 목표 단어를 먼저 들려준다. 따라 하라고 시키지 않는다.
+            return ProviderOutput(text=f"{ack} 두두는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너는 뭐 좋아해?",
                                   strategy=strategy, target_words=[word])
         if strategy == "CONTINUE_OR_EXPAND":
             return ProviderOutput(text=f"{ack} 더 이야기해 줄래?" if context.turn_index % 2 == 0 else f"{ack} {question}",

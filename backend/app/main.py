@@ -44,6 +44,9 @@ from .training.content import items
 from .hoya.api import router as hoya_chat_router
 from .therapist_planning.api import router as session_planning_router
 from .hoya.schema_compat import upgrade_hoya_chat_schema
+from .adventure.api import router as adventure_router
+from .adventure import service as adventure_service
+from .games.round_rewards import round_reward
 
 
 @asynccontextmanager
@@ -371,6 +374,7 @@ def delete_speech_data(child_id: str, db: Session = Depends(get_db), therapist: 
     if utterance_ids:
         db.execute(delete(Utterance).where(Utterance.id.in_(utterance_ids)))
     if ids:
+        adventure_service.remove_session_links(db, ids)
         db.execute(delete(TrainingSession).where(TrainingSession.id.in_(ids)))
     db.add(AuditEvent(actor_id=therapist.id, action="SPEECH_DATA_DELETED", resource_id=child_id, result="SUCCESS"))
     db.commit()
@@ -392,7 +396,9 @@ def start(body: StartInput, db: Session = Depends(get_db), account: Account | No
     if not goal:
         raise HTTPException(409, "훈련 목표가 없습니다")
     for old in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "active")).all():
-        old.status = "aborted"
+        # 기존 모험 시작이 다른 기기에서 이어 할 V2 회기를 중단시키지 않는다.
+        if "activityGame" not in (old.runtime_state or {}):
+            old.status = "aborted"
     history = [s.summary_json for s in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "completed").order_by(TrainingSession.started_at)).all()]
     rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == child.id, TherapistRule.active == True)).all()
     plan_json = generate_plan(goal, history, rules)
@@ -480,15 +486,26 @@ def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(
 
 @app.post("/api/play/sessions/{session_id}/complete")
 @state_guard
-def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
+def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student),
+             x_activity_lease: str | None = Header(default=None)):
+    child_id = account.child_id if account is not None else play_session(db, session_id, account).child_id
+    adventure_service.serialize_child(db, child_id)
     session = play_session(db, session_id, account)
+    lease = adventure_service.check_lease(db, session, x_activity_lease, allow_paused=True)
     child = db.get(Child, session.child_id)
     state = completion_state(session)
     if session.status == "completed":
         return session.summary_json
+    if lease is not None and state.get("activityGame") and not state.get("roundsComplete"):
+        raise HTTPException(409, "다섯 라운드를 마친 뒤 모험을 완료할 수 있습니다")
+    # 보호된 V2 회기는 숨김·중단 시간을 포함하는 브라우저 벽시계 대신 서버의 활동 시간을 쓴다.
+    elapsed_sec = body.elapsed_sec
+    if lease is not None:
+        adventure_service.accrue_active_time(lease, session, now())
+        elapsed_sec = max(0, int(lease.active_elapsed_sec or 0))
     goal = db.get(TrainingGoal, session.goal_id)
     stage_index = state.get("stageIndex", 0)
-    metric = recompute(db, session, goal, body.elapsed_sec)
+    metric = recompute(db, session, goal, elapsed_sec)
     if not state.get("activityGame") and legacy_recommendation_allowed(session):
         recommend(db, session, goal, metric)
     child.xp += state.get("xp", 0)
@@ -497,7 +514,9 @@ def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db)
     stats = {"monsterStagesCleared": sum(stage["game"] == "monster_tower" for stage in stages[:stage_index + 1]), "beamSuccesses": sum(u.game == "magic_beam" and a.final_result == "success" for u, a in utterances), "retryThenSuccessCount": sum(u.game != "magic_beam" and u.attempt_index > 1 and a.final_result == "success" for u, a in utterances)}
     collection, new_badges, new_cards = award(child.collection_json, stats)
     child.collection_json = collection
-    summary = {"totalXp": state.get("xp", 0), "heroLevel": child.xp // 100 + 1, "badges": collection["badges"], "monsterCards": collection["monsterCards"], "newBadges": new_badges, "newMonsterCards": new_cards, "levelDownCount": metric.level_down_count, "durationSec": body.elapsed_sec}
+    summary = {"totalXp": state.get("xp", 0), "heroLevel": child.xp // 100 + 1, "badges": collection["badges"], "monsterCards": collection["monsterCards"], "newBadges": new_badges, "newMonsterCards": new_cards, "levelDownCount": metric.level_down_count, "durationSec": elapsed_sec,
+               "roundStars": state.get("roundStars", []),
+               "materialsEarned": adventure_service.materials_earned(db, session.id)}
     session.summary_json = summary
     session.insight_json = (["게임 완료. 임상 관찰은 치료사 확인이 필요합니다."] if state.get("activityGame")
                             else generate_insights(db, session, goal, metric))
@@ -531,7 +550,7 @@ def character_tap(db: Session = Depends(get_db), account: Account = Depends(requ
     count = (child.collection_json or {}).get("hoyaTaps", 0) + 1
     child.collection_json = {**(child.collection_json or {}), "hoyaTaps": count}
     db.commit()
-    lines = ("안녕! 나는 호야야.", "오늘도 같이 모험하자!", "네 목소리를 들을 준비가 됐어.",
+    lines = ("안녕! 나는 두두야.", "오늘도 같이 모험하자!", "네 목소리를 들을 준비가 됐어.",
              "천천히 해도 괜찮아.", "같이 별을 찾으러 가자!")
     return {"line": lines[(count - 1) % len(lines)], "tapCount": count}
 
@@ -590,21 +609,22 @@ def current_activity(session_id: str, db: Session = Depends(get_db), account: Ac
     game = state["activityGame"]
     if session.status != "active":
         raise HTTPException(409, "활성 게임이 아닙니다")
-    child = db.get(Child, session.child_id)
-    return {"sessionId": session.id, "game": game, "mode": session.mode, "heroName": child.hero_name,
-            "rounds": [public_round(definition) for definition in GAME_ROUNDS[game]],
-            "currentRound": public_round(GAME_ROUNDS[game][state["roundIndex"] - 1], state["difficulty"]),
-            "firstItem": state["currentItem"], "nextAttemptIndex": state["roundAttempt"],
-            "completedRounds": list(range(1, state["roundIndex"]))}
+    return adventure_service.activity_payload(db, session)
 
 
 @app.post("/api/activities/{session_id}/utterances")
 @state_guard
-def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account = Depends(require_student)):
+def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account = Depends(require_student),
+                       x_activity_lease: str | None = Header(default=None)):
+    adventure_service.serialize_child(db, account.child_id)
     session = play_session(db, session_id, account)
     state = activity_state(session)
-    if session.status != "active":
+    if session.status != "active" or state.get("roundsComplete"):
         raise HTTPException(409, "활성 게임이 아닙니다")
+    lease = adventure_service.check_lease(db, session, x_activity_lease)
+    adventure_service.check_attack(db, session, body.attack)
+    if lease is not None:
+        adventure_service.heartbeat(db, session, x_activity_lease)
     round_index = state["roundIndex"]
     if body.round_index != round_index or body.item_id != state["currentItem"]["itemId"] or body.attempt_index != state["roundAttempt"]:
         raise HTTPException(409, "현재 라운드 또는 항목과 일치하지 않습니다")
@@ -657,10 +677,16 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     clear = state["roundSuccesses"] > 0 or neutral_skip or (state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"}) or state["roundAttemptsUsed"] >= definition.attempts or elapsed >= definition.time_limit_sec
     finished = False
     if clear:
-        drafts.append({"type": "ROUND_CLEAR", "payload": {"index": round_index, "stars": 1 + min(1, state["roundSuccesses"]),
-                                                   "doneAttempts": state["roundAttemptsUsed"]}})
+        game_reward = {"index": round_index, **round_reward(state["roundSuccesses"], state["roundEvaluated"])}
+        material = adventure_service.award_material(db, session, round_index)
+        reward_payload = {**game_reward, "doneAttempts": state["roundAttemptsUsed"]}
+        if material is not None:
+            reward_payload["material"] = material
+        drafts.append({"type": "ROUND_CLEAR", "payload": reward_payload})
+        state["roundStars"] = [*state.get("roundStars", []), game_reward]
         if round_index == 5:
             finished = True
+            state["roundsComplete"] = True
             drafts.append({"type": "SESSION_COMPLETE", "payload": {"totalXp": state["xp"], "badges": [], "monsterCards": []}})
             next_item = None
             next_round = None
@@ -689,6 +715,7 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     db.commit()
     return {"events": events, "nextItem": next_item, "nextAttemptIndex": state["roundAttempt"],
             "currentRound": public_round(next_round, state["difficulty"]) if next_round else None, "sessionComplete": finished,
+            "attack": body.attack,
             "dialogue": quest_reply(definition.index, body.transcript) if state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"} else None}
 
 
@@ -982,6 +1009,7 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
 
 app.include_router(hoya_chat_router)
 app.include_router(session_planning_router)
+app.include_router(adventure_router)
 
 
 # 반드시 마지막에 등록한다. 위의 /api 경로가 먼저 일치하고, 나머지 GET만 프로덕션 SPA로 간다.

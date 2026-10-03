@@ -20,7 +20,7 @@ from app.hoya.api import dialogue_service
 from app.hoya.evidence import classify_speech
 from app.hoya.policy import HoyaConversationPolicy, allowed_cue
 from app.hoya.prompt.prompt_builder import HoyaDialogueContext, build_messages, system_prompt
-from app.hoya.providers.demo_provider import DemoProvider
+from app.hoya.providers.demo_provider import DemoProvider, OPENING
 from app.hoya.providers.openai_provider import OpenAIProvider
 from app.hoya.schemas import ProviderOutput
 from app.hoya.service import HoyaDialogueService, select_provider
@@ -99,6 +99,38 @@ def test_demo_provider_reacts_first_and_passes_validator():
     assert DemoProvider().reply_sync(context(transcript="오늘 축구했어.")).text == "축구했구나! 같이 뛴 선수가 있었어?"
     # 불확실한 인식 문장은 믿지 않고 일반적인 반응을 한다.
     assert DemoProvider().reply_sync(context(evidence="UNCERTAIN", transcript="축구")).text.startswith("그랬구나!")
+
+
+@pytest.mark.parametrize("strategy,turn,lexicon", [
+    ("WAIT_OR_SIMPLIFY", 2, ["사과", "수박"]),
+    ("SIMPLIFY", 1, ["사과", "수박"]),
+    ("SIMPLIFY", 1, []),
+    ("ALLOWED_CUE", 1, ["사과", "수박"]),
+])
+def test_demo_self_reference_uses_dudu_without_changing_target_words(strategy, turn, lexicon):
+    item = context(strategy=strategy, turn=turn, lexicon=lexicon)
+    output = DemoProvider().reply_sync(item)
+    assert "두두" in output.text and "호야" not in output.text and "루미" not in output.text
+    assert output.strategy == strategy
+    assert item.target_lexicon == lexicon
+    expected = lexicon if strategy == "SIMPLIFY" else lexicon[:1] if strategy == "ALLOWED_CUE" else []
+    assert output.target_words == expected
+    validate_output(output, strategy, lexicon)
+
+
+def test_prompt_uses_dudu_but_preserves_child_and_stored_dialogue_names():
+    transcript = "호야랑 루미랑 놀았어."
+    recent = [{"speaker": "hoya", "text": "나는 호야야."}, {"speaker": "child", "text": transcript}]
+    item = HoyaDialogueContext(age_band="6-7", target_phoneme="ㅅ", word_position="initial", level="word",
+                               strategy="NATURAL_REELICITATION", evidence="TARGET_NOT_OBSERVED",
+                               target_lexicon=["사과", "수박"], allowed_cue=None,
+                               child_transcript=transcript, recent_turns=recent, turn_index=2)
+    developer, user = build_messages(item)
+    assert '캐릭터 "두두"다' in system_prompt()
+    assert '캐릭터 "호야"다' not in system_prompt()
+    assert json.loads(user["content"])["untrustedChildContent"] == {"childTranscript": transcript, "recentTurns": recent}
+    assert json.loads(developer["content"])["targetLexicon"] == ["사과", "수박"]
+    assert item.child_transcript == transcript and item.recent_turns == recent
 
 
 def test_fake_openai_success_uses_sdk_without_network():
@@ -340,7 +372,8 @@ def test_demo_chat_flow(api):
     client, sessions = api
     headers = student_auth(client)
     started = _start(client, headers)
-    assert started["openingText"] and started["status"] == "active" and started["nextTurnIndex"] == 1
+    assert started["openingText"] == OPENING == "안녕! 나는 두두야. 오늘 뭐 하고 놀았어?"
+    assert started["status"] == "active" and started["nextTurnIndex"] == 1
     first = _turn(client, headers, started["sessionId"], 1, "학교 갔어.")
     assert first.status_code == 200, first.text
     assert first.json()["text"] == "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?"
