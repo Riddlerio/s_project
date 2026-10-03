@@ -58,7 +58,8 @@
 /* 라운드 완료: 별이 하나씩 터지고 재료가 가방으로 날아간다 */
 .fx-clear { display: flex; flex-direction: column; align-items: center; padding-top: 6%; }
 .dudu-beach .fx-clear { padding: 17% 0 0 26%; }
-.fx-stars { display: flex; gap: 6px; padding: .2rem .8rem; border-radius: 999px; background: #fffdf2d9; box-shadow: 0 6px 18px #0000001a; animation: fx-fade-out .5s ease-in 2.4s forwards; }
+.fx-stars { display: flex; gap: 6px; padding: .2rem .8rem; border-radius: 999px; background: #fffdf2d9; box-shadow: 0 6px 18px #0000001a; animation: fx-pill-in .25s ease-out .45s both, fx-fade-out .5s ease-in 2.4s forwards; }
+@keyframes fx-pill-in { from { opacity: 0; scale: .7; } to { opacity: 1; scale: 1; } }
 .fx-stars i { font-style: normal; font-size: clamp(2rem, 4vw, 2.8rem); color: #ffffffb0; -webkit-text-stroke: 3px #c9b98f; paint-order: stroke fill;
   animation: fx-star-in .55s cubic-bezier(.3, 1.9, .5, 1) both, fx-fade-out .5s ease-in 2.4s forwards; animation-delay: calc(.55s + var(--i) * .18s), 2.4s; }
 .fx-stars i.on { color: #ffcf3f; -webkit-text-stroke-color: #b7790c; filter: drop-shadow(0 3px 0 #a86c0c55); }
