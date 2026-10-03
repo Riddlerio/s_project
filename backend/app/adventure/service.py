@@ -75,12 +75,27 @@ def decide_skill(db, child_id, therapist, action, body):
     return skill_status(db, child_id)
 
 
-def check_attack(db, session, attack):
+def round_magic_beam(db, state, child_id):
+    """새 라운드를 열 때의 승인 상태. 라운드가 끝날 때까지 이 값을 유지한다."""
+    return state.get("activityGame") == "monster_adventure" and has_magic_beam(db, child_id)
+
+
+def magic_beam_available(db, state, child_id):
+    """이번 라운드에서 매직빔을 고를 수 있는지. 승인은 즉시, 철회는 다음 라운드부터 적용한다."""
+    return state.get("activityGame") == "monster_adventure" and (
+        bool(state.get("magicBeamRound")) or has_magic_beam(db, child_id))
+
+
+def check_attack(db, session, state, attack):
+    available = magic_beam_available(db, state, session.child_id)
+    if available:
+        # 라운드 도중 승인됐더라도 아이가 본 선택지는 그 라운드가 끝날 때까지 유지한다.
+        state["magicBeamRound"] = True
     if attack == "basic":
         return
-    if session.runtime_state.get("activityGame") != "monster_adventure":
+    if state.get("activityGame") != "monster_adventure":
         raise HTTPException(422, "매직빔 전투 스킬은 몬스터 모험에서 사용할 수 있습니다")
-    if not has_magic_beam(db, session.child_id):
+    if not available:
         raise HTTPException(403, "치료사가 승인한 스킬이 아닙니다")
 
 
@@ -129,7 +144,8 @@ def activity_payload(db, session):
             "currentRound": public_round(GAME_ROUNDS[game][state["roundIndex"] - 1], state["difficulty"]),
             "firstItem": state["currentItem"], "nextAttemptIndex": state["roundAttempt"],
             "completedRounds": list(range(1, 6 if complete else state["roundIndex"])),
-            "sessionComplete": complete}
+            "sessionComplete": complete,
+            "magicBeamAvailable": not complete and magic_beam_available(db, state, session.child_id)}
 
 
 def claim_activity(db, session, token, takeover):

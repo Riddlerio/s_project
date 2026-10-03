@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { sendActivityUtterance, type ActivityItem, type ActivityRound, type ActivityStart } from '../api/activities'
 import type { Acoustic } from '../shared/types'
 import { HoyaActionController } from '../control/HoyaActionController'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { ActivityScene, RoundFeedback } from './ActivityScene'
-import { claimActivity, getMySkills, heartbeatActivity, pauseActivity } from '../api/adventure'
+import { claimActivity, heartbeatActivity, pauseActivity } from '../api/adventure'
 import { AudioCapture } from '../speech/audioCapture'
 import { DEFAULT_VAD } from '../speech/vad'
 import { MicUtterancePipeline } from '../speech/micUtterance'
@@ -39,7 +39,10 @@ export default function ActivitySession() {
   sessionRef.current = session
   const claimRequest = useRef<{ id: string; promise: Promise<ActivityStart> } | null>(null)
   const [speaking, setSpeaking] = useState(false)
+  // 서버가 이번 라운드 기준으로 알려 준다. 철회는 다음 라운드부터 적용된다.
   const [magicBeamGranted, setMagicBeamGranted] = useState(false)
+  // 다른 기기가 진행 권한을 가져갔을 때만 이 기기의 명시적 이어받기를 보여 준다.
+  const [needsTakeover, setNeedsTakeover] = useState(false)
   const [attack, setAttack] = useState<'basic' | 'magic_beam'>('basic')
   const attackRef = useRef(attack)
   attackRef.current = attack
@@ -65,11 +68,16 @@ export default function ActivitySession() {
   const captureKey = `${session?.sessionId}:${round?.index}:${item?.itemId}:${attempt}`
   const modelKey = `${session?.sessionId}:${round?.index}:${item?.itemId}`
 
-  useEffect(() => {
-    let active = true
-    getMySkills().then(value => { if (active) setMagicBeamGranted(value.magicBeam) }).catch(() => undefined)
-    return () => { active = false }
-  }, [])
+  function applyMagicBeam(available: boolean | undefined) {
+    if (available === undefined) return
+    setMagicBeamGranted(available)
+    if (!available) setAttack('basic')
+  }
+  function stopFor(cause: unknown, fallback: string) {
+    setError(cause instanceof Error ? cause.message : fallback)
+    setNeedsTakeover(cause instanceof ApiError && cause.status === 409)
+    suspendedRef.current = true; setSuspended(true); began.current = null; voice.current?.cancel()
+  }
 
   useEffect(() => {
     mounted.current = true
@@ -94,7 +102,8 @@ export default function ActivitySession() {
     setRound(live.currentRound); setItem(live.firstItem)
     setAttempt(live.nextAttemptIndex ?? 1); setCompleted(live.completedRounds ?? [])
     sessionStorage.setItem('speechHero.activity', JSON.stringify(live))
-    suspendedRef.current = false; setSuspended(false); setError(''); setReady(true)
+    applyMagicBeam(live.magicBeamAvailable ?? false)
+    suspendedRef.current = false; setSuspended(false); setError(''); setNeedsTakeover(false); setReady(true)
   }
 
   useEffect(() => {
@@ -107,7 +116,7 @@ export default function ActivitySession() {
     claimRequest.current.promise.then(live => {
       if (!active) return
       adopt(live)
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '세션을 다시 열 수 없어요') })
+    }).catch(cause => { if (active) { setError(cause instanceof Error ? cause.message : '세션을 다시 열 수 없어요'); setNeedsTakeover(cause instanceof ApiError && cause.status === 409) } })
     return () => { active = false }
   }, [id])
 
@@ -118,7 +127,7 @@ export default function ActivitySession() {
       const current = sessionRef.current
       suspendedRef.current = true; setSuspended(true); began.current = null
       voice.current?.cancel()
-      if (current) void pauseActivity(current).catch(() => undefined)
+      if (current && !current.sessionComplete) void pauseActivity(current).catch(() => undefined)
     }
     const visibility = () => { if (document.hidden) pause() }
     document.addEventListener('visibilitychange', visibility)
@@ -126,16 +135,14 @@ export default function ActivitySession() {
     const heartbeat = window.setInterval(() => {
       const current = sessionRef.current
       if (!current || document.hidden || suspendedRef.current) return
-      void heartbeatActivity(current).catch(cause => {
-        if (!active) return
-        suspendedRef.current = true; setSuspended(true); began.current = null; voice.current?.cancel()
-        setError(cause instanceof Error ? cause.message : '연결을 확인한 뒤 다시 계속해 주세요')
-      })
+      void heartbeatActivity(current).catch(cause => { if (active) stopFor(cause, '연결을 확인한 뒤 다시 계속해 주세요') })
     }, 15000)
     return () => {
       active = false; window.clearInterval(heartbeat)
       document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pagehide', pause)
-      void pauseActivity(session).catch(() => undefined)
+      // 완료했거나 이 기기가 새 권한을 받은 뒤에는 이전 권한으로 멈춤을 보내지 않는다.
+      const current = sessionRef.current
+      if (!current?.sessionComplete && current?.leaseToken === session.leaseToken) void pauseActivity(session).catch(() => undefined)
     }
   }, [ready, session?.sessionId, session?.leaseToken])
 
@@ -143,7 +150,7 @@ export default function ActivitySession() {
     if (!id || busy) return
     setBusy(true)
     try { const live = await claimActivity(id, takeover, sessionRef.current?.leaseToken); if (mounted.current) adopt(live) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요'); setNeedsTakeover(cause instanceof ApiError && cause.status === 409) }
     finally { if (mounted.current) setBusy(false) }
   }
 
@@ -197,6 +204,7 @@ export default function ActivitySession() {
       if (!mounted.current) return
       actionTimers.current.forEach(window.clearTimeout)
       actionTimers.current = []
+      applyMagicBeam(result.magicBeamAvailable)
       const kinds = new Set(result.events.map(event => event.type))
       const clear = result.events.find(event => event.type === 'ROUND_CLEAR')
       const stars = clear?.payload.stars
@@ -241,9 +249,10 @@ export default function ActivitySession() {
       }
     } catch (cause) {
       if (mounted.current) {
-        setError(cause instanceof Error ? cause.message : '연결을 확인해 주세요')
-        suspendedRef.current = true; setSuspended(true); voice.current?.cancel()
-        if (attackRef.current === 'magic_beam') { setAttack('basic'); void getMySkills().then(value => { if (mounted.current) setMagicBeamGranted(value.magicBeam) }).catch(() => undefined) }
+        // 화면이 늦게 갱신돼 쓸 수 없는 매직빔을 보냈다면 멈추지 않고 기본 공격으로 돌린다. 시도는 쓰이지 않았다.
+        if (cause instanceof ApiError && cause.status === 403 && attackRef.current === 'magic_beam') {
+          applyMagicBeam(false); setMessage('이번엔 기본 공격으로 해보자!')
+        } else stopFor(cause, '연결을 확인해 주세요')
       }
     }
     finally { submitting.current = false; began.current = null; if (mounted.current) setBusy(false) }
@@ -348,7 +357,8 @@ export default function ActivitySession() {
     {feedback && <RoundFeedback {...feedback} />}
     {session.game === 'monster_adventure' && <fieldset className="dudu-attack-choice"><legend>낚시 도구</legend><label><input type="radio" name="attack" checked={attack === 'basic'} onChange={() => setAttack('basic')} disabled={busy || speaking} /> 기본 공격</label><label><input type="radio" name="attack" checked={attack === 'magic_beam'} onChange={() => setAttack('magic_beam')} disabled={!magicBeamGranted || busy || speaking} /> 매직빔 {magicBeamGranted ? '(치료사 승인)' : '(치료사 승인 필요)'}</label><small>기본 공격으로도 끝까지 진행할 수 있어요.</small></fieldset>}
     <div className="activity-controls">
-      {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button></div>}
+      {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button>
+        {needsTakeover && <><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button></>}</div>}
       {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
       {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
       {speaking && <p className="small" aria-live="polite">두두가 말한 뒤 네 차례가 와요.</p>}

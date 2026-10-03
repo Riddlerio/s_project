@@ -190,7 +190,7 @@ def test_unapproved_beam_is_rejected_without_using_an_attempt_and_basic_still_cl
 
 
 @pytest.mark.parametrize("wrong_word", [False, True])
-def test_granted_attack_and_basic_have_identical_clinical_assessment_and_revoke_is_immediate(api, wrong_word):
+def test_granted_attack_and_basic_have_identical_clinical_assessment_and_revoke_applies_next_round(api, wrong_word):
     client, sessions = api
     student = _actor(client, student_auth)
     therapist = _actor(client, auth)
@@ -214,20 +214,57 @@ def test_granted_attack_and_basic_have_identical_clinical_assessment_and_revoke_
             assessments.append((analysis.ai_score, analysis.ai_result, analysis.target_status, analysis.pattern_tags))
     assert assessments[0] == assessments[1]
     _grant(client, therapist, _child(sessions), "revoke")
+    # 승인 상태로 시작한 라운드는 철회 뒤에도 그 라운드가 끝날 때까지 매직빔을 쓸 수 있다.
     current = client.get(f"/api/activities/{started['sessionId']}", headers=student).json()
+    assert current["magicBeamAvailable"] is True
     current_index = current["currentRound"]["index"]
-    current_attempt = current["nextAttemptIndex"]
+    kept = client.post(f"/api/activities/{started['sessionId']}/utterances",
+                       headers=_lease(student, started),
+                       json=_body(current["firstItem"], current_index, current["nextAttemptIndex"], attack="magic_beam"))
+    assert kept.status_code == 200, kept.text
+    assert "ROUND_CLEAR" in {event["type"] for event in kept.json()["events"]}
+    assert kept.json()["magicBeamAvailable"] is False
+    # 다음 라운드부터 철회가 적용되고 기본 공격으로 계속 진행한다.
+    next_item, next_index = kept.json()["nextItem"], kept.json()["currentRound"]["index"]
     rejected = client.post(f"/api/activities/{started['sessionId']}/utterances",
-                           headers=_lease(student, started),
-                           json=_body(current["firstItem"], current_index, current_attempt, attack="magic_beam"))
+                           headers=_lease(student, started), json=_body(next_item, next_index, attack="magic_beam"))
     assert rejected.status_code == 403
     basic = client.post(f"/api/activities/{started['sessionId']}/utterances",
-                        headers=_lease(student, started),
-                        json=_body(current["firstItem"], current_index, current_attempt))
+                        headers=_lease(student, started), json=_body(next_item, next_index))
     assert basic.status_code == 200, basic.text
     assert "ROUND_CLEAR" in {event["type"] for event in basic.json()["events"]}
     other_child = _actor(client, student_auth, "HERO02")
     assert client.get("/api/me/skills", headers=other_child).json() == {"magicBeam": False}
+
+
+def test_grant_during_round_is_kept_until_that_round_ends(api):
+    client, sessions = api
+    student = _actor(client, student_auth)
+    therapist = _actor(client, auth)
+    child_id = _child(sessions)
+    started = _start(client, student, "monster_adventure")
+    assert started["magicBeamAvailable"] is False
+    item = started["firstItem"]
+    miss = _body(item, 1)
+    miss["transcript"] = "바나나"
+    retry = client.post(f"/api/activities/{started['sessionId']}/utterances", headers=_lease(student, started), json=miss)
+    assert retry.status_code == 200 and retry.json()["magicBeamAvailable"] is False
+    # 라운드 도중 승인은 바로 쓸 수 있고, 아이가 본 뒤 철회돼도 그 라운드는 유지한다.
+    _grant(client, therapist, child_id)
+    seen = client.get(f"/api/activities/{started['sessionId']}", headers=student).json()
+    assert seen["magicBeamAvailable"] is True
+    miss = _body(item, 1, 2)
+    miss["transcript"] = "바나나"
+    latched = client.post(f"/api/activities/{started['sessionId']}/utterances", headers=_lease(student, started), json=miss)
+    assert latched.status_code == 200 and latched.json()["magicBeamAvailable"] is True
+    _grant(client, therapist, child_id, "revoke")
+    used = client.post(f"/api/activities/{started['sessionId']}/utterances",
+                       headers=_lease(student, started), json=_body(item, 1, 3, attack="magic_beam"))
+    assert used.status_code == 200, used.text
+    assert used.json()["currentRound"]["index"] == 2
+    assert used.json()["magicBeamAvailable"] is False
+    with sessions() as db:
+        assert db.get(TrainingSession, started["sessionId"]).runtime_state["magicBeamRound"] is False
 
 
 def test_claim_requires_explicit_takeover_and_invalidates_the_previous_device(api):

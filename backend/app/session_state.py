@@ -92,6 +92,8 @@ class ActivityState(_State):
     currentItem: ActivityItem
     roundDefinition: RoundSnapshot
     roundsComplete: StrictBool = False
+    # 이번 라운드 동안 매직빔 승인 상태를 유지하는지. 비임상 게임 상태다.
+    magicBeamRound: StrictBool = False
     roundStars: list[RoundRewardSnapshot] = Field(default_factory=list)
 
     @field_validator("roundStartedAt")

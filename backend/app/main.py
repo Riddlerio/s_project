@@ -588,6 +588,7 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
              "currentCue": "AUDITORY_MODEL" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "NONE",
              "currentItem": first, "totalAttempts": 0, "xp": 0, "stageIndex": 0,
              "roundDefinition": {**public_round(definitions[0], 2), "independence": "MODELED" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"}}
+    state["magicBeamRound"] = adventure_service.round_magic_beam(db, state, child.id)
     session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,
                               play_token_hash=hash_token(secrets.token_urlsafe(32)), runtime_state=state)
     db.add(session)
@@ -622,7 +623,7 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     if session.status != "active" or state.get("roundsComplete"):
         raise HTTPException(409, "활성 게임이 아닙니다")
     lease = adventure_service.check_lease(db, session, x_activity_lease)
-    adventure_service.check_attack(db, session, body.attack)
+    adventure_service.check_attack(db, session, state, body.attack)
     if lease is not None:
         adventure_service.heartbeat(db, session, x_activity_lease)
     round_index = state["roundIndex"]
@@ -703,6 +704,8 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
                          listenAgainCount=0, roundStartedAt=now().isoformat(),
                          currentCue="AUDITORY_MODEL" if next_round.elicitation_type == "DIRECT_IMITATION" else "NONE",
                          roundDefinition={**public_round(next_round, state["difficulty"]), "independence": "MODELED" if next_round.elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"})
+            # 철회는 이 시점(다음 라운드 시작)부터 적용한다.
+            state["magicBeamRound"] = adventure_service.round_magic_beam(db, state, session.child_id)
             drafts.extend([{"type": "ROUND_START", "payload": public_round(next_round, state["difficulty"])},
                            {"type": "TARGET_PRESENTED", "payload": {"item": next_item}}])
     else:
@@ -716,6 +719,7 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     return {"events": events, "nextItem": next_item, "nextAttemptIndex": state["roundAttempt"],
             "currentRound": public_round(next_round, state["difficulty"]) if next_round else None, "sessionComplete": finished,
             "attack": body.attack,
+            "magicBeamAvailable": not finished and adventure_service.magic_beam_available(db, state, session.child_id),
             "dialogue": quest_reply(definition.index, body.transcript) if state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"} else None}
 
 

@@ -11,6 +11,7 @@ export function SkillGrantView({ status, busy, evidence, note, onEvidence, onNot
     <h2>매직빔 전투 스킬</h2>
     <p>이 아동이 몬스터 모험(해변 낚시 데모)에서 선택할 수 있는 추가 공격입니다. 기본 공격으로도 같은 모험을 끝낼 수 있습니다.</p>
     <p className="small">연습 게임의 빛의 마법, 회기 계획 승인과 별도로 결정합니다. 점수·AI·게임 완료로 자동 승인되지 않습니다.</p>
+    <p className="small">승인은 바로 쓸 수 있고, 철회는 아이가 진행 중인 라운드를 마친 뒤 다음 라운드부터 적용됩니다.</p>
     <p aria-live="polite">{status ? status.granted ? '현재 승인됨' : '현재 승인되지 않음' : '권한을 불러오는 중…'}</p>
     {status?.granted && <p className="small">승인자: {status.therapistName} · 승인 시각: {status.grantedAt ? new Date(status.grantedAt).toLocaleString('ko-KR') : '기록 없음'}</p>}
     <label>결정 근거<select value={evidence} onChange={event => onEvidence(event.target.value as SkillEvidence | '')} disabled={busy}>
