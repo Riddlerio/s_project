@@ -74,15 +74,15 @@
 
 | 순서 | 대상 | 이유와 전제 | 효과 |
 |---|---|---|---|
-| 1 | legacy 진행 그래프(`/progress`, `SessionTrendChart`) | V2 회기를 이미 제외하는 옛 지표다. 테스트 2곳 수정. Phase 7의 새 추이 화면이 대신한다 | `recharts` 포함 27개 패키지 제거 |
-| 2 | 샘플 데이터 생성을 V2 활동으로 다시 작성 | 3·4의 전제. 보안 테스트(본문 크기·CSRF·소유권 등)를 `/api/activities`로 옮긴다 | legacy 제거의 길을 연다 |
-| 3 | legacy 모험(PlaySession, `/api/play/start`·`utterances`, 계획 생성·정책, 캐릭터·게임 기계, DEMO 인식기) | 지도의 "기존 모험"에서만 들어간다. 음성 로직이 고위험 영역이라 승인 필요 | 약 30개 파일과 테스트 정리 |
-| 4 | legacy 목표 추천(R1–R5) 생성 중단 | 표와 과거 행의 거절 기능은 남긴다. Phase 7의 결정 지원으로 대체 | 추천 출처 세 가지 → 한 가지 |
-| 5 | 문서·자산 | 루트의 옛 프롬프트 4개는 `docs/history/`로 이동, 실행할 수 없는 포스터 제작 스크립트와 참조 없는 양식 파일 정리 | 저장소 정리. 이미 커밋된 큰 이미지는 기록에 남으므로 용량은 줄지 않는다 |
+| 1 **승인·Codex** | legacy 진행 그래프(`/progress`, `SessionTrendChart`) | V2 회기를 이미 제외하는 옛 지표다. 테스트 2곳 수정. Phase 7의 새 추이 화면이 대신한다 | `recharts` 포함 27개 패키지 제거 |
+| 2 **승인·Claude** | 샘플 데이터 생성을 V2 활동으로 다시 작성 | 3·4의 전제. 보안 테스트(본문 크기·CSRF·소유권 등)를 `/api/activities`로 옮긴다 | legacy 제거의 길을 연다 |
+| 3 **승인·Claude** | legacy 모험(PlaySession, `/api/play/start`·`utterances`, 계획 생성·정책, 캐릭터·게임 기계, DEMO 인식기) | 지도의 "기존 모험"에서만 들어간다. 음성 로직이 고위험 영역이라 승인 필요 | 약 30개 파일과 테스트 정리 |
+| 4 보류 | legacy 목표 추천(R1–R5) 생성 중단 | 승인하지 않음. 다만 legacy 추천은 legacy 모험에서만 생기므로 3을 하면 새 추천은 생기지 않는다. 코드·표·과거 행 거절 화면은 남긴다 | 추천 출처 세 가지 → 한 가지 |
+| 5 **승인·Claude** | 문서·자산 | 루트의 옛 프롬프트 4개는 `docs/history/`로 이동, 실행할 수 없는 포스터 제작 스크립트와 참조 없는 양식 파일 정리 | 저장소 정리. 이미 커밋된 큰 이미지는 기록에 남으므로 용량은 줄지 않는다 |
 
 **유지:** `/api/play/sessions/{id}/complete`(V2가 사용), `training/content.py`, `TherapistRule`, `propose_activity`(동결된 계획 그래프가 사용), 모든 DB 표.
 
-## 6. 작업 방식 (제안, 사용자 확인 전)
+## 6. 작업 방식 (2026-10-04 사용자 승인)
 
 - **Claude(이 작업 폴더):** Phase 경계 관리, 통합·병합, 게임 구성(Phase 5)과 3D 연결, 검사.
 - **Codex(별도 worktree):** 치료사 데이터 화면(Phase 7의 읽기 화면). 주로 `src/therapist/**`와 읽기 전용 API라 겹치는 파일이 적다. 작업 지시는 [Codex 작업 지시](handoff/CODEX_THERAPIST_DATA_TASK.md)를 따른다.
