@@ -10,9 +10,9 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 | 2 | 백엔드 legacy 흐름(`/api/play/start`·`utterances`, `training/plan_generator.py`, `training/policy.py`)과 V2(`/api/activities`, `games/rounds.py`) | 1과 같음 | 둘 다 사용 중. **의존성:** `seed.py`가 legacy `start`/`play_utterance`/`complete`로 데모 자료를 만듦. 백엔드 테스트 3개 파일(`test_api_flow`, `test_hardening`, `test_review_blockers`)이 `/api/play/start`를 호출함. V2 ActivitySession도 보상을 legacy `/api/play/sessions/{id}/complete`에서 받음. **공용 세션 상태 경계:** `backend/app/session_state.py`가 legacy와 V2의 `runtime_state`를 따로 검증하고(`legacy_state`, `activity_state`, `completion_state`, `state_guard`), `main.py`가 두 흐름에 모두 연결함 | 같은 아동과 목표에 서로 다른 적응 정책이 둘. legacy 단어 경로에는 음질 게이트가 없음 | Phase 5에서 처리. 제거하려면 seed와 테스트를 V2로 다시 만들고, 보상 endpoint를 유지하거나 옮기고, `session_state.py`의 경계를 함께 정리해야 함 |
 | 3 | 🧚 루미 `src/character/Character.tsx`와 `src/tiger/Hoya3D.tsx` | 캐릭터를 호야로 바꾸는 중 | PlaySession에서 둘이 동시에 보임 | 캐릭터 정체성 혼란 | Phase 2와 Phase 5 |
 | 4 | TTS 구현 3벌: `character/tts.ts`, CharacterHome의 로컬 `speak`, HoyaChat의 `speakKorean` | 화면마다 따로 구현 | 모두 사용 중 | 동작이 제각각 | Phase 4 |
-| 5 | legacy `AIRecommendation`(R1–R5), `ActivityRecommendation`, 치료사 회기 계획 | 추천 흐름이 차례로 추가됨 | 셋 다 동작. legacy는 치료사 화면의 "고급 정보"에 있음 | legacy 추천은 미검증·DEMO 자료로 만들어지는데, 수락하면 목표 버전이 바뀜. 그러면 작성 중인 계획 초안의 승인이 막힘(409). "다음 단계" 출처가 셋 | Phase 1(지표 분리·표시), 이후 통합 판단 |
+| 5 | legacy `AIRecommendation`(R1–R5), `ActivityRecommendation`, 치료사 회기 계획 | 추천 흐름이 차례로 추가됨 | 셋 다 동작. legacy는 치료사 화면의 "고급 정보"에 있음 | legacy 추천은 미검증·DEMO 자료로 만들어지는데, 수락하면 목표 버전이 바뀜. 그러면 작성 중인 계획 초안의 승인이 막힘(409). "다음 단계" 출처가 셋 | Phase 1 완료(DEMO 연습 추천 차단·출처 표시·과거 행은 거절만), 통합 판단은 Phase 7 |
 | 6 | `ActivityRecommendation.assignedActivity`와 회기 계획 | 계획 실행(TherapyRun)이 아직 없음 | 아동 지도의 "치료사 배정 활동"이 `collection_json.assignedActivity`에 의존함 | 역할이 겹침. 없애면 Phase 7 전까지 기능 공백 | Phase 7에서 통합 판단 |
-| 7 | `/api/children/{id}/progress`와 `SessionTrendChart` | legacy 지표 | 치료사 "고급 정보"에 있음 | AI 추정값과 DEMO가 섞임 | Phase 1 |
+| 7 | `/api/children/{id}/progress`와 `SessionTrendChart` | legacy 지표 | 치료사 "고급 정보"에 있음 | AI 추정값과 DEMO가 섞임 | Phase 1 완료(회기 출처 표시, 계산 동일). 정리는 Phase 7 |
 | 8 | `GameType`(`monster_tower`, `magic_beam`; `enums.py`, `src/shared/levels.ts`)과 `GameKind`(V2 4종) | legacy 게임 enum | 둘 다 사용. PlaySession에 `monster_tower`를 `monster_adventure`로 바꾸는 대응이 있음 | 혼동 | Phase 5 |
 | 9 | 규칙 사본: 음질(`audio_quality.py`, `audioQuality.ts`), 빔(`pipeline.py`, `evaluation.py`), 종료 유예(`rounds.py`, `vad.ts`) | 손으로 옮겨 적음 | 모두 사용 | **음질 규칙은 이미 어긋남** | heuristic을 정리하는 Phase에서 처리 |
 | 10 | `TherapistRule`·`TherapistFeedback` | 치료사 교정 기능 | V2 점수 계산과 호야 `allowed_cue`에 영향 | `params.variant`에 transcript가 저장되는데 보존 기간 삭제 대상이 아님 | 유지. 보존 범위는 Phase 6 |
@@ -60,6 +60,6 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 
 일부 문구는 테스트가 확인한다. 디자인을 바꾸더라도 고지는 유지한다.
 
-**시각 문제가 아니라 데이터 문제인 항목:** ActivitySession의 키보드 DEMO가 r4 라운드에서 `sustainSegmentsMs`를 만들어 낸다. 이 항목은 Phase 1에서 확인한다.
+**시각 문제가 아니라 데이터 문제인 항목:** ActivitySession의 키보드 DEMO가 r4 라운드에서 `sustainSegmentsMs`를 만들어 낸다. Phase 1 확인 결과 이 값은 DEMO 회기에만 생기고, DEMO 회기는 임상 근거·계획·활동 제안에서 제외되며 화면에 DEMO로 표시된다.
 
 **에셋 IP:** 루트의 jpg는 대구대학교 백호 마스코트이고 대학 로고가 들어 있다. 호야 디자인에 참고할지, 사용 권한이 있는지는 Phase 3에서 사용자가 결정한다.

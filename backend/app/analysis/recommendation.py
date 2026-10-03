@@ -6,10 +6,18 @@ from ..enums import LEVEL_ORDER, TrainingLevel
 from ..models import AIRecommendation, ProgressMetric, SpeechAnalysis, TrainingGoal, TrainingSession, Utterance
 
 
+def _source(session) -> str:
+    if session.is_seed:
+        return "seed"
+    return "clinical" if session.mode == "real" else "practice"
+
+
 def recommend(db, session, goal, metric):
     retry_rate = metric.retries / max(1, metric.attempts)
     previous = db.execute(select(TrainingSession, ProgressMetric, TrainingGoal).join(ProgressMetric, ProgressMetric.session_id == TrainingSession.id).join(TrainingGoal, TrainingGoal.id == TrainingSession.goal_id).where(TrainingSession.child_id == session.child_id, TrainingSession.status == "completed", ProgressMetric.level == "all").order_by(TrainingSession.started_at.desc()).limit(3)).all()
-    same_level = [m for s, m, g in previous if g.level == goal.level and not s.runtime_state.get("activityGame")]
+    # 비교할 과거 회기는 이번 회기와 출처(임상·seed 시연·DEMO 연습)가 같은 것만 쓴다. 조회 범위(최근 3회)와 기준값은 그대로다.
+    same_level = [m for s, m, g in previous if g.level == goal.level and not s.runtime_state.get("activityGame")
+                  and _source(s) == _source(session)]
     rows = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
     word_scores = defaultdict(list)
     for utterance, analysis in rows:

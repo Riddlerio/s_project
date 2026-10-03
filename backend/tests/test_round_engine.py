@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.games.rounds import GAME_ROUNDS, next_difficulty
 from app.games.evaluation import evaluate_round
 from app.models import AIRecommendation, ClinicalObservation, TrainingSession
-from test_api_flow import api, student_auth
+from test_api_flow import api, real_child_auth, student_auth
 
 
 def test_all_games_have_five_distinct_rounds():
@@ -129,7 +129,7 @@ def test_conversation_non_target_choice_advances_without_clinical_score(api):
 
 def test_rejected_observation_is_excluded_from_verified_metric(api):
     client, _ = api
-    student = student_auth(client)
+    student, _child = real_child_auth(client)
     started = client.post("/api/activities", headers=student, json={"game": "magic_beam", "mode": "real"}).json()
     client.post(f"/api/activities/{started['sessionId']}/utterances", headers=student,
                 json={"roundIndex": 1, "itemId": started["firstItem"]["itemId"],

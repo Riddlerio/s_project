@@ -144,6 +144,22 @@ def clinical_eligible(session) -> bool:
     return session is not None and session.mode == "real" and not session.is_seed
 
 
+def legacy_recommendation_allowed(session) -> bool:
+    """legacy 목표 추천(R1–R5)은 임상 근거 회기나 seed 시연 회기에서만 만든다.
+
+    실제 아동의 DEMO 연습은 수락 시 목표를 바꾸는 추천을 만들지 않는다. seed 시연 자료는 샘플로 표시된다.
+    """
+    return session is not None and (clinical_eligible(session) or session.is_seed)
+
+
+def rec_payload(db, rec):
+    session = db.get(TrainingSession, rec.session_id)
+    return {**rec_data(rec), "provenance": {"sessionMode": session.mode if session else None,
+                                            "sessionIsSeed": bool(session and session.is_seed),
+                                            "clinicalEligible": clinical_eligible(session),
+                                            "demoPractice": not legacy_recommendation_allowed(session)}}
+
+
 def observation_data(observation, session=None):
     eligible = clinical_eligible(session)
     return {**observation_fields(observation), "is_demo": not eligible, "clinical_eligible": eligible}
@@ -387,7 +403,9 @@ def start(body: StartInput, db: Session = Depends(get_db), account: Account | No
     first_stage = plan_json["stages"][0]
     first_item = first_stage["items"][0]
     state = {"currentLevel": first_item["level"], "stageIndex": 0, "queue": first_stage["items"][1:], "currentItem": first_item, "itemAttempt": 1, "successStreak": 0, "targetRetryStreak": 0, "resumeItem": None, "totalAttempts": 0, "xp": 0, "beamTargetMs": 1500, "nextSlot": plan_json["nextSlot"], "pendingBigAttack": False}
-    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, play_token_hash=hash_token(token), runtime_state=state)
+    # 출처(provenance): seed 아동의 회기는 입력 모드와 관계없이 seed다. mode(입력 방식)와 is_seed(대상)는 다른 축이다.
+    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,
+                              play_token_hash=hash_token(token), runtime_state=state)
     db.add(session)
     db.flush()
     db.add(TrainingDecision(session_id=session.id, decision_type="PLAN_GENERATED", reason_codes=plan_json["rationale"], reason_text=reason_text(plan_json["rationale"]), inputs_snapshot={"goalId": goal.id, "goalVersion": goal.version, "ruleIds": [r.id for r in rules]}))
@@ -471,7 +489,7 @@ def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db)
     goal = db.get(TrainingGoal, session.goal_id)
     stage_index = state.get("stageIndex", 0)
     metric = recompute(db, session, goal, body.elapsed_sec)
-    if not state.get("activityGame"):
+    if not state.get("activityGame") and legacy_recommendation_allowed(session):
         recommend(db, session, goal, metric)
     child.xp += state.get("xp", 0)
     utterances = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
@@ -551,7 +569,7 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
              "currentCue": "AUDITORY_MODEL" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "NONE",
              "currentItem": first, "totalAttempts": 0, "xp": 0, "stageIndex": 0,
              "roundDefinition": {**public_round(definitions[0], 2), "independence": "MODELED" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"}}
-    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode,
+    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,
                               play_token_hash=hash_token(secrets.token_urlsafe(32)), runtime_state=state)
     db.add(session)
     db.flush()
@@ -680,7 +698,9 @@ def overview(db: Session = Depends(get_db), therapist: Therapist = Depends(thera
     child_ids = [c.id for c in children]
     sessions = db.scalars(select(TrainingSession).where(TrainingSession.child_id.in_(child_ids)).order_by(TrainingSession.started_at.desc()).limit(10)).all() if child_ids else []
     pending = db.scalars(select(AIRecommendation).where(AIRecommendation.child_id.in_(child_ids), AIRecommendation.status == "pending")).all() if child_ids else []
-    return {"activeChildren": [{**child_data(c), "currentGoal": goal_data(current_goal(db, c.id)), "pendingRecommendations": sum(r.child_id == c.id for r in pending)} for c in children], "recentSessions": [{"id": s.id, "childId": s.child_id, "mode": s.mode, "isSeed": s.is_seed, "startedAt": s.started_at, "status": s.status} for s in sessions], "pendingRecommendations": [rec_data(r) for r in pending]}
+    # 수정 전에 저장된 DEMO 연습 기반 추천(과거 행)은 대기 수와 목록에서 뺀다. 생성 경계만으로는 과거 행을 막지 못한다.
+    pending = [r for r in pending if legacy_recommendation_allowed(db.get(TrainingSession, r.session_id))]
+    return {"activeChildren": [{**child_data(c), "currentGoal": goal_data(current_goal(db, c.id)), "pendingRecommendations": sum(r.child_id == c.id for r in pending)} for c in children], "recentSessions": [{"id": s.id, "childId": s.child_id, "mode": s.mode, "isSeed": s.is_seed, "startedAt": s.started_at, "status": s.status} for s in sessions], "pendingRecommendations": [rec_payload(db, r) for r in pending]}
 
 
 @app.get("/api/children/{child_id}/recommendations")
@@ -689,7 +709,7 @@ def recommendations(child_id: str, status: str | None = None, db: Session = Depe
     query = select(AIRecommendation).where(AIRecommendation.child_id == child_id)
     if status:
         query = query.where(AIRecommendation.status == status)
-    return [rec_data(r) for r in db.scalars(query.order_by(AIRecommendation.created_at.desc())).all()]
+    return [rec_payload(db, r) for r in db.scalars(query.order_by(AIRecommendation.created_at.desc())).all()]
 
 
 @app.get("/api/children/{child_id}/activity-recommendations")
@@ -758,7 +778,7 @@ def session_detail(session_id: str, db: Session = Depends(get_db), therapist: Th
     recs = db.scalars(select(AIRecommendation).where(AIRecommendation.session_id == session.id)).all()
     goal = db.get(TrainingGoal, session.goal_id)
     rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == session.child_id, TherapistRule.active == True)).all()
-    return {"session": {"id": session.id, "mode": session.mode, "activityGame": session.runtime_state.get("activityGame"), "isSeed": session.is_seed, "status": session.status, "startedAt": session.started_at, "endedAt": session.ended_at, "durationSec": session.summary_json.get("durationSec"), "goalVersion": goal.version, "summary": session.summary_json}, "goal": goal_data(goal), "plan": db.get(TrainingPlan, session.plan_id).plan_json, "utterances": [{"id": u.id, "itemText": u.item_text, "level": u.level, "game": u.game, "recognizer": u.recognizer, "stageIndex": u.stage_index, "acoustic": u.acoustic, "createdAt": u.created_at, "transcript": u.transcript, "attemptIndex": u.attempt_index, "analysis": public(db.scalar(select(SpeechAnalysis).where(SpeechAnalysis.utterance_id == u.id)), ["ai_score", "ai_result", "final_score", "final_result", "target_status", "substitute_symbol", "pattern_tags", "therapist_override", "rule_applied_id", "method"])} for u in utterances], "decisions": [public(d, ["id", "decision_type", "reason_codes", "reason_text", "inputs_snapshot", "from_level", "to_level"]) for d in decisions], "events": [public(e, ["id", "type", "payload", "therapist_text", "utterance_id", "created_at"]) for e in events], "metrics": [public(m, ["attempts", "successes", "retries", "hints", "first_try_success_rate", "mean_score", "level_down_count"]) for m in metrics], "insight": session.insight_json, "recommendations": [rec_data(r) for r in recs], "activeRules": [public(r, ["id", "rule_type", "params"]) for r in rules]}
+    return {"session": {"id": session.id, "mode": session.mode, "activityGame": session.runtime_state.get("activityGame"), "isSeed": session.is_seed, "status": session.status, "startedAt": session.started_at, "endedAt": session.ended_at, "durationSec": session.summary_json.get("durationSec"), "goalVersion": goal.version, "summary": session.summary_json}, "goal": goal_data(goal), "plan": db.get(TrainingPlan, session.plan_id).plan_json, "utterances": [{"id": u.id, "itemText": u.item_text, "level": u.level, "game": u.game, "recognizer": u.recognizer, "stageIndex": u.stage_index, "acoustic": u.acoustic, "createdAt": u.created_at, "transcript": u.transcript, "attemptIndex": u.attempt_index, "analysis": public(db.scalar(select(SpeechAnalysis).where(SpeechAnalysis.utterance_id == u.id)), ["ai_score", "ai_result", "final_score", "final_result", "target_status", "substitute_symbol", "pattern_tags", "therapist_override", "rule_applied_id", "method"])} for u in utterances], "decisions": [public(d, ["id", "decision_type", "reason_codes", "reason_text", "inputs_snapshot", "from_level", "to_level"]) for d in decisions], "events": [public(e, ["id", "type", "payload", "therapist_text", "utterance_id", "created_at"]) for e in events], "metrics": [public(m, ["attempts", "successes", "retries", "hints", "first_try_success_rate", "mean_score", "level_down_count"]) for m in metrics], "insight": session.insight_json, "recommendations": [rec_payload(db, r) for r in recs], "activeRules": [public(r, ["id", "rule_type", "params"]) for r in rules]}
 
 
 @app.get("/api/sessions/{session_id}/timeline")
@@ -893,6 +913,9 @@ def decide_recommendation(recommendation_id: str, body: RecommendationDecisionIn
         raise HTTPException(409, "이미 처리한 추천입니다")
     if body.action not in ("accept", "modify", "reject") or (body.action == "reject" and not body.note.strip()):
         raise HTTPException(422, "결정 또는 거절 사유가 필요합니다")
+    if body.action != "reject" and not legacy_recommendation_allowed(db.get(TrainingSession, rec.session_id)):
+        # 수정 전에 저장된 DEMO 연습 기반 추천은 목표를 바꾸지 못한다. 거절(기록)만 할 수 있다.
+        raise HTTPException(409, "DEMO 연습에서 나온 추천은 목표에 반영할 수 없습니다. 거절만 할 수 있습니다")
     goal = None
     if body.action != "reject":
         patch = rec.suggested_goal if body.action == "accept" else body.modified_goal
