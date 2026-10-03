@@ -11,6 +11,7 @@
 5. [poster/speech_hero_poster_review.pptx](poster/speech_hero_poster_review.pptx)와 [미리보기](poster/poster_preview.png): 사용자 제공 90×120 cm 규격의 **검토본**. 이름·지도교수·전공은 빈칸이며, 승인 스킬·재료 제작·다른 기기 이어하기는 설계로 표시되어 있다.
 6. [05_DEVICE_CONTINUATION.md](05_DEVICE_CONTINUATION.md): 새 기기에서 받은 사용자 승인·기능 구현·검사 상태. 원래 인수 시점 이후의 변경은 이 기록으로 확인한다.
 7. [06_ORCA_CLAUDE_HANDOFF.md](06_ORCA_CLAUDE_HANDOFF.md): Orca 독립 작업 폴더·실행·검사 명령, Claude Code 첫 프롬프트, Figma MCP 확인·설치 안내.
+8. [07_CLAUDE_FLOW_AND_3D.md](07_CLAUDE_FLOW_AND_3D.md): Claude가 `claude/dudu-followup`에서 한 실제 흐름 확인·오류 수정, 게임 효과, 절차형 3D 두두, 검사 결과와 남은 마이크 검수 절차.
 
 ## 다른 기기에서 받기
 
@@ -37,7 +38,7 @@ git switch --track origin/feat/dudu-mascot-3d-ui
 | `screenshots/actual_*.png` | 별도 샘플 DB로 촬영한 실제 앱 | 새 화면과 현재 2.5D 캐릭터의 실행 증거. 임상 효과·스킬 권한 증거는 아님 |
 | `poster/` | 편집 가능한 PPTX·제공 양식·미리보기·제작 코드 | 제출 전 재검토할 시안 |
 
-2026-10-03 추가 자료로 측·후면 **도면**은 받았다. 편집 가능한 모델 파일(`.blend`·`.glb`)은 아직 없으므로 현재 `Hoya3D.tsx`는 여전히 2.5D 시제품이다. 두 도면의 원본 파일은 사용자의 Orca 원래 작업 폴더 `두두 참고자료/`에 있다.
+2026-10-03 추가 자료로 측·후면 **도면**은 받았다. 이 도면으로 `Hoya3D`의 내부 모델을 절차형 3D(`src/tiger/DuduModel.tsx`)로 바꿨다([07](07_CLAUDE_FLOW_AND_3D.md)). 편집 가능한 모델 파일(`.blend`·`.glb`)은 아직 없으므로 최종 모델은 아니다. 두 도면의 원본 파일은 사용자의 Orca 원래 작업 폴더 `두두 참고자료/`에 있다.
 
 편집 가능한 [Figma 설계판](https://www.figma.com/design/TtG2zP2Sfa9GtCcePqSrGu)에는 원본과 실제 홈·게임 화면, 치료사 스킬 승인 **시안**이 함께 있다. Figma 화면을 앱의 작동 증거로 쓰지 않는다.
 
