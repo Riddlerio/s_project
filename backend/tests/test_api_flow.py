@@ -144,8 +144,9 @@ def test_utterance_analysis_decision_dashboard_feedback(api):
     assert client.post(f"/api/play/sessions/{start['sessionId']}/complete", headers=play_headers,
                        json={"elapsedSec": 8}).status_code == 200
     headers = auth(client)
-    progress = client.get(f"/api/children/{child['id']}/progress", headers=headers).json()
-    assert any(row["sessionId"] == start["sessionId"] for row in progress["sessions"])
+    trends = client.get(f"/api/children/{child['id']}/goal-trends", headers=headers).json()
+    assert trends["groups"] == []
+    assert client.get(f"/api/children/{child['id']}/progress", headers=headers).status_code == 404
     with sessions() as db:
         assert db.get(Utterance, utterance_id).acoustic["source"] == "keyboard"
         assert db.scalar(select(TherapistFeedback).where(TherapistFeedback.utterance_id == utterance_id))

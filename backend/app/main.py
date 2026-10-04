@@ -43,6 +43,7 @@ from .games.conversation import quest_reply
 from .training.content import items
 from .hoya.api import router as hoya_chat_router
 from .therapist_planning.api import router as session_planning_router
+from .therapist_insights.api import router as therapist_insights_router
 from .hoya.schema_compat import upgrade_hoya_chat_schema
 from .adventure.api import router as adventure_router
 from .adventure import service as adventure_service
@@ -904,36 +905,6 @@ def decide_observation(observation_id: str, body: ObservationDecisionInput, db: 
     return observation_data(observation, session)
 
 
-@app.get("/api/children/{child_id}/progress")
-def progress(child_id: str, limit: int = 20, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
-    owned_child(db, child_id, therapist)
-    rows = db.execute(select(TrainingSession, ProgressMetric, TrainingGoal).join(ProgressMetric, ProgressMetric.session_id == TrainingSession.id).join(TrainingGoal, TrainingGoal.id == TrainingSession.goal_id).where(TrainingSession.child_id == child_id, ProgressMetric.level == "all").order_by(TrainingSession.started_at.desc()).limit(limit)).all()[::-1]
-    rows = [row for row in rows if not row[0].runtime_state.get("activityGame")]
-    sessions = []
-    word_performance = {}
-    for index, (s, m, g) in enumerate(rows, 1):
-        sessions.append({"sessionId": s.id, "index": index, "date": s.started_at.isoformat(), "mode": s.mode, "isSeed": s.is_seed, "goalVersion": g.version, "phoneme": g.target_phoneme, "firstTrySuccessRate": m.first_try_success_rate, "successRate": m.success_rate, "meanScore": m.mean_score, "aiMeanScore": m.ai_mean_score, "retryRate": round(100 * m.retries / max(1, m.attempts), 1), "hintRate": round(100 * m.hints / max(1, m.attempts), 1), "noSpeechRate": round(100 * m.no_speech / max(1, m.attempts + m.no_speech), 1), "levelMix": {"syllable": 0, "word": 0, "short_sentence": 0}, "durationSec": m.duration_sec})
-        for u, a in db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == s.id)).all():
-            if u.level in sessions[-1]["levelMix"]:
-                sessions[-1]["levelMix"][u.level] += 1
-            if u.game != "magic_beam":
-                data = word_performance.setdefault(u.item_text, {"text": u.item_text, "phoneme": g.target_phoneme, "scores": [], "retries": 0, "patternTags": []})
-                data["scores"].append(a.final_score)
-                data["retries"] += a.final_result == "retry"
-                data["patternTags"].extend(a.pattern_tags)
-    series = [{"phoneme": p, "points": [{"sessionIndex": s["index"], "successRate": s["successRate"]} for s in sessions if s["phoneme"] == p]} for p in ("ㅅ", "ㅈ", "ㄹ")]
-    words = [{"text": d["text"], "phoneme": d["phoneme"], "meanScore": round(sum(d["scores"]) / len(d["scores"]), 1), "attempts": len(d["scores"]), "retries": d["retries"], "patternTags": sorted(set(d["patternTags"]))} for d in word_performance.values()]
-    goals = db.scalars(select(TrainingGoal).where(TrainingGoal.child_id == child_id).order_by(TrainingGoal.version)).all()
-    interventions = []
-    for goal in goals[1:]:
-        before = [s["firstTrySuccessRate"] for s in sessions if s["goalVersion"] == goal.version - 1][-2:]
-        after = [s["firstTrySuccessRate"] for s in sessions if s["goalVersion"] == goal.version][:2]
-        b = round(sum(before) / len(before), 1) if before else None
-        a = round(sum(after) / len(after), 1) if after else None
-        interventions.append({"goalVersion": goal.version, "at": goal.created_at.isoformat(), "source": goal.source, "summary": f"v{goal.version}: {goal.level}", "before": b, "after": a, "delta": round(a - b, 1) if a is not None and b is not None else None})
-    return {"sessions": sessions, "phonemeSeries": series, "wordPerformance": words, "interventions": interventions}
-
-
 @app.post("/api/recommendations/{recommendation_id}/decision")
 def decide_recommendation(recommendation_id: str, body: RecommendationDecisionInput, db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
     rec = db.get(AIRecommendation, recommendation_id)
@@ -1013,6 +984,7 @@ def deactivate_rule(rule_id: str, db: Session = Depends(get_db), therapist: Ther
 
 app.include_router(hoya_chat_router)
 app.include_router(session_planning_router)
+app.include_router(therapist_insights_router)
 app.include_router(adventure_router)
 
 

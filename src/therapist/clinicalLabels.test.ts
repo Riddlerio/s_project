@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, verificationText, type SummaryRow } from './clinicalLabels'
-import { chartPoints } from './charts/SessionTrendChart'
 
 const row = (values: Partial<SummaryRow>): SummaryRow => ({
   roundIndex: 1, clinicalFocus: '', totalObservedN: 0, evaluableN: 0, demoN: 0, aiSupportedSuccesses: 0,
@@ -42,10 +41,5 @@ describe('회기·추천 출처 표시', () => {
     expect(recommendationBadges(undefined)).toEqual([])
   })
 
-  it('추이 그래프 x축에 회기 출처를 붙이고 값은 그대로 둔다', () => {
-    const base = { sessionId: 's', date: '', goalVersion: 1, phoneme: 'ㅅ', firstTrySuccessRate: 50, successRate: 50, meanScore: 0, aiMeanScore: 0, retryRate: 10, hintRate: 0, noSpeechRate: 0, levelMix: {}, durationSec: 0 }
-    const points = chartPoints([{ ...base, index: 1, mode: 'demo', isSeed: false }, { ...base, index: 2, mode: 'real', isSeed: true }])
-    expect(points.map(point => point.label)).toEqual(['1 DEMO', '2 샘플'])
-    expect(points[0].firstTrySuccessRate).toBe(50)
-  })
+
 })
