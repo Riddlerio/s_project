@@ -479,25 +479,6 @@ def test_concurrent_leased_completion_awards_xp_and_metric_once(api):
         assert metrics[0].attempts == 5
 
 
-def test_legacy_start_preserves_active_v2_session_and_device_lease(api):
-    client, sessions = api
-    student = _actor(client, student_auth)
-    started = _start(client, student)
-    with sessions() as db:
-        state_before = dict(db.get(TrainingSession, started["sessionId"]).runtime_state)
-        token_hash_before = db.get(ActivityLease, started["sessionId"]).token_hash
-    legacy = client.post("/api/play/start", headers=student, json={"playCode": "HERO01", "mode": "demo"})
-    assert legacy.status_code == 200, legacy.text
-    assert legacy.json()["sessionId"] != started["sessionId"]
-    with sessions() as db:
-        session = db.get(TrainingSession, started["sessionId"])
-        assert session.status == "active" and session.runtime_state == state_before
-        assert db.get(ActivityLease, session.id).token_hash == token_hash_before
-    active = client.get("/api/me/activities/active", headers=student)
-    assert started["sessionId"] in {row["sessionId"] for row in active.json()["activities"]}
-    _say(client, student, started, started["firstItem"], 1)
-
-
 @pytest.mark.parametrize("gap_seconds", [3600, 10])
 def test_reclaim_excludes_unconfirmed_heartbeat_gap_from_round_and_session_time(api, gap_seconds):
     client, sessions = api
@@ -563,3 +544,20 @@ def test_create_all_adds_adventure_tables_without_replacing_existing_rows(tmp_pa
             assert db.get(TrainingSession, "existing-session").runtime_state == {"oldState": True}
     finally:
         engine.dispose()
+
+
+def test_uncertain_twice_then_skips_neutrally_without_retry(api):
+    """잡음 등으로 불확실이 이어지면 두 번 다시 듣고, 세 번째에는 실패 없이 넘어간다(V2 활동 경로)."""
+    client, _ = api
+    student = _actor(client, student_auth)
+    started = _start(client, student, "magic_beam", mode="real")  # DEMO는 키보드 입력이라 음질 판정을 하지 않는다.
+    item = started["firstItem"]
+    poor = {**GOOD_ACOUSTIC, "snrDb": 50, "meanRmsDb": -56, "noiseFloorDb": -60, "source": "microphone"}
+    kinds = []
+    for _ in range(3):
+        response = client.post(f"/api/activities/{started['sessionId']}/utterances", headers=_lease(student, started),
+                               json=_body(item, 1, acoustic=poor))
+        assert response.status_code == 200, response.text
+        kinds.append([event["type"] for event in response.json()["events"]])
+    assert "LISTEN_AGAIN" in kinds[0] and "LISTEN_AGAIN" in kinds[1]
+    assert "ITEM_ADVANCE" in kinds[2] and "TARGET_RETRY" not in sum(kinds, [])

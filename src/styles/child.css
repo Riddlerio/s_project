@@ -89,14 +89,12 @@
 .journey-card button { width: 100%; display: flex; justify-content: space-between; align-items: center; background: #fffefa; color: var(--forest); }
 .journey-card button:hover:not(:disabled) { background: #f4f8ec; color: var(--forest-deep); }
 .journey-card .small { margin: .6rem 0 0; font-size: .75rem; }
-.map-foot-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1rem; margin-top: 1.6rem; }
-.map-collection, .legacy-journey { border: 1px solid var(--line); border-radius: 18px; padding: 1.4rem 1.6rem; background: var(--paper); }
+.map-foot-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1.6rem; }
+.map-collection { border: 1px solid var(--line); border-radius: 18px; padding: 1.4rem 1.6rem; background: var(--paper); }
 .map-foot-grid h2 { font-size: 1.25rem; margin: .35rem 0 1rem; }
 .map-collection > div { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; border-top: 1px solid var(--line); font-size: .85rem; }
 .map-collection > div span { color: var(--muted); }
 .map-collection > div strong { text-align: right; }
-.legacy-journey > p:not(.eyebrow) { margin: 0 0 1rem; color: var(--muted); font-size: .85rem; }
-.legacy-journey small { display: block; margin-top: .7rem; color: var(--muted); }
 .privacy-note { max-width: 64rem; margin: 1.5rem 0 0; color: var(--muted); font-size: .76rem; }
 
 /* 결과는 성적표처럼 보이지 않게 여정의 한 장면으로 마무리한다. */
@@ -115,15 +113,8 @@
 /* 기존 게임·대화 화면의 기능을 유지하면서 배경과 타이포만 맞춘다. */
 .child-screen:not(.home-screen):not(.map-screen):not(.reward-screen) { max-width: 850px; margin: auto; padding: 2rem; text-align: center; background: #f5f6f1; }
 .child-screen .target { font-size: clamp(2.5rem, 7vw, 4rem); font-weight: 900; color: var(--forest); margin: 1.4rem; }
-.game-top { display: flex; justify-content: space-between; }
-.monster { font-size: 8rem; animation: float 2s ease-in-out infinite; }
 .game-screen { display: flex; flex-direction: column; align-items: center; }
 .quiet { background: transparent; color: #526e61; font-size: .8rem !important; }
-@keyframes float { 50% { transform: translateY(-12px); } }
-.beam-canvas { max-width: 100%; height: auto; border-radius: 20px; }
-.health { font-size: 1.5rem; min-height: 2rem; }
-.character { display: flex; align-items: center; gap: 1rem; background: var(--paper); border-radius: 24px; padding: .7rem 1.3rem; margin: 1rem; }
-.character-face { font-size: 3rem; }
 .speech-bubble { font-size: 1.15rem; font-weight: 700; }
 .activity-game.child-screen { display: block; max-width: none; padding: 0; text-align: left; background: #f5f6f1; }
 .activity-shell { max-width: 1220px; margin: auto; padding: 2rem clamp(1rem, 4vw, 3.5rem) 3rem; }

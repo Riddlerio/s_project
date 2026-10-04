@@ -78,7 +78,7 @@ API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST
 
 - Node.js 22.12 이상과 npm
 - Python 3.11 이상 및 `pip`
-- 실제 음성 모드에는 마이크 권한과 보안 컨텍스트(HTTPS 또는 localhost)가 필요합니다. Magic Beam·Sky Climb은 마이크와 Web Audio만 있으면 됩니다. Monster Adventure·Conversation Quest와 기존 모험은 Web Speech API 음성 인식도 필요합니다. 지원하지 않는 게임은 실제 음성 버튼이 꺼지고 DEMO로 할 수 있습니다.
+- 실제 음성 모드에는 마이크 권한과 보안 컨텍스트(HTTPS 또는 localhost)가 필요합니다. Magic Beam·Sky Climb은 마이크와 Web Audio만 있으면 됩니다. Monster Adventure·Conversation Quest는 Web Speech API 음성 인식도 필요합니다. 지원하지 않는 게임은 실제 음성 버튼이 꺼지고 DEMO로 할 수 있습니다.
 
 ## 설치 방법
 
@@ -152,9 +152,10 @@ $env:FRONTEND_DIST = "..\dist"; $env:SEED_DEMO_DATA = "false"; $env:COOKIE_SECUR
 
 ## 프로젝트 구조
 
-- `src/child`, `src/speech`, `src/character`: 아동 화면과 음성 입력
+- `src/child`, `src/speech`: 아동 화면과 음성 입력
+- `src/game`, `src/tiger`: 게임 장면과 두두 3D 캐릭터
 - `src/therapist`: 치료사 화면
-- `backend/app/training`, `backend/app/speech`, `backend/app/analysis`: 훈련 정책, 발화 분석, 진행 지표
+- `backend/app/games`, `backend/app/training`, `backend/app/speech`, `backend/app/analysis`: 5라운드 규칙, 단어 목록·보상, 발화 분석, 진행 지표
 - `backend/app/main.py`: API 및 세션 흐름
 - `backend/tests`: 정책과 독립 테스트 DB를 쓰는 API 테스트
 - `docs/ARCHITECTURE.md`: 구조와 데이터 흐름

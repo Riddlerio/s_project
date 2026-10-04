@@ -23,11 +23,3 @@ def conversation_candidates(phoneme: str, position: str = "initial", excluded_wo
     preferred = [word for word in (priority_targets or ()) if word in known]
     ordered = list(dict.fromkeys([*preferred, *words]))
     return [word for word in ordered if word not in excluded][:limit]
-
-
-def beam_item(phoneme: str, target_ms: int = 1500) -> dict:
-    return {"itemId": f"beam-{phoneme}", "displayText": "르~" if phoneme == "ㄹ" else "스~", "level": "phoneme", "game": "magic_beam", "pictureKey": "beam", "beamTargetMs": target_ms}
-
-
-def model_text(display_text: str) -> str:
-    return f"{display_text[:1]}~{display_text[1:]}" if display_text else ""

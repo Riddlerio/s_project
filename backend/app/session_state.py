@@ -30,29 +30,6 @@ class LegacyItem(_State):
     beamTargetMs: Number | None = None
 
 
-class RetryState(_State):
-    itemId: StrictStr | None = None
-    listenAgainCount: StrictInt = Field(default=0, ge=0)
-
-
-class LegacyState(_State):
-    currentItem: LegacyItem
-    itemAttempt: StrictInt = Field(ge=0)
-    stageIndex: StrictInt = Field(ge=0)
-    totalAttempts: StrictInt = Field(ge=0)
-    xp: StrictInt = Field(ge=0)
-    queue: list[LegacyItem] = []
-    resumeItem: LegacyItem | None = None
-    currentLevel: StrictStr | None = None
-    successStreak: StrictInt = 0
-    targetRetryStreak: StrictInt = 0
-    nextSlot: StrictInt = 0
-    beamTargetMs: Number = 1500
-    pendingBigAttack: StrictBool = False
-    listenAgainCount: StrictInt = 0
-    retry: RetryState | None = None
-
-
 class ActivityItem(LegacyItem):
     game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
 
@@ -128,14 +105,6 @@ def _validated(model, value) -> None:
         model.model_validate(value)
     except (ValidationError, ValueError, TypeError):
         raise HTTPException(409, INVALID_STATE) from None
-
-
-def legacy_state(session) -> dict:
-    """기존 모험 API가 쓸 수 있는 상태만 돌려준다. V2 세션이나 손상된 상태는 409다."""
-    if is_activity(session):
-        raise HTTPException(409, "5라운드 게임 세션은 이 경로에서 진행할 수 없습니다")
-    _validated(LegacyState, session.runtime_state)
-    return dict(session.runtime_state)
 
 
 def activity_state(session) -> dict:

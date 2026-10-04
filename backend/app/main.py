@@ -18,23 +18,19 @@ from .models import (AIRecommendation, ActivityRecommendation, Account, AuditEve
                      Therapist, TherapistFeedback, TherapistRule, TrainingDecision, TrainingGoal,
                      TrainingPlan, TrainingSession, Utterance, now)
 from .schemas import (ActivityRecommendationDecisionInput, ChildInput, CompleteInput, DemoLoginInput, FeedbackInput, GoalInput, LoginInput, ObservationDecisionInput, StartActivityInput,
-                      RecommendationDecisionInput, StartInput, UtteranceInput)
+                      RecommendationDecisionInput, UtteranceInput)
 from .security import hash_password, hash_token, verify_dummy_password, verify_password
 from .maintenance import purge_expired_chat_text, purge_expired_transcripts, retention_loop
 from .auth import COOKIE_NAME, create_session, current_account, owned_child, require_student, require_therapist, require_admin
 from .seed import seed
 from .demo import demo_account, is_demo_account
 from . import static_site
-from .session_state import activity_state, completion_state, legacy_state, state_guard
-from .speech.pipeline import analyze
-from .training.plan_generator import generate_plan
-from .training.policy import decide
+from .session_state import activity_state, completion_state, state_guard
 from .analysis.progress import recompute
 from .analysis.recommendation import recommend
 from .analysis.insights import generate_insights
-from .analysis.translation import reason_text, therapist_text
+from .analysis.translation import therapist_text
 from .training.rewards import award
-from .training.retry_state import next_retry_state
 from .clinical.observation_builder import build_observation
 from .clinical.activity_recommendation import propose_activity
 from .games.rounds import GAME_ROUNDS, effective_round, next_difficulty, public_round
@@ -380,109 +376,6 @@ def delete_speech_data(child_id: str, db: Session = Depends(get_db), therapist: 
     db.add(AuditEvent(actor_id=therapist.id, action="SPEECH_DATA_DELETED", resource_id=child_id, result="SUCCESS"))
     db.commit()
     return Response(status_code=204)
-
-
-@app.post("/api/play/start")
-def start(body: StartInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
-    child = db.scalar(select(Child).where(Child.play_code == body.play_code.upper()))
-    if not child:
-        raise HTTPException(404, "모험 코드를 찾을 수 없습니다")
-    if account is not None and account.child_id != child.id:
-        raise HTTPException(404, "모험 코드를 찾을 수 없습니다")
-    if not child.guardian_consent_at:
-        raise HTTPException(403, "보호자 동의가 필요합니다")
-    if body.mode not in ("real", "demo"):
-        raise HTTPException(422, "모드가 올바르지 않습니다")
-    goal = current_goal(db, child.id)
-    if not goal:
-        raise HTTPException(409, "훈련 목표가 없습니다")
-    for old in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "active")).all():
-        # 기존 모험 시작이 다른 기기에서 이어 할 V2 회기를 중단시키지 않는다.
-        if "activityGame" not in (old.runtime_state or {}):
-            old.status = "aborted"
-    history = [s.summary_json for s in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.status == "completed").order_by(TrainingSession.started_at)).all()]
-    rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == child.id, TherapistRule.active == True)).all()
-    plan_json = generate_plan(goal, history, rules)
-    plan = TrainingPlan(goal_id=goal.id, child_id=child.id, plan_json=plan_json, rationale_json=plan_json["rationale"])
-    db.add(plan)
-    db.flush()
-    token = secrets.token_urlsafe(32)
-    first_stage = plan_json["stages"][0]
-    first_item = first_stage["items"][0]
-    state = {"currentLevel": first_item["level"], "stageIndex": 0, "queue": first_stage["items"][1:], "currentItem": first_item, "itemAttempt": 1, "successStreak": 0, "targetRetryStreak": 0, "resumeItem": None, "totalAttempts": 0, "xp": 0, "beamTargetMs": 1500, "nextSlot": plan_json["nextSlot"], "pendingBigAttack": False}
-    # 출처(provenance): seed 아동의 회기는 입력 모드와 관계없이 seed다. mode(입력 방식)와 is_seed(대상)는 다른 축이다.
-    session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,
-                              play_token_hash=hash_token(token), runtime_state=state)
-    db.add(session)
-    db.flush()
-    db.add(TrainingDecision(session_id=session.id, decision_type="PLAN_GENERATED", reason_codes=plan_json["rationale"], reason_text=reason_text(plan_json["rationale"]), inputs_snapshot={"goalId": goal.id, "goalVersion": goal.version, "ruleIds": [r.id for r in rules]}))
-    events = save_events(db, session, [{"type": "SESSION_START", "payload": {}}, {"type": "STAGE_START", "payload": {"stageIndex": 0, "game": first_stage["game"], "itemCount": len(first_stage["items"])}}, {"type": "TARGET_PRESENTED", "payload": {"item": first_item}}], item=first_item, goal=goal)
-    db.commit()
-    return {"sessionId": session.id, "heroName": child.hero_name, "mode": body.mode, "plan": {"stages": [{"game": s["game"], "itemCount": len(s["items"])} for s in plan_json["stages"]]}, "firstItem": first_item, "events": events}
-
-
-@app.post("/api/play/sessions/{session_id}/utterances")
-@state_guard
-def play_utterance(session_id: str, body: UtteranceInput, db: Session = Depends(get_db), account: Account | None = Depends(require_student)):
-    session = play_session(db, session_id, account)
-    if session.status != "active":
-        raise HTTPException(409, "완료된 세션입니다")
-    state = legacy_state(session)
-    item = state["currentItem"]
-    if body.item_id != item["itemId"] or body.attempt_index != state["itemAttempt"]:
-        raise HTTPException(409, "현재 항목 또는 시도 번호가 일치하지 않습니다")
-    goal = db.get(TrainingGoal, session.goal_id)
-    rules = db.scalars(select(TherapistRule).where(TherapistRule.child_id == session.child_id, TherapistRule.active == True)).all()
-    acoustic = body.acoustic.model_dump(by_alias=True, exclude_none=True)
-    acoustic["source"] = "keyboard" if session.mode == "demo" else "microphone"
-    evaluation_acoustic = acoustic
-    analysis = analyze(item, body.transcript, evaluation_acoustic, goal, rules)
-    utterance = Utterance(session_id=session.id, item_id=item["itemId"], item_text=item["displayText"], level=item["level"], game=item["game"], stage_index=state["stageIndex"], attempt_index=state["itemAttempt"], transcript=body.transcript, alternatives=body.alternatives, recognizer=body.recognizer, acoustic=acoustic)
-    db.add(utterance)
-    db.flush()
-    db.add(SpeechAnalysis(utterance_id=utterance.id, target_phones=analysis.target_phones, observed_phones=analysis.observed_phones, alignment=analysis.alignment, ai_score=analysis.score, ai_result=analysis.result, target_status=analysis.target_status, substitute_symbol=analysis.substitute_symbol, pattern_tags=analysis.pattern_tags, rule_applied_id=analysis.rule_applied_id, final_score=analysis.score, final_result=analysis.result))
-    db.add(build_observation(session, utterance, goal, analysis, acoustic, state))
-    total = state["totalAttempts"] + (analysis.result not in {"no_speech", "uncertain"})
-    state["bestRunMs"] = acoustic.get("bestRunMs", 0)
-    previous = db.scalar(select(TrainingSession).where(TrainingSession.child_id == session.child_id, TrainingSession.status == "completed").order_by(TrainingSession.started_at.desc()))
-    output = decide(goal, item, analysis, state, body.elapsed_sec, total, rules, previous.summary_json if previous else None)
-    for draft in output.decisions:
-        db.add(TrainingDecision(session_id=session.id, utterance_id=utterance.id, decision_type=draft["type"], from_level=draft["fromLevel"], to_level=draft["toLevel"], reason_codes=draft["reasonCodes"], reason_text=reason_text(draft["reasonCodes"]), inputs_snapshot={"goalId": goal.id, "goalVersion": goal.version, "successStreak": state["successStreak"], "targetRetryStreak": state["targetRetryStreak"], "ruleIds": [r.id for r in rules]}))
-    drafts = output.events
-    if not output.next_item and not output.session_complete:
-        plan = db.get(TrainingPlan, session.plan_id).plan_json
-        next_stage_index = state["stageIndex"] + 1
-        if next_stage_index < len(plan["stages"]):
-            stage = plan["stages"][next_stage_index]
-            output.next_item = {**stage["items"][0], "beamTargetMs": output.beam_target_ms} if stage["game"] == "magic_beam" else stage["items"][0]
-            output.queue = stage["items"][1:]
-            output.advanced = True
-            if stage["game"] == "monster_tower":
-                output.next_level = stage["level"]
-                output.resume_item = None
-                output.success_streak = 0
-                output.target_retry_streak = 0
-                output.pending_big_attack = False
-            state["stageIndex"] = next_stage_index
-            drafts.append({"type": "STAGE_START", "payload": {"stageIndex": next_stage_index, "game": stage["game"], "itemCount": len(stage["items"])}})
-        else:
-            output.session_complete = True
-            drafts.append({"type": "SESSION_COMPLETE", "payload": {"totalXp": 0, "badges": [], "monsterCards": []}})
-    if output.next_item and (output.advanced or output.next_item["itemId"] != item["itemId"]):
-        drafts.append({"type": "TARGET_PRESENTED", "payload": {"item": output.next_item}})
-    xp = sum(e["payload"].get("xp", 0) for e in drafts)
-    for draft in drafts:
-        if draft["type"] == "SESSION_COMPLETE":
-            draft["payload"].update(totalXp=state["xp"] + xp, badges=db.get(Child, session.child_id).collection_json.get("badges", []), monsterCards=db.get(Child, session.child_id).collection_json.get("monsterCards", []))
-    advanced = output.advanced or bool(output.next_item and output.next_item["itemId"] != item["itemId"])
-    retry = next_retry_state(state.get("retry"), item["itemId"], analysis.result, advanced)
-    state.update({"currentLevel": output.next_level, "queue": output.queue, "resumeItem": output.resume_item, "successStreak": output.success_streak, "targetRetryStreak": output.target_retry_streak, "currentItem": output.next_item, "itemAttempt": 1 if advanced else state["itemAttempt"] + (analysis.result not in {"no_speech", "uncertain"}), "totalAttempts": total, "xp": state["xp"] + xp, "nextSlot": output.next_slot, "beamTargetMs": output.beam_target_ms, "pendingBigAttack": output.pending_big_attack,
-                  "retry": retry, "listenAgainCount": retry["listenAgainCount"]})
-    state.pop("bestRunMs", None)
-    session.runtime_state = state
-    events = save_events(db, session, drafts, utterance.id, item, goal, analysis)
-    db.commit()
-    return {"events": events, "nextItem": output.next_item, "nextAttemptIndex": state["itemAttempt"], "sessionComplete": output.session_complete}
 
 
 @app.post("/api/play/sessions/{session_id}/complete")

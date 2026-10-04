@@ -1,10 +1,3 @@
-REASONS = {"CONSECUTIVE_TARGET_RETRY": "목표 소리 재시도 3회 연속", "SUCCESS_STREAK_AT_REINFORCEMENT_LEVEL": "강화 단계에서 3회 연속 성공", "MAX_ATTEMPTS_REACHED": "항목 시도 횟수 도달", "REPETITION_TARGET_REACHED": "반복 목표 도달", "DURATION_REACHED": "세션 시간 도달", "PLAN_COMPLETED": "계획 완료", "SECOND_ATTEMPT": "두 번째 시도 안내", "THIRD_ATTEMPT": "세 번째 시도 힌트", "GOAL_BASED_PLAN": "치료사 목표 기반 계획", "PREVIOUS_SESSION_LEVEL_DOWN": "이전 세션 단계 하향 반영", "PREVIOUS_SESSION_SIMILAR_PATTERN": "이전 세션과 비슷한 재시도 양상", "THERAPIST_CUE_OVERRIDE": "치료사 단서 설정 적용", "BEAM_SUCCESS_EXTEND": "빔 발성 목표 시간 증가", "BEAM_SHORT_REDUCE": "빔 발성 목표 시간 감소", "PLAN_WARMUP": "도입 음절 연습", "priority:accuracy": "치료사 우선순위: 정확도", "priority:balanced": "치료사 우선순위: 균형", "priority:speed": "치료사 우선순위: 속도"}
-
-
-def reason_text(codes):
-    return " · ".join(REASONS.get(code, code) for code in codes)
-
-
 def therapist_text(event_type, payload, item=None, goal=None, analysis=None):
     target = f"/{goal.target_phoneme}/" if goal else "목표 소리"
     label = item.get("displayText", "") if item else ""

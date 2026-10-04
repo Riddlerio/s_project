@@ -20,5 +20,7 @@
 | 2026-10-04 | 임시 결정 | 웹용 GLB는 `KHR_mesh_quantization`·`EXT_texture_webp`(three가 디코더 없이 읽음)로 13.5MB→2.62MB | 원본 그대로 13.5MB, meshopt 압축(디코더 필요) | `assets/dudu3d/tools/build_dudu.mjs` | 원본 GLB로 교체 |
 | 2026-10-04 | 사용자 결정 | Blender를 설치해 망토 색과 뒷머리 줄무늬를 먼저 고친다 | seed 재작성·legacy 제거 먼저 | `assets/dudu3d/tools/repaint_texture.py` | — |
 | 2026-10-04 | 임시 결정 | 망토·뒷머리 보정은 텍스처만 다시 칠한다(형태·뼈대·동작 유지). 스카프는 앞쪽이 흉장과 겹쳐 이번에 바꾸지 않음 | Blender로 다시 내보내기, Meshy 재텍스처 | `assets/dudu3d/tools/repaint_texture.py` | 원본 텍스처로 다시 변환 |
+| 2026-10-04 | 임시 결정 | legacy 모험을 지우면서 사용처가 그것뿐이던 `magicBeam/machine.ts`·`BeamCanvas.tsx`도 함께 지웠다. 빛의 마법 3D 장면·`sceneState`·검토 화면은 그대로 | `src/game/magicBeam` 전체 유지 | 로드맵 5절 3번, 동결 계약 §4 | 커밋 되돌림 |
+| 2026-10-04 | 임시 결정 | 샘플 회기는 실제 5라운드 처리 함수를 서버 안에서 호출해 만든다(HTTP·쿠키 없이). 일부 회기는 첫 시도를 일부러 짧은 발성으로 넣어 다시 시도 흐름을 보여 준다 | 결과 행을 직접 써 넣기 | `backend/app/seed.py` | seed 파일 되돌림 |
 
 새 항목은 아래에 이어 적는다. 판정 기준값과 임상 파라미터는 바꾸지 않으며, 임상 효과 주장은 쓰지 않는다.

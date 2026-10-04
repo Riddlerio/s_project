@@ -42,10 +42,10 @@ Phase 0에서 사용자(제품 소유자)가 승인했다(2026-09-30). 이후 �
 |---|---|---|
 | `src/styles/**` | SAFE_TO_REDESIGN | tsx에서 쓰는 class 이름을 유지하거나 tsx와 함께 바꾼다: `child-screen`, `game-screen`, `target`, `small`, `big-button`, `card`, `grid`, `speech-bubble`, `quiet`, `therapist-screen`, `workspace-tabs`, `summary-grid`, `notice`, `muted`, `chart-wrap`. 치료사 class는 `workspace.test.tsx`가 확인한다. CSP 때문에 외부 폰트나 CDN은 쓸 수 없고 자체 호스팅해야 한다 |
 | `src/pages/**` | SAFE_TO_REDESIGN | `/play`와 `/therapist/login` 링크를 유지한다 |
-| `src/character/**` | SAFE_TO_REDESIGN(제거 가능) | PlaySession만 `<Character line mood>`를 쓴다. `dialogue.ts`는 삭제하기로 승인되었다 |
+| `src/character/**` | 삭제됨(2026-10-04) | legacy 모험 제거(로드맵 5절 3번)와 함께 `Character.tsx`·`tts.ts`를 지웠다. 폴더가 없다 |
 | `src/tiger/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | `<Hoya3D action className>`, `HoyaAction` 17개 값(THINKING 포함) 처리, `HoyaFallback`과 `data-hoya-fallback="true"`, `ACTION_TEXT` 문구(테스트가 확인), fallback에 "3D" 문구를 쓰지 않을 것, `canUseWebGL`, `HoyaErrorBoundary`, context loss fallback, 높이는 부모가 정하는 구조를 유지한다. 내부 `Tiger` 메시는 교체할 수 있다. GLB loader를 도입하거나 의존성을 추가하려면 사용자 승인이 필요하다(2026-10-04 승인: three 내장 `GLTFLoader`로 `public/assets/dudu/dudu.glb`를 읽는다. `EXT_texture_webp`·`KHR_mesh_quantization`만 쓰고 meshopt·Draco·KTX2 디코더는 쓰지 않는다. 로딩 실패 시 절차형 모델로 돌아간다) |
-| `src/child/**`(화면층) | SAFE_WITH_INTERFACE_CONSTRAINTS | sessionStorage 키(`speechHero.code`, `speechHero.play`, `speechHero.activity`, `speechHero.result`), API 호출, `detectCapabilities`·`supportsRealMode`·`missingText` 게이트, Space와 pointer 입력 핸들러, TTS 중 마이크 차단 ref(`modelSpeaking`, `submitting`), `HoyaActionController`의 dispatch 지점, `aria-live` 영역, DEMO 고지 문구를 유지한다 |
-| `src/game/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | `beamTransition`과 `towerTransition`의 의미를 유지한다(`game.test.ts`). `BeamCanvas`의 `{voicedMs, targetMs}`는 다시 만들어도 된다. V2 게임 장면은 새 코드로 작성한다 |
+| `src/child/**`(화면층) | SAFE_WITH_INTERFACE_CONSTRAINTS | sessionStorage 키(`speechHero.code`, `speechHero.activity`, `speechHero.result`. legacy 모험용 `speechHero.play`는 2026-10-04 삭제), API 호출, `detectCapabilities`·`supportsRealMode`·`missingText` 게이트, Space와 pointer 입력 핸들러, TTS 중 마이크 차단 ref(`modelSpeaking`, `submitting`), `HoyaActionController`의 dispatch 지점, `aria-live` 영역, DEMO 고지 문구를 유지한다 |
+| `src/game/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | V2 게임 장면은 새 코드로 작성한다. legacy 상태 기계(`beamTransition`, `towerTransition`)와 `BeamCanvas`는 사용처가 legacy 모험뿐이라 2026-10-04 함께 삭제했다(로드맵 5절 3번) |
 | `public/assets/**` | SAFE_TO_REDESIGN(신규) | 같은 출처에서 제공한다. 에셋 출처와 라이선스, 대구대 마스코트 IP는 사용자가 확인한다 |
 | `src/child/**`(음성 로직), `hoyaChatController.ts`, `src/control/**`, `src/speech/**` | HIGH_RISK_TO_TOUCH | 캡처→파이프라인→인식기→제출 순서, `CALIBRATION_MS`, `mapSignalToHoya`(THINKING을 반환하지 않음). 수정하려면 사용자 승인과 해당 테스트가 필요하다 |
 
@@ -57,7 +57,7 @@ Phase 0에서 사용자(제품 소유자)가 승인했다(2026-09-30). 이후 �
 - `backend/app/security.py`의 `issue_token` 삭제. 쿠키 인증 이후 쓰이지 않는다. `AuthToken` 모델과 표는 유지한다.
 - `backend/app/auth.py`의 `require_child_access` 삭제. 쓰이지 않고, 감사 기록과 테스트가 없으며 ADMIN을 그대로 통과시킨다. Phase 7에서 필요해지면 감사 기록과 테스트를 갖춰 다시 설계한다.
 
-나머지 legacy 경로(기존 모험, legacy AI 추천, ActivityRecommendation, `/progress` 그래프)는 사용자 결정에 따라 각 Phase를 진행하며 처리한다. 후보와 충돌 지점은 `LEGACY_AND_PLACEHOLDER_REGISTER.md`에 있다.
+나머지 legacy 경로(기존 모험, legacy AI 추천, ActivityRecommendation, `/progress` 그래프)는 사용자 결정에 따라 각 Phase를 진행하며 처리한다. 후보와 충돌 지점은 `LEGACY_AND_PLACEHOLDER_REGISTER.md`에 있다. 기존 모험은 2026-10-04 사용자 승인(로드맵 5절 2·3번)으로 삭제했다.
 
 ## 6. 회귀 명령
 
