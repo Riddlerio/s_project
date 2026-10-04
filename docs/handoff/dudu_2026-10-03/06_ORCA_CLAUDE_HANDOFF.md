@@ -65,4 +65,4 @@ git diff --check
 
 ## 오래된 Markdown의 처리
 
-루트의 `SPEECH_HERO_TASK.md`, `SPEECH_HERO_HOYA_ADAPTIVE_CHAT_FINAL_PROMPT.md`, `THERAPIST_WORKFLOW_PROMPT.md`, `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md`는 현재 실행 명령이 아닌 과거 입력 기록이다. [legacy 목록](../../audit/LEGACY_AND_PLACEHOLDER_REGISTER.md)에 네 파일이 등록돼 있고 발음 연구 보고서가 마지막 파일을 인용하므로 이번에는 삭제하지 않는다. `01`~`04`와 과거 V2 검증 기록도 당시 주장과 지금 구현의 차이를 추적하는 자료로 남긴다. 새 작업 지시는 이 문서와 `05` 및 실제 코드를 따른다.
+루트에 있던 `SPEECH_HERO_TASK.md`, `SPEECH_HERO_HOYA_ADAPTIVE_CHAT_FINAL_PROMPT.md`, `THERAPIST_WORKFLOW_PROMPT.md`, `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md`(2026-10-04 [`docs/history/prompts/`](../../history/prompts/)로 이동)는 현재 실행 명령이 아닌 과거 입력 기록이다. [legacy 목록](../../audit/LEGACY_AND_PLACEHOLDER_REGISTER.md)에 네 파일이 등록돼 있고 발음 연구 보고서가 마지막 파일을 인용하므로 이번에는 삭제하지 않는다. `01`~`04`와 과거 V2 검증 기록도 당시 주장과 지금 구현의 차이를 추적하는 자료로 남긴다. 새 작업 지시는 이 문서와 `05` 및 실제 코드를 따른다.

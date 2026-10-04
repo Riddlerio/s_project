@@ -1,7 +1,7 @@
 # 한국어 아동 발음 데이터셋 조사와 오프라인 비교 계획 — v1
 
 기준: `feature/pronunciation-research-v1` (main `8e52669`, PR #4 merge 이후) · 2026-09-29
-명세: `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md` PHASE B
+명세: `docs/history/prompts/SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md` PHASE B
 
 > 후속: 2026-09-29 재검색·Azure 검토를 포함한 최종 결정은 [pronunciation_final](pronunciation_final.md)에 있다(결론 동일: DATASET_NOT_SUITABLE).
 
