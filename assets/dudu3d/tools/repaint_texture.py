@@ -2,6 +2,7 @@
 
 - 망토: 바깥면 청록, 안쪽면 연두(원화). 텍스처의 명암(주름)은 밝기 비율로 유지한다.
 - 뒷머리: 세로 줄 하나 대신 원화 후면처럼 가운데가 빈 좌우 짝 가로줄 네 쌍, 귀 뒷면은 어둡게.
+- 스카프: 짙은 초록 대신 원화처럼 망토 겉과 같은 청록. 매듭·주름 명암은 남긴다(2026-10-04 추가).
 
 실행: blender -b --factory-startup --python repaint_texture.py -- <입력.glb> <출력 폴더> [debug]
 출력: basecolor.png(고친 텍스처), mask.png(영역 확인용), stats.txt
@@ -93,6 +94,17 @@ facing = (nrm[..., :2] * radial).sum(2)
 cape_outer = cape & (facing > 0)
 cape_inner = cape & (facing <= 0)
 
+# 스카프: 원화에서 스카프는 망토 겉과 같은 청록이다. Meshy 텍스처의 스카프는 채도가 낮은 짙은 초록이라
+# 망토보다 느슨한 기준으로 찾는다. 흉장의 초록(높이 0.52 이하)과는 높이로, 망토와는 목에서의 거리로 나눈다.
+# 자동 리그가 스카프 앞쪽에 머리 뼈 가중치(0.66~0.81)를 주어서 머리 가중치로는 거르지 않는다(얼굴에는 초록이 없다).
+SCARF_Z = 0.54
+dark_green = covered & (g > r * 1.15) & (g >= b * 0.95) & (rgb.max(2) - rgb.min(2) > 0.035)
+scarf_front = dark_green & emblem_zone & (pos[..., 2] >= SCARF_Z)
+neck_r = np.linalg.norm(pos[..., :2] - axis, axis=2)
+scarf_r = np.percentile(neck_r[scarf_front], 95) + 0.015 if scarf_front.any() else 0.0
+# 이미 망토로 칠한 목 뒤·옆은 망토 명암을 그대로 두고, 남은 짙은 초록(앞 매듭·주름)만 칠한다.
+scarf = dark_green & (pos[..., 2] >= SCARF_Z) & (neck_r <= scarf_r) & ~cape
+
 # 머리 좌표: 머리 텍셀(귀 제외 전)의 중심과 반지름
 headm = covered & (head > 0.5)
 hp = pos[headm]
@@ -126,6 +138,10 @@ ref = np.median(lum[cape]) if cape.any() else 1
 shade = np.clip(lum / ref, 0.55, 1.25)[..., None]
 out[cape_outer] = (CAPE_OUTER * shade[cape_outer]).clip(0, 1)
 out[cape_inner] = (CAPE_INNER * shade[cape_inner]).clip(0, 1)
+# 스카프는 자기 밝기 기준으로 명암(매듭·주름·외곽선)을 남긴다.
+scarf_ref = np.median(lum[scarf]) if scarf.any() else 1
+scarf_shade = np.clip(lum / scarf_ref, 0.55, 1.3)[..., None]
+out[scarf] = (CAPE_OUTER * scarf_shade[scarf]).clip(0, 1)
 paint = np.where(stripe_mask[..., None], STRIPE, fur)
 out = out * (1 - blend[..., None]) + paint * blend[..., None]
 out[ear_back] = EAR_BACK
@@ -160,6 +176,7 @@ mask[cape_inner] = [0.2, 0.4, 1]
 mask[blend > 0.01] = mask[blend > 0.01] * 0.3 + np.array([1, 0.9, 0.2]) * 0.7 * blend[blend > 0.01][:, None]
 mask[stripe_mask & back] = [0, 0, 0]
 mask[ear_back] = [1, 0.2, 1]
+mask[scarf] = [0.2, 1, 1]
 save("mask", mask.astype(np.float32))
 if "debug" not in args:
     save("basecolor", out.astype(np.float32))
@@ -168,4 +185,5 @@ with open(os.path.join(out_dir, "stats.txt"), "w", encoding="utf-8") as f:
     f.write(f"cape outer {int(cape_outer.sum())} inner {int(cape_inner.sum())} ear_back {int(ear_back.sum())}\n")
     f.write(f"back blend texels {int((blend > 0.01).sum())} stripe texels {int((stripe_mask & (blend > 0.5)).sum())}\n")
     f.write(f"fur {fur} cape ref lum {ref:.3f}\n")
+    f.write(f"scarf {int(scarf.sum())} (front {int(scarf_front.sum())}) neck radius {scarf_r:.3f} ref lum {scarf_ref:.3f}\n")
 print(open(os.path.join(out_dir, "stats.txt"), encoding="utf-8").read())
