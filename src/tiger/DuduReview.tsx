@@ -3,12 +3,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { DuduModel } from './DuduModel'
+import { DuduCharacter } from './DuduCharacter'
 import { drawEmblem } from './duduEmblem'
 
 /*
  * 개발 서버 전용 검토 화면(/dudu-review.html). 배포 빌드에는 들어가지 않는다.
  * 원래 도안·조형 도면과 같은 각도(정면·45도·측면·후면)로 놓고 비교한다. 최종 모델 검수가 아니다.
- * 예: /dudu-review.html?action=WAVE, 가까이 보기 &close, 흉장만 보기 ?emblem
+ * 예: /dudu-review.html?action=WAVE, 가까이 보기 &close, 흉장만 보기 ?emblem, 절차형 모델만 &procedural
  */
 const ACTIONS: HoyaAction[] = ['IDLE', 'LISTENING', 'TALKING', 'CHARGE', 'BEAM', 'RELEASE', 'FLY', 'LAND', 'CAST', 'ATTACK',
   'WALK_TO', 'PICK_UP', 'PUT_IN_BAG', 'WAVE', 'CHEER', 'ENCOURAGE', 'THINKING']
@@ -33,7 +34,7 @@ function Review() {
             <hemisphereLight args={['#ffffff', '#cfe3d6', 1.35]} />
             <directionalLight position={[3, 5, 6]} intensity={1.7} />
             <directionalLight position={[-4, 2, 3]} intensity={0.45} />
-            <group rotation={[0, yaw, 0]}><DuduModel action={action} /></group>
+            <group rotation={[0, yaw, 0]}>{params.has('procedural') ? <DuduModel action={action} /> : <DuduCharacter action={action} />}</group>
           </Canvas>
         </div>
         <figcaption style={{ textAlign: 'center', padding: 6, fontSize: 13 }}>{label}</figcaption>

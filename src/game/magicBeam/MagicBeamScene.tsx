@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { DoubleSide, ExtrudeGeometry, Shape, type Group, type Mesh } from 'three'
 import type { HoyaAction } from '../../control/speechGameSignal'
 import type { SceneFx } from '../../child/ActivityScene'
-import { DuduModel } from '../../tiger/DuduModel'
+import { DuduCharacter } from '../../tiger/DuduCharacter'
 import { canUseWebGL, HoyaErrorBoundary, HoyaFallback } from '../../tiger/Hoya3D'
 import { beamChapter, beamVisualState, type BeamVisualInput } from './sceneState'
 import './magicBeamScene.css'
@@ -136,7 +136,7 @@ function BeamWorld({ action, roundIndex = 1, targetMs = 1, readInput = EMPTY_INP
       <mesh position={[0.32, 2.12, 0]}><boxGeometry args={[0.6, 0.3, 0.025]} /><meshStandardMaterial color="#e8d6a1" /></mesh>
     </group>}
     {roundIndex === 5 && [-3.2, -2, -0.8, 0.4, 2].map(horizontal => <Lantern key={horizontal} position={[horizontal, 0.1, -2.2]} lit={lit} />)}
-    <group position={[1.65, 1.62, 0.9]} scale={0.78} rotation={[0, -0.25, 0]}><DuduModel action={action} animate={!quiet} /></group>
+    <group position={[1.65, 1.62, 0.9]} scale={0.78} rotation={[0, -0.25, 0]}><DuduCharacter action={action} animate={!quiet} /></group>
     <group ref={mist}>
       {[-2.8, -1.8, -0.8].map(horizontal => <mesh key={horizontal} position={[horizontal, 0.7, -0.5]} scale={[0.9, 0.16, 1.25]}><sphereGeometry args={[1, 12, 8]} /><meshBasicMaterial color={chapter.mist} transparent opacity={0.34} depthWrite={false} /></mesh>)}
     </group>

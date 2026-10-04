@@ -1,10 +1,9 @@
 import { Canvas } from '@react-three/fiber'
 import { Component, useState, type ReactNode } from 'react'
 import type { HoyaAction } from '../control/speechGameSignal'
-import { DuduModel } from './DuduModel'
+import { DuduCharacter } from './DuduCharacter'
 
-// 두두는 정면·측면·후면 조형 도면을 참고한 절차형 3D 시제품(DuduModel)이다. 최종 모델 파일이 아니다.
-// 털 질감·리그·흉장 정확도는 임시이며, 모델 파일(.blend/.glb)을 받으면 내부 모델만 교체한다.
+// 두두는 모델 파일(GLB)이 있으면 그것을, 없거나 불러오지 못하면 절차형 3D 시제품(DuduModel)을 쓴다(DuduCharacter).
 
 const ACTION_TEXT: Partial<Record<HoyaAction, string>> = {
   LISTENING: '두두가 귀 기울이고 있어요', TALKING: '두두가 말하고 있어요', CHARGE: '두두가 힘을 모으고 있어요',
@@ -58,7 +57,7 @@ export function Hoya3D({ action = 'IDLE', className = '' }: { action?: HoyaActio
         <hemisphereLight args={['#ffffff', '#cfe3d6', 1.35]} />
         <directionalLight position={[3, 5, 6]} intensity={1.7} />
         <directionalLight position={[-4, 2, 3]} intensity={0.45} />
-        <DuduModel action={action} />
+        <DuduCharacter action={action} />
       </Canvas>
     </HoyaErrorBoundary>
   </div>
