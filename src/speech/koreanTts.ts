@@ -1,3 +1,5 @@
+import { availableVoices, pickDuduVoice, readDuduVoiceSetting, type DuduVoiceSetting } from './duduVoice'
+
 /** 두두 음성이 끝난 뒤 스피커의 잔향이 입력에 섞이지 않도록 기다리는 초기값. */
 export const KOREAN_TTS_RELEASE_DELAY_MS = 300
 
@@ -10,6 +12,12 @@ interface KoreanTtsOptions {
   synthesis?: Pick<SpeechSynthesis, 'speak' | 'cancel'> | null
   createUtterance?(text: string): SpeechSynthesisUtterance
   timeoutMs?: number
+  /** 두두 목소리(음성 이름·높이). 기본은 이 기기에 저장한 값 또는 선호 남성 음성이다. */
+  voice?(): { voice: SpeechSynthesisVoice | null; pitch: number }
+}
+
+function defaultDuduVoice(setting: DuduVoiceSetting = readDuduVoiceSetting()) {
+  return { voice: pickDuduVoice(availableVoices(), setting.name), pitch: setting.pitch }
 }
 interface Playback {
   ending?: boolean
@@ -52,6 +60,12 @@ export class KoreanTts {
         const utterance = (this.options.createUtterance ?? (value => new SpeechSynthesisUtterance(value)))(text)
         playback.utterance = utterance
         utterance.lang = 'ko-KR'; utterance.rate = options.rate ?? 0.9
+        // 실제 브라우저 음성일 때만 두두 목소리를 고른다(테스트의 가짜 음성 엔진은 그대로).
+        if (this.options.voice || this.options.synthesis === undefined) {
+          const dudu = (this.options.voice ?? defaultDuduVoice)()
+          if (dudu.voice) utterance.voice = dudu.voice
+          utterance.pitch = dudu.pitch
+        }
         utterance.onstart = () => { if (live()) events.onStart?.() }
         utterance.onend = () => this.finish(playback, 'ended')
         utterance.onerror = () => this.finish(playback, 'error', true)
