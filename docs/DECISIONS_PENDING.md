@@ -18,5 +18,7 @@
 | 2026-10-04 | 임시 결정 | 텍스처 B(정면 이미지만)를 채택. 망토 색·뒷머리 줄무늬는 나중에 Blender로 고침 | A(멀티뷰), C(정면+후면) | `assets/dudu3d/README.md` | 다른 후보로 다시 리깅·내보내기 |
 | 2026-10-04 | 임시 결정 | 대기 동작을 `Idle_14` 대신 `Happy_Sway_Standing`, 말하기는 `Talk_with_Left_Hand_on_Hip`(원화의 허리 손 자세) | Meshy의 다른 프리셋 | `src/tiger/duduClips.ts` | 대응표 수정 |
 | 2026-10-04 | 임시 결정 | 웹용 GLB는 `KHR_mesh_quantization`·`EXT_texture_webp`(three가 디코더 없이 읽음)로 13.5MB→2.62MB | 원본 그대로 13.5MB, meshopt 압축(디코더 필요) | `assets/dudu3d/tools/build_dudu.mjs` | 원본 GLB로 교체 |
+| 2026-10-04 | 사용자 결정 | Blender를 설치해 망토 색과 뒷머리 줄무늬를 먼저 고친다 | seed 재작성·legacy 제거 먼저 | `assets/dudu3d/tools/repaint_texture.py` | — |
+| 2026-10-04 | 임시 결정 | 망토·뒷머리 보정은 텍스처만 다시 칠한다(형태·뼈대·동작 유지). 스카프는 앞쪽이 흉장과 겹쳐 이번에 바꾸지 않음 | Blender로 다시 내보내기, Meshy 재텍스처 | `assets/dudu3d/tools/repaint_texture.py` | 원본 텍스처로 다시 변환 |
 
 새 항목은 아래에 이어 적는다. 판정 기준값과 임상 파라미터는 바꾸지 않으며, 임상 효과 주장은 쓰지 않는다.

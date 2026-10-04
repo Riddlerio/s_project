@@ -68,6 +68,17 @@
 
 앱 연결: `src/tiger/DuduCharacter.tsx`가 GLB를 읽고, 동작 이름 대응은 `src/tiger/duduClips.ts`에 있다. 불러오는 중이거나 실패하면 절차형 모델을 보여 준다. 사람의 최종 원화 충실도 승인과 저사양 휴대폰 성능 측정은 아직 하지 않았다.
 
+## 2026-10-04 Blender 텍스처 보정 (Claude)
+
+Blender 4.5.14 LTS 휴대용판을 `C:\Users\kor02\Tools\blender-4.5.14-windows-x64`에 설치했다(체크섬 확인, 관리자 권한 없음). 형태·뼈대·동작은 바꾸지 않고 기본색 텍스처만 고쳤다.
+
+- `tools/repaint_texture.py`(Blender에서 실행): UV 삼각형을 래스터화해 텍셀마다 3D 위치·법선·머리 뼈 가중치를 구한다. 몸통 축에서 바깥을 향하면 망토 겉, 안을 향하면 안감으로 나눈다. 겉은 청록 `(50,117,100)`, 안은 연두 `(121,181,72)`로 칠하고 원래 밝기 비율로 주름 명암을 남긴다(원화에서 잰 색). 가슴 흉장의 초록은 제외한다.
+- 뒷머리는 원화 후면처럼 가운데가 빈 좌우 짝 가로줄 네 쌍으로 다시 그리고, 옆머리 쪽으로 갈수록 기존 텍스처와 섞는다. 귀 뒷면은 어두운 회색 `(54,54,54)`.
+- `tools/inject_basecolor.mjs`로 원본 GLB의 기본색 이미지만 바꾼 뒤 `tools/build_dudu.mjs`로 웹용 GLB를 만든다(2.63MB).
+- 다시 실행: `blender -b --factory-startup --python tools/repaint_texture.py -- <원본.glb> work/repaint` → `node inject_basecolor.mjs <원본.glb> work/repaint/basecolor.png <중간.glb>` → `node build_dudu.mjs <중간.glb> <출력.glb> Running`. 확인용 영역 그림은 `work/repaint/mask.png`, 구조 요약은 `tools/analyze_texture.py`.
+
+텍스처의 22%(망토·뒷머리·귀)만 바뀌고 나머지 텍셀은 원본과 같음을 비교로 확인했다. 결과: [4방향](../../docs/handoff/dudu_2026-10-03/screenshots/claude_meshy_dudu_repainted_4views.png).
+
 ## 남은 다듬기 (Blender 또는 재텍스처)
 
-망토 겉 청록·안 연두 구분, 뒷머리 좌우 짝 줄무늬, 흉장 공식 형태 교체, 입 모양·눈 깜박임(셰이프 키), 꼬리(모델에 꼬리가 없음). 이 작업은 Blender가 필요하다. 지금 GLB에는 표정 변형이 없어 말하기는 몸짓으로만 표현된다.
+~~망토 겉 청록·안 연두 구분, 뒷머리 좌우 짝 줄무늬~~(2026-10-04 완료), 스카프 색(지금 짙은 초록, 원화는 청록), 흉장 공식 형태 교체, 입 모양·눈 깜박임(셰이프 키), 꼬리(모델에 꼬리가 없음). 이 작업은 Blender가 필요하다. 지금 GLB에는 표정 변형이 없어 말하기는 몸짓으로만 표현된다.
