@@ -12,6 +12,8 @@ Set-Location C:\Users\kor02\orca\workspaces\s_project\codex_therapist_data
 git switch -c codex/therapist-data-view
 ```
 
+**작업 폴더 규칙(2026-10-04 사용자 결정, 두 작업자 병행):** 한 작업 폴더에는 한 작업자만 둔다. Codex는 위의 자기 worktree에서만 고친다. Claude 작업 폴더(`dudu_claude`)의 파일은 고치지 않는다. Claude 결과는 `git fetch` 후 `origin/claude/dudu-followup`을 merge해서 받는다. Claude 작업이 멈춰 [이어받기 안내](CLAUDE_TO_CODEX_CONTINUATION.md)를 따를 때도 새 worktree를 만든다.
+
 경로나 브랜치가 이미 있으면 새 이름을 쓴다. 원래 Orca 폴더(`fix/phase1-clinical-integrity` 체크아웃)의 미커밋 파일은 건드리지 않는다. `main`에 직접 push하지 않는다. 먼저 `docs/audit/FROZEN_CORE_CONTRACT.md`, `docs/ROADMAP.md`, `docs/research/2026-10-04_design_references.md`의 D절을 읽는다.
 
 ## 만들 것
