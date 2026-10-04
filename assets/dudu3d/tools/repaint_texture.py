@@ -3,8 +3,9 @@
 - 망토: 바깥면 청록, 안쪽면 연두(원화). 텍스처의 명암(주름)은 밝기 비율로 유지한다.
 - 뒷머리: 세로 줄 하나 대신 원화 후면처럼 가운데가 빈 좌우 짝 가로줄 네 쌍, 귀 뒷면은 어둡게.
 - 스카프: 짙은 초록 대신 원화처럼 망토 겉과 같은 청록. 매듭·주름 명암은 남긴다(2026-10-04 추가).
+- 흉장: 흉장 이미지를 주면 Meshy가 그린 근사 흉장을 공식 흉장으로 바꾼다. 가슴 곡면에 수직으로 투영한다(2026-10-04 추가).
 
-실행: blender -b --factory-startup --python repaint_texture.py -- <입력.glb> <출력 폴더> [debug]
+실행: blender -b --factory-startup --python repaint_texture.py -- <입력.glb> <출력 폴더> [흉장.jpg|png] [debug]
 출력: basecolor.png(고친 텍스처), mask.png(영역 확인용), stats.txt
 """
 import math
@@ -98,6 +99,8 @@ cape_inner = cape & (facing <= 0)
 # 망토보다 느슨한 기준으로 찾는다. 흉장의 초록(높이 0.52 이하)과는 높이로, 망토와는 목에서의 거리로 나눈다.
 # 자동 리그가 스카프 앞쪽에 머리 뼈 가중치(0.66~0.81)를 주어서 머리 가중치로는 거르지 않는다(얼굴에는 초록이 없다).
 SCARF_Z = 0.54
+# 공식 흉장을 옛 흉장보다 이만큼 작게(비율), 반지름 비율만큼 아래로 그린다(스카프 매듭과 겹치지 않게).
+EMBLEM_SCALE, EMBLEM_DROP = 0.92, 0.22
 dark_green = covered & (g > r * 1.15) & (g >= b * 0.95) & (rgb.max(2) - rgb.min(2) > 0.035)
 scarf_front = dark_green & emblem_zone & (pos[..., 2] >= SCARF_Z)
 neck_r = np.linalg.norm(pos[..., :2] - axis, axis=2)
@@ -146,6 +149,63 @@ paint = np.where(stripe_mask[..., None], STRIPE, fur)
 out = out * (1 - blend[..., None]) + paint * blend[..., None]
 out[ear_back] = EAR_BACK
 
+# ---- 흉장: 공식 이미지로 바꾼다 ----
+# 가슴 앞 흉장(초록 심벌 중심)의 평균 법선에 수직인 평면으로 공식 이미지를 투영한다. 이미지의 바깥 검은 고리를
+# 기존 흉장 크기에 맞추고, 그 바깥 띠는 털색으로 덮어 Meshy 흉장의 흔적을 지운다.
+emblem_path = next((a for a in args[2:] if a.lower().endswith((".png", ".jpg", ".jpeg"))), None)
+emblem_stats = "emblem unchanged"
+emblem_area = np.zeros((H, W), bool)
+if emblem_path:
+    src_img = bpy.data.images.load(os.path.abspath(emblem_path))
+    EW, EH = src_img.size
+    seal = np.array(src_img.pixels[:], dtype=np.float32).reshape(EH, EW, src_img.channels)[::-1, :, :3]  # 위에서 아래로
+    dark_y, dark_x = np.nonzero(seal @ np.array([0.2126, 0.7152, 0.0722]) < 0.4)
+    ring_c = np.array([(dark_x.min() + dark_x.max()) / 2, (dark_y.min() + dark_y.max()) / 2])
+    ring_r = (dark_x.max() - dark_x.min()) / 2
+    chest = covered & (nrm[..., 1] < -0.3) & (pos[..., 1] < -0.05) & (np.abs(pos[..., 0]) < 0.3) & (pos[..., 2] > 0.25) & (pos[..., 2] < 0.62)
+    mark = chest & (g > r * 1.12) & (pos[..., 2] < SCARF_Z)
+    centre3 = pos[mark].mean(0)
+    n3 = nrm[mark].mean(0); n3 /= np.linalg.norm(n3)
+    right3 = np.array([1.0, 0, 0]) - n3 * n3[0]; right3 /= np.linalg.norm(right3)
+    up3 = np.cross(n3, right3)
+    d3 = pos - centre3
+    a_, b_, depth = d3 @ right3, d3 @ up3, d3 @ n3
+    rho_m = np.hypot(a_, b_)
+    # 기존 흉장 반지름: 위쪽은 스카프 매듭이 가까워서 아래쪽 절반의 어두운 텍셀(고리·글자)로만 잰다.
+    old = chest & (lum < 0.85) & (rho_m < 0.13) & (b_ < 0)
+    R_old = np.percentile(rho_m[old], 98)
+    rho_old = rho_m / R_old
+    # 새 흉장: 원래 자리의 위쪽은 스카프 매듭에 가려 '대구대학교' 글자가 덮이므로 조금 내리고 작게 그린다.
+    R = R_old * EMBLEM_SCALE
+    a_n, b_n = a_, b_ + R_old * EMBLEM_DROP
+    rho = np.hypot(a_n, b_n) / R
+    area = covered & ((rho_old <= 1.1) | (rho <= 1.0)) & (np.abs(depth) < 0.06) & ((nrm @ n3) > 0.3)
+    # 텍셀 밀도에 맞춰 원본을 줄여(상자 평균) 작은 글자가 깨지지 않게 한다.
+    inside = int((area & (rho <= 1)).sum())
+    across = 2 * np.sqrt(inside / np.pi)
+    k = max(1, int(2 * ring_r / (across * 1.5)))
+    crop = seal[int(ring_c[1] - ring_r):int(ring_c[1] + ring_r), int(ring_c[0] - ring_r):int(ring_c[0] + ring_r)]
+    side = (crop.shape[0] // k) * k
+    small = crop[:side, :side].reshape(side // k, k, side // k, k, 3).mean((1, 3))
+    S = small.shape[0]
+    def sample(img, x, y):
+        x = np.clip(x, 0, S - 1.001); y = np.clip(y, 0, S - 1.001)
+        x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
+        fx, fy = (x - x0)[:, None], (y - y0)[:, None]
+        return img[y0, x0] * (1 - fx) * (1 - fy) + img[y0, x0 + 1] * fx * (1 - fy) + img[y0 + 1, x0] * (1 - fx) * fy + img[y0 + 1, x0 + 1] * fx * fy
+    ii = np.nonzero(area)
+    u = (0.5 + a_n[ii] / R * 0.5) * (S - 1)
+    v = (0.5 - b_n[ii] / R * 0.5) * (S - 1)
+    col = sample(small, u, v)
+    rn, ro = rho[ii][:, None], rho_old[ii][:, None]
+    col = np.where(rn <= 1.0, col, fur)  # 새 고리 바깥(옛 흉장 자리)은 털색
+    w = np.where(rn <= 1.0, 1.0, np.clip((1.1 - ro) / 0.04, 0, 1))  # 옛 흉장의 맨 바깥에서 원래 텍스처와 섞는다
+    out[ii] = col * w + out[ii] * (1 - w)
+    emblem_area = area
+    emblem_stats = (f"emblem old centre {centre3.round(4)} normal {n3.round(3)} old radius {R_old:.4f} m -> new radius {R:.4f} m, "
+                    f"moved down {R_old * EMBLEM_DROP:.4f} m, texels inside {inside} "
+                    f"(~{across:.0f} across), source ring {2 * ring_r:.0f}px -> {S}px (box {k})")
+
 # UV 섬 가장자리 번짐을 막으려고 바뀐 텍셀을 3px 바깥으로 넓힌다.
 changed = covered & (np.abs(out - rgb).sum(2) > 0.02)
 grow_val, grow_mask = out.copy(), changed.copy()
@@ -177,6 +237,7 @@ mask[blend > 0.01] = mask[blend > 0.01] * 0.3 + np.array([1, 0.9, 0.2]) * 0.7 * 
 mask[stripe_mask & back] = [0, 0, 0]
 mask[ear_back] = [1, 0.2, 1]
 mask[scarf] = [0.2, 1, 1]
+mask[emblem_area] = [1, 0.6, 0]
 save("mask", mask.astype(np.float32))
 if "debug" not in args:
     save("basecolor", out.astype(np.float32))
@@ -185,5 +246,6 @@ with open(os.path.join(out_dir, "stats.txt"), "w", encoding="utf-8") as f:
     f.write(f"cape outer {int(cape_outer.sum())} inner {int(cape_inner.sum())} ear_back {int(ear_back.sum())}\n")
     f.write(f"back blend texels {int((blend > 0.01).sum())} stripe texels {int((stripe_mask & (blend > 0.5)).sum())}\n")
     f.write(f"fur {fur} cape ref lum {ref:.3f}\n")
+    f.write(f"{emblem_stats}\n")
     f.write(f"scarf {int(scarf.sum())} (front {int(scarf_front.sum())}) neck radius {scarf_r:.3f} ref lum {scarf_ref:.3f}\n")
 print(open(os.path.join(out_dir, "stats.txt"), encoding="utf-8").read())

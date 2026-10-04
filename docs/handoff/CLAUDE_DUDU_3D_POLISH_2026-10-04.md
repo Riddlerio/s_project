@@ -1,6 +1,6 @@
 # Claude 인계 · 두두 3D 품질 다듬기 (2026-10-04)
 
-> 범위: 이미 연결된 Meshy 두두 모델의 남은 품질 작업(스카프 → 꼬리 → 표정·기존 동작 → 홈·빛의 마법 확인).
+> 범위: 이미 연결된 Meshy 두두 모델의 남은 품질 작업(스카프 → 꼬리 → 표정·기존 동작 → 홈·빛의 마법 확인). 같은 날 이어서 사용자가 준 공식 흉장으로 흉장을 바꿨다(2.6절).
 > 새 게임, 새 치료 규칙, 새 AI 기능은 더하지 않았다. 화면이 뜨는 것은 **원화 충실도 승인이 아니다**. 사람의 최종 검수는 아래 7절에 남겼다.
 
 ## 1. 시작 상태와 경계
@@ -66,12 +66,21 @@
 ![홈](claude_dudu_3d_polish_2026-10-04/07_home_before_after.png)
 ![빛의 마법](claude_dudu_3d_polish_2026-10-04/08_magic_beam_before_after.png)
 
+### 2.6 공식 흉장 (사용자 제공 이미지, 추가 작업)
+
+- 사용자가 준 공식 흉장(`assets/dudu3d/reference/daegu_university_emblem.jpg`)을 가슴 곡면에 수직으로 투영해 Meshy의 흐린 근사 흉장을 바꿨다(`repaint_texture.py` 흉장 단계).
+- 옛 자리 위쪽은 스카프 매듭에 가려 '대구대학교' 글자가 덮여서, 92% 크기로 0.020 m 아래에 그렸다. 옛 흉장 자리의 나머지는 털색으로 덮었다.
+- 텍스처 비교에서 바뀐 텍셀은 흉장 UV 섬에만 있다(0.40%). 쉬는 자세에서는 원형으로 또렷하다. 대기 동작은 상체를 뒤로 젖혀 정면에서 조금 납작해 보인다(동작 때문이며 투영 문제가 아님).
+
+![흉장 전후](claude_dudu_3d_polish_2026-10-04/11_emblem_before_after.png)
+
 ## 3. 변경 파일
 
 | 파일 | 내용 |
 |---|---|
-| `assets/dudu3d/tools/repaint_texture.py` | 스카프 단계 추가 |
-| `public/assets/dudu/dudu.glb` | 스카프 텍스처만 바뀐 웹 GLB(형태·뼈대·동작 동일) |
+| `assets/dudu3d/tools/repaint_texture.py` | 스카프 단계, 공식 흉장 투영 단계 추가 |
+| `assets/dudu3d/reference/daegu_university_emblem.jpg` (신규) | 사용자가 준 공식 흉장(흉장 단계 입력) |
+| `public/assets/dudu/dudu.glb` | 스카프·흉장 텍스처만 바뀐 웹 GLB(형태·뼈대·동작 동일) |
 | `src/tiger/duduTail.ts` (신규) | 꼬리 만들기·붙이기·흔들기 |
 | `src/tiger/duduFace.ts` (신규) | 표정 상태(`faceState`)와 얼굴 덧그림 |
 | `src/tiger/duduMotion.ts` (신규) | 엉덩이 수평 이동 제한, 동작 약하게 섞기, 바닥 보정 |
@@ -80,7 +89,7 @@
 | `src/tiger/duduTail.test.ts`, `duduFace.test.ts`, `duduMotion.test.ts` (신규) | 12개 테스트 |
 | `assets/dudu3d/tools/review/*.mjs` (신규) | 검토 촬영·정지 규칙·홈/빛의 마법 확인 스크립트(앱 의존성 아님) |
 | `assets/dudu3d/README.md` | 스카프 보정·코드 덧붙임·검토 도구·남은 일 기록 |
-| 이 문서, `docs/handoff/claude_dudu_3d_polish_2026-10-04/` | 인계와 스크린샷 11장(1.4MB) |
+| 이 문서, `docs/handoff/claude_dudu_3d_polish_2026-10-04/` | 인계와 스크린샷 12장(1.5MB) |
 
 `Hoya3D`의 외부 인터페이스(`<Hoya3D action className>`), `HoyaAction` 17개, `HoyaFallback`·`ACTION_TEXT`·`canUseWebGL`·오류 경계·컨텍스트 손실 대체, GLTFLoader와 자산 형식(`EXT_texture_webp`·`KHR_mesh_quantization`, 디코더 없음)은 바꾸지 않았다. 새 의존성·외부 업로드·유료 생성 없음.
 
@@ -89,8 +98,8 @@
 | 항목 | 값 |
 |---|---|
 | 원본 | `assets/dudu3d/meshy_output/v2/Meshy_AI_Emerald_Tiger_Mascot_All_Animations.glb` 13,453,200바이트(Git 제외, SHA-256 `cea385768bb37837…`) |
-| 만든 방법 | `repaint_texture.py`(Blender 4.5.14 LTS) → `inject_basecolor.mjs` → `build_dudu.mjs … Running` |
-| 웹 GLB | `public/assets/dudu/dudu.glb` 2,636,740바이트(이전 2,634,844), SHA-256 `c728af5bca84c45c…` |
+| 만든 방법 | `repaint_texture.py <원본> <출력> reference/daegu_university_emblem.jpg`(Blender 4.5.14 LTS) → `inject_basecolor.mjs` → `build_dudu.mjs … Running` |
+| 웹 GLB | `public/assets/dudu/dudu.glb` 2,637,828바이트(스카프 후 2,636,740, 그 전 2,634,844), SHA-256 `b4807fd15bd6e193…`(흉장 교체 후) |
 | 메시 | 정점 40,025, 삼각형 20,012, 위치 int16 정규화(양자화) |
 | 텍스처 | 1024² WebP 3장: 기본색 115KB, 법선 113KB, 금속·거칠기 36KB |
 | 뼈·동작 | 뼈 28개(Mixamo 이름), 동작 11개 |
@@ -122,7 +131,7 @@
 
 공용 문서는 이 범위에서 고치지 않았다. 아래를 통합 때 반영해 주세요.
 
-1. `docs/ROADMAP.md` 4절(3D) 남은 일: "스카프 색 완료(텍스처). 꼬리·눈 깜박임·입 여닫기는 코드 덧붙임(`src/tiger/duduTail.ts`·`duduFace.ts`)으로 대신함. 사람 비율 동작 보정(`duduMotion.ts`). 남은 것: 흉장 공식 형태, 스카프 매듭 형태, 입 모양 여러 개, 저사양 성능 측정, 원화 충실도 승인."
+1. `docs/ROADMAP.md` 4절(3D) 남은 일: "스카프 색·공식 흉장 완료(텍스처). 꼬리·눈 깜박임·입 여닫기는 코드 덧붙임(`src/tiger/duduTail.ts`·`duduFace.ts`)으로 대신함. 사람 비율 동작 보정(`duduMotion.ts`). 남은 것: 스카프 매듭 형태, 입 모양 여러 개, 저사양 성능 측정, 원화 충실도 승인."
 2. `docs/DECISIONS_PENDING.md`에 임시 결정 추가(되돌리는 방법 포함):
    - 꼬리는 모델 파일이 아니라 코드로 엉덩이 뼈에 붙이고, 왼쪽 엉덩이 옆에서 나와 위로 말린다(망토 때문에 등 가운데 불가). 되돌리기: `DuduCharacter`에서 `attachDuduTail` 제거.
    - 표정은 머리 뼈에 붙인 덧그림(깜박임 2.6~5.2초 간격 0.13초, 말하기 입 여닫기 하나, 환호 웃는 눈, 손 흔들기·환호·응원 웃는 입). 되돌리기: `attachDuduFace` 제거.
@@ -149,4 +158,4 @@
 - 깜박임 때 눈 둘레에 아주 옅은 타원이 보이는지(밝기 맞춤 후 거의 없음).
 - 물건 줍기 45% 섞기가 "줍는 동작"으로 읽히는지, 펀치가 0.3 제한 뒤에도 힘 있게 보이는지.
 - 실제 휴대폰에서 첫 화면 진입 시 끊김(얼굴 판 첫 생성 데스크톱 20ms)과 프레임률.
-- 공식 흉장 파일 확보 여부(흉장은 Meshy 근사).
+- 흉장 글자('대구대학교', 'DAEGU UNIVERSITY 1956')가 실제 화면 크기에서 충분히 읽히는지, 위치(스카프 매듭 아래)가 원화와 맞는지.
