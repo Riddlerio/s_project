@@ -2,7 +2,7 @@ import { api } from './client'
 import { TurnRejectedError, type ChatReply, type TurnRequest } from '../child/hoyaChatController'
 
 export interface HoyaChatSession { sessionId: string; mode: 'real' | 'demo'; status: string; turnCount: number; nextTurnIndex: number; maxTurns: number; openingText: string; lastHoyaText: string | null }
-export interface HoyaChatTurnReply extends ChatReply { status: 'COMPLETED'; turnIndex: number; clientRequestId: string }
+export interface HoyaChatTurnReply extends ChatReply { status: 'COMPLETED'; turnIndex: number; clientRequestId: string; nextActivity: 'daegu_crossing' | null }
 
 export const startHoyaChat = (mode: 'real' | 'demo') =>
   api<HoyaChatSession>('/hoya/chat/sessions', { method: 'POST', body: JSON.stringify({ mode }) })
