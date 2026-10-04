@@ -48,29 +48,21 @@ def _say(client, headers, session_id, round_index, item, acoustic, attempt=1, tr
 
 # ---------------------------------------------------------------- 1. 세션 종류 교차 호출
 
-def _legacy(client, headers, mode="demo"):
-    response = client.post("/api/play/start", headers=headers, json={"playCode": "HERO01", "mode": mode})
-    assert response.status_code == 200, response.text
-    return response.json()
+def _past_legacy(sessions, session_id):
+    """기존 모험(2026-10-04 제거)이 DB에 남긴 세션처럼 activityGame 없는 상태로 바꾼다."""
+    with sessions() as db:
+        session = db.get(TrainingSession, session_id)
+        session.runtime_state = {k: v for k, v in session.runtime_state.items() if k != "activityGame"}
+        db.commit()
 
 
-def test_legacy_endpoint_accepts_legacy_session(api):
-    client, _ = api
-    headers = student_auth(client)
-    started = _legacy(client, headers)
-    response = client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=headers,
-                           json={"itemId": started["firstItem"]["itemId"], "attemptIndex": 1,
-                                 "transcript": started["firstItem"]["displayText"], "acoustic": {"durationMs": 900}})
-    assert response.status_code == 200, response.text
-
-
-def test_legacy_endpoint_rejects_activity_session(api):
+def test_removed_legacy_adventure_routes_are_gone(api):
     client, _ = api
     headers = student_auth(client)
     started = _start(client, headers, "magic_beam", "demo")
-    response = client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=headers,
-                           json={"itemId": started["firstItem"]["itemId"], "attemptIndex": 1, "acoustic": {"durationMs": 900}})
-    assert response.status_code == 409
+    assert client.post("/api/play/start", headers=headers, json={"playCode": "HERO01", "mode": "demo"}).status_code in {404, 405}
+    assert client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=headers,
+                       json={"itemId": started["firstItem"]["itemId"], "acoustic": {"durationMs": 900}}).status_code in {404, 405}
 
 
 def test_activity_endpoint_accepts_activity_session(api):
@@ -83,10 +75,11 @@ def test_activity_endpoint_accepts_activity_session(api):
     assert "ROUND_CLEAR" in events
 
 
-def test_activity_endpoint_rejects_legacy_session(api):
-    client, _ = api
+def test_activity_endpoint_rejects_past_legacy_session(api):
+    client, sessions = api
     headers = student_auth(client)
-    started = _legacy(client, headers)
+    started = _start(client, headers, "magic_beam", "demo")
+    _past_legacy(sessions, started["sessionId"])
     assert client.get(f"/api/activities/{started['sessionId']}", headers=headers).status_code == 409
     response = client.post(f"/api/activities/{started['sessionId']}/utterances", headers=headers,
                            json={"roundIndex": 1, "itemId": started["firstItem"]["itemId"], "acoustic": {"durationMs": 900}})
@@ -97,28 +90,10 @@ def test_unknown_session_is_404_on_every_play_route(api):
     client, _ = api
     headers = student_auth(client)
     missing = "00000000-0000-0000-0000-000000000000"
-    assert client.post(f"/api/play/sessions/{missing}/utterances", headers=headers,
-                       json={"itemId": "x", "acoustic": {}}).status_code == 404
     assert client.post(f"/api/play/sessions/{missing}/complete", headers=headers, json={}).status_code == 404
     assert client.get(f"/api/activities/{missing}", headers=headers).status_code == 404
     assert client.post(f"/api/activities/{missing}/utterances", headers=headers,
                        json={"roundIndex": 1, "itemId": "x", "acoustic": {}}).status_code == 404
-
-
-@pytest.mark.parametrize("damage", [
-    {"currentItem": None}, {"itemAttempt": "1"}, {"stageIndex": None},
-])
-def test_malformed_legacy_state_is_409_not_500(api, damage):
-    client, sessions = api
-    headers = student_auth(client)
-    started = _legacy(client, headers)
-    with sessions() as db:
-        session = db.get(TrainingSession, started["sessionId"])
-        session.runtime_state = {**session.runtime_state, **damage}
-        db.commit()
-    response = client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=headers,
-                           json={"itemId": started["firstItem"]["itemId"], "acoustic": {"durationMs": 900}})
-    assert response.status_code == 409
 
 
 @pytest.mark.parametrize("damage", [

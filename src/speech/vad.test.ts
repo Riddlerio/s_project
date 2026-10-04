@@ -96,3 +96,15 @@ describe('VOICE_END peak 통계', () => {
     expect(end?.clippingRatio).toBe(0)
   })
 })
+
+describe('발화 감지', () => {
+  it('짧은 소음은 무시하고 충분한 발성을 감지한다', () => {
+    const vad = new VadStateMachine()
+    const frame = (tMs: number, rmsDb: number) => vad.process({ tMs, rmsDb, hfRatio: 0.1 })
+    frame(0, -20); frame(20, -60); expect(vad.state).toBe('silence')
+    frame(100, -20); expect(frame(180, -20).some(e => e.type === 'VOICE_START')).toBe(true)
+    expect(frame(300, -20).some(e => e.type === 'VOICE_CONTINUE')).toBe(true)
+    frame(320, -60); expect(frame(600, -60).some(e => e.type === 'VOICE_END')).toBe(false)
+    expect(frame(1020, -60).some(e => e.type === 'VOICE_END')).toBe(true)
+  })
+})

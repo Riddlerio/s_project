@@ -16,7 +16,7 @@
 | 2 명칭·표기 | 루미 제거, "AI" 명칭, heuristic 라벨 | 대부분 | 사용자 화면은 두두로 통일됨. "AI" 표현과 heuristic 라벨 전수 점검, 내부 `hoya` 식별자는 호환을 위해 유지 |
 | 3 시각 방향·에셋 | 캐릭터 에셋, IP, 디자인 시스템 | 진행 | 두두(대구대 공식 캐릭터)로 결정. 3D는 AI 생성 후 정리로 결정. **대학 서면 허락**, 디자인 토큰(DTCG)·Figma 정리, 최종 모델 |
 | 4 아동 UI | 홈·지도·활동·보상·대화 | 일부 | "네 차례" 신호 통일(귀 쫑긋·차임·가장자리 빛·배경음 낮춤), 보상·대화 화면, 접근성·저사양 검수 |
-| 5 게임 장면·에피소드 | V2 4종 장면, legacy 모험 | 일부 | 빛의 마법·몬스터 모험만 장면이 있음. 하늘 오르기·두두와 소풍 장면, 라운드별 연출, 소풍 이야기 진행, legacy 모험 정리 |
+| 5 게임 장면·에피소드 | V2 4종 장면, legacy 모험 | 일부 | 빛의 마법·몬스터 모험만 장면이 있음. 하늘 오르기·두두와 소풍 장면, 라운드별 연출, 소풍 이야기 진행. legacy 모험은 2026-10-04 삭제 |
 | 6 운영 준비 | CI, 브랜치 보호, Alembic, 인덱스, 보안 헤더 | 미착수 | 시연 전 최소 CI(테스트·빌드), 기기별 성능 측정 |
 | 7 TherapyRun | 승인 계획 실행, 회기 오케스트레이션 | 미착수 | 승인한 회기 계획이 아이 게임을 구동, 치료사 데이터 화면(아래 3절) |
 
@@ -64,25 +64,27 @@
 
 ## 5. 범위 줄이기
 
-사용처 지도(2026-10-04 조사)를 근거로 한다. 가장 큰 제약은 **legacy 모험이 샘플 데이터 생성(`seed.py`)과 백엔드 테스트 fixture의 기반**이라는 점이다. legacy를 지우려면 seed를 V2 활동으로 먼저 다시 써야 한다.
+사용처 지도(2026-10-04 조사)를 근거로 한다. 가장 큰 제약은 **legacy 모험이 샘플 데이터 생성(`seed.py`)과 백엔드 테스트 fixture의 기반**이라는 점이다. legacy를 지우려면 seed를 V2 활동으로 먼저 다시 써야 한다. (2026-10-04 2·3번 실행으로 해소)
 
 **실행함(2026-10-04):**
 - 이미 승인된 Phase 0.5 삭제: `dialogue.ts`, `issue_token`, `require_child_access`.
 - 사용처 없는 코드: `lines.ko.ts`, `speechProvider.ts`, 미사용 API 함수·타입, 백엔드 enum `GameType`·`SessionMode`, 화면에서 쓰지 않는 CSS 26줄.
 - 테스트가 직접 import하는 `httpx2`를 `requirements.txt`에 명시.
 - 감사 문서의 낡은 서술 수정: `TherapistRule`은 V2 판정에 쓰이지 않음, `map`/`unlocked` class는 더 이상 쓰지 않음.
+- **2번 seed V2 재작성:** 샘플 아동 HERO01(회기 4개, 목표 v1→v2→v3)과 HERO02(회기 2개)를 실제 5라운드 처리 함수(`start_activity`·`activity_utterance`·`complete`)로 만든다. 점수와 판단은 분석 파이프라인에서만 나온다. 모두 seed·DEMO라 임상 근거에서 빠지고, 소풍 재료는 0에서 시작한다.
+- **3번 legacy 모험 제거:** 백엔드 `/api/play/start`·`/api/play/sessions/{id}/utterances`, `training/plan_generator.py`·`policy.py`·`retry_state.py`, `LegacyState`·`RetryState`, 사유 문구표, `content.py`의 `beam_item`·`model_text`. 프런트 `PlaySession`과 `/play/session/:id`, 지도의 "기존 모험" 상자, `src/character/`, `src/game/monsterTower/`, `magicBeam/machine.ts`·`BeamCanvas.tsx`, `demoRecognizer.ts`, `pronunciation.ts`, 쓰지 않게 된 타입·CSS. 보안·소유권·크기 제한 테스트는 `/api/activities`로 옮겼고, DB에 남은 과거 legacy 세션이 5라운드 API에서 409인 것과 지운 경로가 404인 것을 테스트한다.
 
 **승인이 필요한 정리(제안 순서):**
 
 | 순서 | 대상 | 이유와 전제 | 효과 |
 |---|---|---|---|
 | 1 **승인·Codex** | legacy 진행 그래프(`/progress`, `SessionTrendChart`) | V2 회기를 이미 제외하는 옛 지표다. 테스트 2곳 수정. Phase 7의 새 추이 화면이 대신한다 | `recharts` 포함 27개 패키지 제거 |
-| 2 **승인·Claude** | 샘플 데이터 생성을 V2 활동으로 다시 작성 | 3·4의 전제. 보안 테스트(본문 크기·CSRF·소유권 등)를 `/api/activities`로 옮긴다 | legacy 제거의 길을 연다 |
-| 3 **승인·Claude** | legacy 모험(PlaySession, `/api/play/start`·`utterances`, 계획 생성·정책, 캐릭터·게임 기계, DEMO 인식기) | 지도의 "기존 모험"에서만 들어간다. 음성 로직이 고위험 영역이라 승인 필요 | 약 30개 파일과 테스트 정리 |
+| 2 **완료·Claude** | 샘플 데이터 생성을 V2 활동으로 다시 작성 | 3·4의 전제. 보안 테스트(본문 크기·CSRF·소유권 등)를 `/api/activities`로 옮긴다 | legacy 제거의 길을 연다 |
+| 3 **완료·Claude** | legacy 모험(PlaySession, `/api/play/start`·`utterances`, 계획 생성·정책, 캐릭터·게임 기계, DEMO 인식기) | 지도의 "기존 모험"에서만 들어간다. 음성 로직이 고위험 영역이라 승인 필요 | 약 30개 파일과 테스트 정리 |
 | 4 보류 | legacy 목표 추천(R1–R5) 생성 중단 | 승인하지 않음. 다만 legacy 추천은 legacy 모험에서만 생기므로 3을 하면 새 추천은 생기지 않는다. 코드·표·과거 행 거절 화면은 남긴다 | 추천 출처 세 가지 → 한 가지 |
 | 5 **승인·Claude** | 문서·자산 | 루트의 옛 프롬프트 4개는 `docs/history/`로 이동, 실행할 수 없는 포스터 제작 스크립트와 참조 없는 양식 파일 정리 | 저장소 정리. 이미 커밋된 큰 이미지는 기록에 남으므로 용량은 줄지 않는다 |
 
-**유지:** `/api/play/sessions/{id}/complete`(V2가 사용), `training/content.py`, `TherapistRule`, `propose_activity`(동결된 계획 그래프가 사용), 모든 DB 표.
+**유지:** `/api/play/sessions/{id}/complete`(V2가 사용. 과거 legacy 세션 완료 분기와 legacy 추천 코드는 4번 보류에 따라 남김), `training/content.py`(단어 목록), `training/rewards.py`, `TherapistRule`, `propose_activity`(동결된 계획 그래프가 사용), 모든 DB 표. 치료사 화면의 "기존 모험 요약·추이"는 과거 행을 보여 주며 1번(Codex) 범위다.
 
 ## 6. 작업 방식 (2026-10-04 사용자 승인)
 

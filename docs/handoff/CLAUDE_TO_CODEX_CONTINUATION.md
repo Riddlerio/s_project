@@ -37,13 +37,13 @@
 | 흉장 재현·캐릭터 디테일 | 완료 | `src/tiger/duduEmblem.ts`, `DuduModel.tsx`, 검토 화면 `/dudu-review.html?action=WAVE&close` |
 | 사용처 없는 코드 정리 | 완료 | Phase 0.5 승인분 포함 |
 | Meshy 입력 이미지 | 완료 | `assets/dudu3d/meshy_input/` |
-| seed V2 재작성 + legacy 모험 제거 | 대기 | 에이전트가 한도 오류로 종료. 인수 시 로컬 분리 브랜치·부분 구현 없음. 독립 작업으로 계속 |
+| seed V2 재작성 + legacy 모험 제거 | 완료 | 2026-10-04 `claude/legacy-removal`에서 작업 후 `claude/dudu-followup`에 병합. [로드맵](../ROADMAP.md) 5절 |
 | 빛의 마법 전체 3D | 절차형 구현·자동검사 완료, 사람 검수 전 | Codex가 3D 논·하늘·빔·5라운드 장면 구현. 최종 Meshy 모델·실기기 검수는 대기 |
 | 임상 근거 조사·포스터 문안 | 문안 작성 완료, 사람 검토 전 | `docs/research/2026-10-04_clinical_rationale_and_poster.md`. 효과 검증과 설계 가설 구분 |
 | Meshy 본 생성(Pro·비공개·멀티뷰) | 완료 | 리메시·텍스처·리깅·동작 11개. 기록은 `assets/dudu3d/README.md` |
 | GLB 앱 연결 | 완료(사람 검수 전) | 사용자 승인. `src/tiger/DuduCharacter.tsx`, `public/assets/dudu/dudu.glb` 2.62MB |
-| Meshy 결과 Blender 정리 | 대기 | 망토 색 구분·뒷머리 줄무늬·꼬리·표정. Blender 미설치 |
-| 문서·자산 정리(⑤) | 대기 | 루트 옛 프롬프트 4개 → `docs/history/`, 참조 없는 포스터 양식·제작 스크립트 정리 |
+| Meshy 결과 Blender 정리 | 일부 | 망토 색·뒷머리 줄무늬 완료(`166b6dd`, Blender 4.5 LTS). 스카프 색·꼬리·표정 남음 |
+| 문서·자산 정리(⑤) | 완료 | `8e086b2`. 기록은 [history](../history/2026-10-04.md) |
 
 ## 검사 명령
 

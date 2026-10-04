@@ -165,28 +165,25 @@ def _session(sessions, session_id):
         return db.get(TrainingSession, session_id)
 
 
-def _start(client, headers, path, mode, code=None):
-    body = {"playCode": code, "mode": mode} if path == "/api/play/start" else {"game": "magic_beam", "mode": mode}
-    response = client.post(path, headers=headers, json=body)
+def _start(client, headers, mode, game="magic_beam"):
+    response = client.post("/api/activities", headers=headers, json={"game": game, "mode": mode})
     assert response.status_code == 200, response.text
     return response.json()
 
 
-@pytest.mark.parametrize("path", ["/api/play/start", "/api/activities"])
-def test_seed_child_real_session_keeps_seed_provenance(api, path):
+def test_seed_child_real_session_keeps_seed_provenance(api):
     client, sessions = api
-    started = _start(client, student_auth(client), path, "real", "HERO01")
+    started = _start(client, student_auth(client), "real")
     session = _session(sessions, started["sessionId"])
     assert session.mode == "real" and session.is_seed is True
     assert api_module.clinical_eligible(session) is False
 
 
-@pytest.mark.parametrize("path", ["/api/play/start", "/api/activities"])
 @pytest.mark.parametrize("mode,eligible", [("real", True), ("demo", False)])
-def test_real_child_session_provenance_by_mode(api, path, mode, eligible):
+def test_real_child_session_provenance_by_mode(api, mode, eligible):
     client, sessions = api
-    headers, child = real_child_auth(client)
-    started = _start(client, headers, path, mode, child["play_code"])
+    headers, _child = real_child_auth(client)
+    started = _start(client, headers, mode)
     session = _session(sessions, started["sessionId"])
     assert session.is_seed is False and session.mode == mode
     assert api_module.clinical_eligible(session) is eligible
@@ -194,7 +191,7 @@ def test_real_child_session_provenance_by_mode(api, path, mode, eligible):
 
 def _confirmed_seed_real_observations(client):
     student = student_auth(client)
-    started = _start(client, student, "/api/activities", "real")
+    started = _start(client, student, "real")
     _post(client, student, started["sessionId"], started["firstItem"]["itemId"], 1, SUCCESS)
     therapist, observations = _decide_all(client, started["sessionId"], {"action": "confirm"})
     return therapist, started, observations
@@ -224,17 +221,17 @@ def test_seed_real_session_is_not_planning_or_activity_evidence(api):
 def test_real_child_real_session_is_still_clinical_evidence(api):
     client, sessions = api
     headers, child = real_child_auth(client)
-    started = _start(client, headers, "/api/activities", "real")
+    started = _start(client, headers, "real")
     _post(client, headers, started["sessionId"], started["firstItem"]["itemId"], 1, SUCCESS)
     therapist, _ = _decide_all(client, started["sessionId"], {"action": "confirm"})
     context = client.get(f"/api/children/{child['id']}/planning-context", headers=therapist).json()
     assert context["metrics"]["verifiedN"] == 1 and context["metrics"]["window"]["realSessionN"] == 1
 
 
-# ---- legacy 추천(D안): 실제 아동의 DEMO 연습은 목표를 바꾸는 추천을 만들지 않는다 ----
+# ---- legacy 추천(D안): 기존 모험은 2026-10-04 제거됐다. 과거 추천 행의 표시·결정 규칙은 그대로 지킨다 ----
 
-def _legacy_complete(client, headers, code, mode):
-    started = _start(client, headers, "/api/play/start", mode, code)
+def _completed(client, headers, mode):
+    started = _start(client, headers, mode)
     response = client.post(f"/api/play/sessions/{started['sessionId']}/complete", headers=headers, json={"elapsedSec": 30})
     assert response.status_code == 200, response.text
     return started["sessionId"]
@@ -245,32 +242,31 @@ def _recommendations(sessions, session_id):
         return db.scalars(select(AIRecommendation).where(AIRecommendation.session_id == session_id)).all()
 
 
-def test_real_child_demo_practice_creates_no_legacy_recommendation(api):
-    client, sessions = api
-    headers, child = real_child_auth(client)
-    demo = _legacy_complete(client, headers, child["play_code"], "demo")
-    assert _recommendations(sessions, demo) == []
-    real = _legacy_complete(client, headers, child["play_code"], "real")
-    assert _recommendations(sessions, real)
+def _past_recommendation(sessions, child_id, session_id, suggested_goal=None):
+    """수정 전 코드나 기존 모험이 남긴 과거 추천 행을 흉내 낸다."""
+    with sessions() as db:
+        rec = AIRecommendation(child_id=child_id, session_id=session_id, goal_id=_session(sessions, session_id).goal_id,
+                               rule_id="R2", observation="과거 행", evidence=[], suggestion_text="",
+                               suggested_goal=suggested_goal or {}, rationale="", confidence="low")
+        db.add(rec)
+        db.commit()
+        return rec.id
 
 
-def test_seed_showcase_still_creates_legacy_recommendation(api):
+@pytest.mark.parametrize("mode", ["demo", "real"])
+def test_five_round_activity_never_creates_legacy_recommendation(api, mode):
     client, sessions = api
-    session_id = _legacy_complete(client, student_auth(client), "HERO01", "demo")
-    assert _recommendations(sessions, session_id)
+    headers, _child = real_child_auth(client)
+    assert _recommendations(sessions, _completed(client, headers, mode)) == []
 
 
 def test_legacy_recommendation_exposes_provenance_and_dashboard_skips_demo_practice(api):
     client, sessions = api
     headers, child = real_child_auth(client)
-    demo = _legacy_complete(client, headers, child["play_code"], "demo")
-    real = _legacy_complete(client, headers, child["play_code"], "real")
-    with sessions() as db:
-        # 수정 전에 만들어졌을 수 있는 DEMO 연습 기반 추천(과거 행)을 흉내 낸다.
-        db.add(AIRecommendation(child_id=child["id"], session_id=demo, goal_id=_session(sessions, demo).goal_id,
-                                rule_id="R2", observation="과거 행", evidence=[], suggestion_text="", suggested_goal={},
-                                rationale="", confidence="low"))
-        db.commit()
+    demo = _completed(client, headers, "demo")
+    real = _completed(client, headers, "real")
+    _past_recommendation(sessions, child["id"], demo)
+    _past_recommendation(sessions, child["id"], real)
     therapist = auth(client)
     rows = client.get(f"/api/children/{child['id']}/recommendations", headers=therapist).json()
     by_session = {row["session_id"]: row for row in rows}
@@ -289,7 +285,7 @@ def test_provenance_audit_counts_legacy_rows_without_writing(api):
     audit_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(audit_module)
     client, sessions = api
-    started = _start(client, student_auth(client), "/api/activities", "real")
+    started = _start(client, student_auth(client), "real")
     _post(client, student_auth(client), started["sessionId"], started["firstItem"]["itemId"], 1, SUCCESS)
     with sessions() as db:
         # 수정 전 코드가 남긴 과거 행을 흉내 낸다: seed 아동의 실제 회기가 비seed로, 관찰이 CONFIRMED로 저장됨.
@@ -345,14 +341,8 @@ def test_r2_compares_only_sessions_of_the_same_provenance(api, previous_mode, ex
 def test_demo_practice_recommendation_can_only_be_rejected(api):
     client, sessions = api
     headers, child = real_child_auth(client)
-    demo = _legacy_complete(client, headers, child["play_code"], "demo")
-    with sessions() as db:
-        rec = AIRecommendation(child_id=child["id"], session_id=demo, goal_id=_session(sessions, demo).goal_id,
-                               rule_id="R2", observation="과거 행", evidence=[], suggestion_text="",
-                               suggested_goal={"level": "short_sentence"}, rationale="", confidence="low")
-        db.add(rec)
-        db.commit()
-        rec_id = rec.id
+    demo = _completed(client, headers, "demo")
+    rec_id = _past_recommendation(sessions, child["id"], demo, {"level": "short_sentence"})
     therapist = auth(client)
     versions = lambda: [g["version"] for g in client.get(f"/api/children/{child['id']}/goals", headers=therapist).json()]
     before = versions()
@@ -365,7 +355,10 @@ def test_demo_practice_recommendation_can_only_be_rejected(api):
 
 def test_seed_showcase_recommendation_can_still_be_accepted(api):
     client, sessions = api
-    session_id = _legacy_complete(client, student_auth(client), "HERO01", "demo")
-    rec = _recommendations(sessions, session_id)[0]
-    response = client.post(f"/api/recommendations/{rec.id}/decision", headers=auth(client), json={"action": "accept"})
+    with sessions() as db:
+        child = db.scalar(select(Child).where(Child.play_code == "HERO01"))
+        session = db.scalar(select(TrainingSession).where(TrainingSession.child_id == child.id, TrainingSession.is_seed.is_(True)))
+        child_id, session_id = child.id, session.id
+    rec_id = _past_recommendation(sessions, child_id, session_id, {"level": "syllable"})
+    response = client.post(f"/api/recommendations/{rec_id}/decision", headers=auth(client), json={"action": "accept"})
     assert response.status_code == 200

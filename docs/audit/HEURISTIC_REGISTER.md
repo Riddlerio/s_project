@@ -44,7 +44,7 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 
 | 값 | 위치 | 용도 | 출처 |
 |---|---|---|---|
-| 빔 목표 기본 1500ms | `speech/pipeline.py`, `training/content.py`, `training/policy.py` | 빔 목표 | UNKNOWN |
+| 빔 목표 기본 1500ms | `speech/pipeline.py` | 빔 목표 | UNKNOWN |
 | 키보드 입력: run ≥ 0.8 × 목표 | `speech/pipeline.py`의 `analyze` | DEMO 통과 | UNKNOWN |
 | run ≥ 0.8 × 목표이고 frication ≥ 0.6 × active | `speech/pipeline.py`, `games/evaluation.py`(중복) | 마찰음 통과 | UNKNOWN |
 | 유사 음소 비용 0.5, 목표 음소 가중치 ×3 | `speech/alignment.py`, `speech/pipeline.py` | 점수 | UNKNOWN |
@@ -65,9 +65,11 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 제한 시간 60초(대화 90초) | `games/rounds.py` | 라운드 timeout | UNKNOWN |
 | 난이도 배율 1 + 0.15×(d−2), 800–3500ms 범위, d는 1–5, 시작값 2 | `games/rounds.py`의 `effective_round`, `main.py`의 `start_activity` | 난이도 조정 | UNKNOWN |
 | 성공 비율 ≥ 2/3이고 올림 < 2회면 올림. 성공 비율 ≤ 1/3이 2회면 한 번만 내림 | `games/rounds.py`의 `next_difficulty` | 난이도 규칙 | UNKNOWN |
-| 다시 듣기 ≥ 2회면 중립 건너뛰기 | `training/policy.py`, `main.py`의 `activity_utterance` | 불확실 처리 | UNKNOWN |
+| 다시 듣기 ≥ 2회면 중립 건너뛰기 | `main.py`의 `activity_utterance` | 불확실 처리 | UNKNOWN |
 
 ## 5. legacy 훈련 정책(기존 모험)
+
+2026-10-04 기존 모험과 함께 `training/policy.py`·`plan_generator.py`를 삭제했다. 아래 값은 과거 회기 해석을 위한 기록이다. 배지 규칙(마지막 줄)만 완료 처리에서 계속 쓴다.
 
 | 값 | 위치 | 용도 | 출처 |
 |---|---|---|---|
