@@ -360,7 +360,12 @@ export default function ActivitySession() {
   return <main className={`child-screen game-screen activity-game activity-${session.game}`}><div className="activity-shell">
     <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span><button className="quiet dudu-save-exit" disabled={busy} onClick={() => void saveAndExit()}>저장하고 집으로</button></header>
     <div className="activity-progress" aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} className={completed.includes(value.index) ? 'completed' : value.index === round.index ? 'current' : ''} aria-current={value.index === round.index ? 'step' : undefined}><small>{String(value.index).padStart(2, '0')}</small><span>{completed.includes(value.index) ? '완료' : value.index === round.index ? '진행 중' : '다음'}</span></span>)}</div>
-    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} fx={fx} />
+    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} fx={fx} roundIndex={round.index} targetMs={round.targetMs} paused={suspended || !ready} readBeamInput={() => {
+      if (suspendedRef.current || modelSpeaking.current || submitting.current) return { active: false, durationMs: 0 }
+      if (session.mode === 'demo') return { active: began.current !== null, durationMs: began.current === null ? 0 : performance.now() - began.current }
+      const pipeline = pipelineRef.current
+      return { active: pipeline?.vad.state === 'voice' || pipeline?.vad.state === 'maybe_silence', durationMs: pipeline?.tracker.fricationMs ?? 0 }
+    }} />
       <div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p>
         {feedback && <RoundFeedback key={fx?.id} {...feedback} />}
         {session.game === 'monster_adventure' && <AttackChoice value={attack} magicBeam={magicBeamGranted} disabled={busy || speaking} onChange={setAttack} />}

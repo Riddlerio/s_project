@@ -1,0 +1,10 @@
+.magic-beam-scene { background: #dceef3; }
+.magic-beam-world { position: absolute; inset: 0; }
+.magic-beam-world canvas { display: block; }
+.magic-beam-chapter { position: absolute; top: 18px; left: 18px; z-index: 2; display: grid; gap: 4px; max-width: calc(100% - 36px); padding: 10px 16px; border-radius: 18px; background: #fffdf1ed; color: #344d49; pointer-events: none; }
+.magic-beam-chapter small { font-size: .72rem; letter-spacing: .06em; }
+.magic-beam-chapter strong { font-size: clamp(.9rem, 2vw, 1.1rem); }
+.magic-beam-scene .activity-art-caption { z-index: 2; max-width: calc(100% - 28px); padding: 8px 12px; text-align: center; background: #fffdf1ed; color: #344d49; }
+.magic-beam-fallback { display: grid; align-content: center; height: 100%; padding: 56px 18px 42px; background: #e8f1de; text-align: center; }
+.magic-beam-fallback [data-hoya-fallback] { min-height: 0 !important; }
+.magic-beam-fallback p { margin: 4px 0; font-size: .85rem; }

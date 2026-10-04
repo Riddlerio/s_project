@@ -299,7 +299,7 @@ function Limb({ side, pivot, upper, fore, materials, g }: {
   </group>
 }
 
-export function DuduModel({ action }: { action: HoyaAction }) {
+export function DuduModel({ action, animate = true }: { action: HoyaAction; animate?: boolean }) {
   const { m, textures } = useMaterials()
   const g = useGeometries()
   useEffect(() => () => {
@@ -318,13 +318,16 @@ export function DuduModel({ action }: { action: HoyaAction }) {
   const eyes = useRef<Group>(null)
   const pose = useRef<Pose>({ ...REST })
   const capeFlare = useRef(0)
+  const stillAction = useRef<HoyaAction | null>(null)
 
   useFrame(({ clock }, delta) => {
-    const t = clock.elapsedTime
+    if (!animate && stillAction.current === action) return
+    stillAction.current = animate ? null : action
+    const t = animate ? clock.elapsedTime : 0
     const d = Math.min(delta, 0.05)
     const target = poseFor(action, t)
     const p = pose.current
-    for (const key of Object.keys(target) as (keyof Pose)[]) p[key] = MathUtils.damp(p[key], target[key], key === 'mouth' ? 14 : 9, d)
+    for (const key of Object.keys(target) as (keyof Pose)[]) p[key] = animate ? MathUtils.damp(p[key], target[key], key === 'mouth' ? 14 : 9, d) : target[key]
     if (root.current) {
       root.current.position.set(p.x, p.y, p.z)
       root.current.rotation.set(p.pitch, p.yaw, p.roll)
@@ -343,8 +346,8 @@ export function DuduModel({ action }: { action: HoyaAction }) {
     tail.current?.rotation.set(0, Math.sin(t * 2.4) * p.tail, Math.sin(t * 1.2) * 0.05)
     if (mouth.current) mouth.current.scale.y = 0.004 + p.mouth * 0.075
     if (eyes.current) {
-      const blink = (t % 3.7) < 0.12 ? 0.12 : 1
-      eyes.current.scale.y = MathUtils.damp(eyes.current.scale.y, blink, 30, d)
+      const blink = animate && (t % 3.7) < 0.12 ? 0.12 : 1
+      eyes.current.scale.y = animate ? MathUtils.damp(eyes.current.scale.y, blink, 30, d) : 1
     }
     capeFlare.current = p.cape
     shapeCape(g.cape, capeFlare.current, t)

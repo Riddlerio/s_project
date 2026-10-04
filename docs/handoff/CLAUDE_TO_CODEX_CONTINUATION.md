@@ -4,6 +4,8 @@
 >
 > Codex가 이미 [치료사 데이터 작업](CODEX_THERAPIST_DATA_TASK.md)을 하고 있다면, 그 작업을 커밋·push한 뒤 아래를 이어 간다. 두 작업의 파일 경계는 그 문서의 "Claude와 겹치지 않게"를 따른다.
 
+> **Codex 갱신(2026-10-04):** 사용자가 Claude 자동 재개를 중지했다고 확인했다. 대표 게임의 절차형 3D 장면과 근거·포스터 문안을 별도 worktree에서 준비·검사했다. 변경 파일·검사·남은 일은 [Codex 이어받기 기록](CODEX_CONTINUATION_2026-10-04.md)을 먼저 읽는다. 커밋·push·병합은 아직 하지 않았다.
+
 ## 먼저 읽을 것
 
 1. [로드맵](../ROADMAP.md): Phase 상태, 승인된 결정, 범위 정리, 작업 분담.
@@ -33,9 +35,9 @@
 | 흉장 재현·캐릭터 디테일 | 완료 | `src/tiger/duduEmblem.ts`, `DuduModel.tsx`, 검토 화면 `/dudu-review.html?action=WAVE&close` |
 | 사용처 없는 코드 정리 | 완료 | Phase 0.5 승인분 포함 |
 | Meshy 입력 이미지 | 완료 | `assets/dudu3d/meshy_input/` |
-| seed V2 재작성 + legacy 모험 제거 | 진행 | 별도 브랜치 `claude/legacy-removal`에서 작업 후 검토·병합 예정 |
-| 빛의 마법 전체 3D | 진행 | 3D 논·하늘·빔(지속 시간에 따른 시각 피드백)·라운드별 장면 |
-| 임상 근거 조사·포스터 문안 | 진행 | `docs/research/`에 보고서 추가 예정 |
+| seed V2 재작성 + legacy 모험 제거 | 대기 | 에이전트가 한도 오류로 종료. 인수 시 로컬 분리 브랜치·부분 구현 없음. 독립 작업으로 계속 |
+| 빛의 마법 전체 3D | 절차형 구현·자동검사 완료, 사람 검수 전 | Codex가 3D 논·하늘·빔·5라운드 장면 구현. 최종 Meshy 모델·실기기 검수는 대기 |
+| 임상 근거 조사·포스터 문안 | 문안 작성 완료, 사람 검토 전 | `docs/research/2026-10-04_clinical_rationale_and_poster.md`. 효과 검증과 설계 가설 구분 |
 | Meshy 결과 Blender 정리 | 대기 | 사용자의 Meshy 결과와 디스크 공간 필요 |
 | 문서·자산 정리(⑤) | 대기 | 루트 옛 프롬프트 4개 → `docs/history/`, 참조 없는 포스터 양식·제작 스크립트 정리 |
 

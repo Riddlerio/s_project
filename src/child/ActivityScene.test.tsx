@@ -1,9 +1,18 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-vi.mock('../tiger/Hoya3D', () => ({ Hoya3D: () => <span>두두 시제품</span> }))
+vi.mock('../tiger/Hoya3D', async importOriginal => ({ ...await importOriginal<typeof import('../tiger/Hoya3D')>(), Hoya3D: () => <span>두두 시제품</span> }))
 import { ActivityScene, RoundFeedback } from './ActivityScene'
 
 describe('승인된 첫 소풍 데모 장면', () => {
+  it('대표 게임만 전용 장면으로 보내고 다른 게임은 유지한다', () => {
+    const farming = renderToStaticMarkup(<ActivityScene game="magic_beam" action="IDLE" roundIndex={5} targetMs={1500} />)
+    expect(farming).toContain('밤의 등불 축제')
+    expect(farming).toContain('data-beam-round="5"')
+    expect(farming).not.toContain('dudu-rice-field')
+    const fishing = renderToStaticMarkup(<ActivityScene game="monster_adventure" action="IDLE" />)
+    expect(fishing).toContain('dudu-fishing-art')
+    expect(fishing).not.toContain('magic-beam-scene')
+  })
   it('음식 두 장면에만 해당 재료를 안내한다', () => {
     expect(renderToStaticMarkup(<ActivityScene game="magic_beam" action="IDLE" />)).toContain('2·4라운드에 밥')
     expect(renderToStaticMarkup(<ActivityScene game="monster_adventure" action="IDLE" />)).toContain('2·4라운드에 참치')

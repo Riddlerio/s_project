@@ -1,6 +1,8 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
 import type { GameKind, HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
+import { MagicBeamScene } from '../game/magicBeam/MagicBeamScene'
+import type { BeamVisualInput } from '../game/magicBeam/sceneState'
 import './duduAdventure.css'
 import './sceneFx.css'
 
@@ -25,7 +27,12 @@ function reducedMotion() {
 }
 
 /** 승인된 데모 장면만 바꾼다. 재료 지급·임상 판정은 서버 응답을 따른다. */
-export function ActivityScene({ game, action, magicBeam = false, fx = null }: { game: GameKind; action: HoyaAction; magicBeam?: boolean; fx?: SceneFx | null }) {
+export function ActivityScene({ game, action, magicBeam = false, fx = null, roundIndex = 1, targetMs = 1, readBeamInput, paused = false }: { game: GameKind; action: HoyaAction; magicBeam?: boolean; fx?: SceneFx | null; roundIndex?: number; targetMs?: number; readBeamInput?: () => BeamVisualInput; paused?: boolean }) {
+  if (game === 'magic_beam') return <MagicBeamScene action={action} roundIndex={roundIndex} targetMs={targetMs} readInput={readBeamInput} paused={paused} fx={fx} />
+  return <ExistingActivityScene game={game} action={action} magicBeam={magicBeam} fx={fx} />
+}
+
+function ExistingActivityScene({ game, action, magicBeam = false, fx = null }: { game: GameKind; action: HoyaAction; magicBeam?: boolean; fx?: SceneFx | null }) {
   const farming = game === 'magic_beam'
   const fishing = game === 'monster_adventure'
   const moving = ['CHARGE', 'BEAM', 'CAST', 'ATTACK', 'CHEER', 'RELEASE'].includes(action)
