@@ -13,5 +13,10 @@
 | 2026-10-04 | 임시 결정 | 라운드 도중 매직빔 승인은 즉시 쓸 수 있고, 아이가 본 선택지는 라운드 끝까지 유지 | 승인도 다음 라운드부터 | 커밋 `aabe22e`, `adventure/service.py` | `check_attack`의 래치 제거 |
 | 2026-10-04 | 임시 결정 | 아동 화면 문구: 매직빔 카드 "선생님이 열어 준 힘"·"선생님과 함께 열어요", 거부 시 "이번엔 기본 공격으로 해보자!" | "치료사 승인" 표기 | `src/child/AttackChoice.tsx`, `ActivitySession.tsx` | 문구 교체 |
 | 2026-10-04 | 임시 결정 | 흉장은 캔버스 근사 재현으로 표시(공식 파일 아님) | 공식 엠블럼 파일 사용 | `src/tiger/duduEmblem.ts` | 공식 파일 확보 시 교체 |
+| 2026-10-04 | 사용자 결정 | GLB 로더 도입 승인(three 내장 GLTFLoader, 압축 디코더 없이) | 보류 | `src/tiger/DuduCharacter.tsx`, 동결 계약 §4 | `Hoya3D`에서 `DuduModel`로 되돌림 |
+| 2026-10-04 | 사용자 결정 | 텍스처는 한 번 더 비교한 뒤 선택 | 정면만·멀티뷰 중 바로 선택 | Meshy 계정 | — |
+| 2026-10-04 | 임시 결정 | 텍스처 B(정면 이미지만)를 채택. 망토 색·뒷머리 줄무늬는 나중에 Blender로 고침 | A(멀티뷰), C(정면+후면) | `assets/dudu3d/README.md` | 다른 후보로 다시 리깅·내보내기 |
+| 2026-10-04 | 임시 결정 | 대기 동작을 `Idle_14` 대신 `Happy_Sway_Standing`, 말하기는 `Talk_with_Left_Hand_on_Hip`(원화의 허리 손 자세) | Meshy의 다른 프리셋 | `src/tiger/duduClips.ts` | 대응표 수정 |
+| 2026-10-04 | 임시 결정 | 웹용 GLB는 `KHR_mesh_quantization`·`EXT_texture_webp`(three가 디코더 없이 읽음)로 13.5MB→2.62MB | 원본 그대로 13.5MB, meshopt 압축(디코더 필요) | `assets/dudu3d/tools/build_dudu.mjs` | 원본 GLB로 교체 |
 
 새 항목은 아래에 이어 적는다. 판정 기준값과 임상 파라미터는 바꾸지 않으며, 임상 효과 주장은 쓰지 않는다.

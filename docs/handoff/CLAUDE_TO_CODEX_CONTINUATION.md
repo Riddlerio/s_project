@@ -40,8 +40,9 @@
 | seed V2 재작성 + legacy 모험 제거 | 대기 | 에이전트가 한도 오류로 종료. 인수 시 로컬 분리 브랜치·부분 구현 없음. 독립 작업으로 계속 |
 | 빛의 마법 전체 3D | 절차형 구현·자동검사 완료, 사람 검수 전 | Codex가 3D 논·하늘·빔·5라운드 장면 구현. 최종 Meshy 모델·실기기 검수는 대기 |
 | 임상 근거 조사·포스터 문안 | 문안 작성 완료, 사람 검토 전 | `docs/research/2026-10-04_clinical_rationale_and_poster.md`. 효과 검증과 설계 가설 구분 |
-| Meshy 본 생성(Pro·비공개·멀티뷰) | 진행 | 사용자 Pro 업그레이드 완료. Claude가 별도 Edge 창(원격 디버깅 9333, 사용자 직접 로그인)에서 진행. 라이선스를 비공개로 바꾼 뒤에만 두두 이미지를 올린다 |
-| Meshy 결과 Blender 정리 | 대기 | 본 생성 결과 필요. 디스크 여유 44GB(확보됨) |
+| Meshy 본 생성(Pro·비공개·멀티뷰) | 완료 | 리메시·텍스처·리깅·동작 11개. 기록은 `assets/dudu3d/README.md` |
+| GLB 앱 연결 | 완료(사람 검수 전) | 사용자 승인. `src/tiger/DuduCharacter.tsx`, `public/assets/dudu/dudu.glb` 2.62MB |
+| Meshy 결과 Blender 정리 | 대기 | 망토 색 구분·뒷머리 줄무늬·꼬리·표정. Blender 미설치 |
 | 문서·자산 정리(⑤) | 대기 | 루트 옛 프롬프트 4개 → `docs/history/`, 참조 없는 포스터 양식·제작 스크립트 정리 |
 
 ## 검사 명령
