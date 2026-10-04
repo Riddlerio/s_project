@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { availableVoices, DUDU_PITCH, pickDuduVoice, readDuduVoiceSetting, saveDuduVoiceSetting } from '../speech/duduVoice'
-import { MicUtterancePipeline } from '../speech/micUtterance'
+import { OnsetPipeline } from '../game/crossing/onsetPipeline'
 
 /*
  * 개발 서버 전용 점검 화면(/voice-mic-check.html). 배포 빌드에 들어가지 않는다.
@@ -14,8 +14,9 @@ const LINES = ['안녕~ 만나서 반가워! 나는 두두야.', '정말 잘했�
 const TAGS = ['사', '다', '스~', '기타'] as const
 // 음향 근사: 소리 시작에 마찰 구간이 있으면 '사·스' 쪽으로 본다. 기준값은 이 측정으로 정한다.
 const ONSET_FRICATION_MIN_MS = 60
+// 시작 마찰은 대구대 건너기와 같은 경로로 잰다: 발화 감지(잡음+12dB) 전에 지나간 조용한 /ㅅ/를 앞부분에서 되살린다.
 
-type Row = { id: number; at: string; tag: string; acoustic: Acoustic }
+type Row = { id: number; at: string; tag: string; acoustic: Acoustic; preRollMs: number }
 type BeatResult = { beats: number; hits: number; offsetsMs: number[] }
 
 function VoicePanel() {
@@ -71,7 +72,8 @@ function MicPanel() {
   tagRef.current = tag
 
   async function start() {
-    const pipeline = new MicUtterancePipeline('fricative')
+    // 대구대 건너기와 같은 경로(말 시작 앞부분 되살리기). 앞부분 길이를 함께 보여 준다.
+    const pipeline = new OnsetPipeline()
     const mic = new AudioCapture()
     capture.current = mic
     setStatus('조용히 1초 기다려 주세요(잡음 기준 측정)…')
@@ -82,7 +84,7 @@ function MicPanel() {
         const { events, acoustic } = pipeline.process(frame)
         if (pipeline.calibrated && !noiseShown) { noiseShown = true; setNoise(pipeline.vad.noiseFloor) }
         for (const event of events) if (event.type === 'VOICE_START') onsets.current.push(zero.current + event.tMs)
-        if (acoustic) setRows(previous => [...previous, { id: previous.length + 1, at: new Date().toLocaleTimeString(), tag: tagRef.current, acoustic }])
+        if (acoustic) { const preRollMs = pipeline.preRollMs; setRows(previous => [...previous, { id: previous.length + 1, at: new Date().toLocaleTimeString(), tag: tagRef.current, acoustic, preRollMs }]) }
       })
       zero.current = performance.now()
       setRunning(true); setStatus('듣는 중. 한 번에 하나씩 말하고 1초 쉬어 주세요.')
@@ -111,7 +113,7 @@ function MicPanel() {
     setBeat({ beats: beats.length, hits: offsetsMs.length, offsetsMs })
   }
 
-  const results = { userAgent: navigator.userAgent, secure: window.isSecureContext, noiseFloorDb: noise, rows: rows.map(row => ({ tag: row.tag, ...pick(row.acoustic) })), beat }
+  const results = { userAgent: navigator.userAgent, secure: window.isSecureContext, noiseFloorDb: noise, rows: rows.map(row => ({ tag: row.tag, preRollMs: row.preRollMs, ...pick(row.acoustic) })), beat }
   return <section style={card}>
     <h2>2. 마이크 · '사'와 '다'</h2>
     <p style={muted}>아래에서 말할 소리를 고르고 그 소리를 한 번 말한 뒤 1초 쉬어 주세요. '사' 5번, '다' 5번, '스~' 3번이면 충분합니다. 이어폰을 쓰거나 스피커 소리를 줄여 주세요.</p>
@@ -120,11 +122,11 @@ function MicPanel() {
     <p style={muted}>소리 크기 {level.toFixed(0)} dB · 잡음 기준 {noise === null ? '측정 중' : `${noise.toFixed(0)} dB`}</p>
     <p>지금 말할 소리: {TAGS.map(value => <label key={value} style={{ marginRight: 10 }}><input type="radio" checked={tag === value} onChange={() => setTag(value)} /> {value}</label>)}</p>
     <table style={{ borderCollapse: 'collapse', fontSize: 13 }}>
-      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '근사 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
+      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '되살린 앞부분', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '근사 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
       <tbody>{rows.map(row => {
         const a = row.acoustic
         const fric = a.onsetFricationMs ?? 0
-        return <tr key={row.id}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(fric)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={cell}>{fric >= ONSET_FRICATION_MIN_MS ? '마찰 시작 있음(사·스 쪽)' : '마찰 없음(다 쪽)'}</td></tr>
+        return <tr key={row.id}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(fric)}</td><td style={cell}>{ms(row.preRollMs)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={cell}>{fric >= ONSET_FRICATION_MIN_MS ? '마찰 시작 있음(사·스 쪽)' : '마찰 없음(다 쪽)'}</td></tr>
       })}</tbody>
     </table>
     <h2 style={{ marginTop: 20 }}>3. 박자에 맞춰 말하기</h2>

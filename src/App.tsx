@@ -10,6 +10,8 @@ import Overview from './therapist/pages/Overview'
 const CharacterHome = lazy(() => import('./child/CharacterHome'))
 const ActivitySession = lazy(() => import('./child/ActivitySession'))
 const HoyaChat = lazy(() => import('./child/HoyaChat'))
+const DaeguCrossing = lazy(() => import('./child/DaeguCrossing'))
+const DuduGoodbye = lazy(() => import('./child/DuduGoodbye'))
 const ChildDetail = lazy(() => import('./therapist/pages/ChildDetail'))
 const SessionDetail = lazy(() => import('./therapist/pages/SessionDetail'))
 
@@ -19,6 +21,8 @@ export default function App() { return <Suspense fallback={<main>두두가 준�
   <Route path="/play/home" element={<CharacterHome />} />
   <Route path="/play/map" element={<WorldMap />} />
   <Route path="/play/chat" element={<HoyaChat />} />
+  <Route path="/play/crossing" element={<DaeguCrossing />} />
+  <Route path="/play/goodbye" element={<DuduGoodbye />} />
   <Route path="/play/activity/:id" element={<ActivitySession />} />
   <Route path="/play/reward" element={<RewardScreen />} />
   <Route path="/therapist/login" element={<Login />} />

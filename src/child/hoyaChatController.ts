@@ -29,7 +29,8 @@ export const HOYA_RECOVERY_DELAYS_MS = [1000, 2000, 4000]
 export interface SpeakHandle { cancel(): void }
 export type Speak = (text: string, events: { onStart(): void; onEnd(): void }) => SpeakHandle
 export interface ChatUtterance { transcript: string | null; alternatives: string[]; acoustic: Partial<Acoustic>; recognizer: 'web_speech' | 'demo_script' }
-export interface ChatReply { text: string; nextTurnIndex?: number; sessionComplete: boolean }
+/** nextActivity: 서버가 대화를 마치고 게임을 권할 때만 온다(예: 'daegu_crossing'). 근거·횟수 같은 내부 정보는 오지 않는다. */
+export interface ChatReply { text: string; nextTurnIndex?: number; sessionComplete: boolean; nextActivity?: string | null }
 /** 서버로 보내는 발화 1회. 재시도는 이 객체(같은 번호·요청 ID·발화)를 그대로 다시 쓴다. */
 export interface TurnRequest { index: number; requestId: string; utterance: ChatUtterance }
 export interface Timers { set(callback: () => void, ms: number): unknown; clear(id: unknown): void }
@@ -48,6 +49,8 @@ export interface ChatDeps {
   onAction(action: HoyaAction): void
   onText(text: string): void
   onComplete?(): void
+  /** 두두가 게임을 권하는 말을 시작할 때 부른다. 화면은 아래 게임 버튼을 빛낸다. */
+  onNextActivity?(activity: string): void
   newRequestId?(): string
   fillerDelayMs?: number
   timers?: Timers
@@ -242,6 +245,7 @@ export class HoyaChatController {
   }
 
   private answer(reply: ChatReply) {
+    if (reply.nextActivity) this.deps.onNextActivity?.(reply.nextActivity)
     this.respond(reply.text, () => {
       if (reply.sessionComplete) { this.end(); this.deps.onComplete?.() }
       else this.listen()
