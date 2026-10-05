@@ -25,12 +25,13 @@ const SYLLABLES = ['사', '소', '수', '시']
 /** 목표 /ㅅ/의 미리보기 계획(5라운드 × 2줄). 낱말 단계면 1~3라운드도 낱말이다. 서버 사양과 같다. */
 export function previewPlan(level: 'syllable' | 'word' = 'syllable'): CrossingItem[] {
   const word = level === 'word'
+  // 서버(backend/app/games/crossing.py build_stages)와 같은 구성. 설계 근거는 shared/daegu_crossing_rationale.json.
   const rounds: string[][] = [
     word ? ['사과', '사과'] : ['사', '사'],
-    word ? ['수박', '수박'] : ['사', '사'],
+    word ? ['사과', '사과'] : ['사', '사'],
     word ? ['소리', '시소'] : ['소', '시'],
     ['사과', '수박'],
-    ['수', '시소'],
+    word ? ['수박', '시소'] : ['수', '시소'],
   ]
   return rounds.flatMap((texts, r) => texts.map((text, i) => ({
     itemId: `preview-${r + 1}-${i + 1}`, text, level: SYLLABLES.includes(text) ? 'syllable' as const : 'word' as const,
