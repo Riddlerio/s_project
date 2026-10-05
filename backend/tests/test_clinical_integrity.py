@@ -307,6 +307,56 @@ def test_provenance_audit_counts_legacy_rows_without_writing(api):
     assert hashlib.sha256(database.read_bytes()).hexdigest() == before
 
 
+def test_seed_provenance_repair_previews_without_writing_then_fixes_only_seed_child_rows(api):
+    import hashlib
+    import importlib.util
+    from pathlib import Path
+    from app.models import AuditEvent, HoyaChatSession
+    spec = importlib.util.spec_from_file_location("repair_seed_provenance", Path(__file__).resolve().parents[1] / "scripts" / "repair_seed_provenance.py")
+    repair = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(repair)
+    client, sessions = api
+    seed_headers = student_auth(client)
+    started = _start(client, seed_headers, "real")
+    _post(client, seed_headers, started["sessionId"], started["firstItem"]["itemId"], 1, SUCCESS)
+    chat = client.post("/api/hoya/chat/sessions", headers=seed_headers, json={"mode": "real"})
+    assert chat.status_code == 200, chat.text
+    real_headers, _real_child = real_child_auth(client)
+    real = _start(client, real_headers, "real")
+    with sessions() as db:
+        # 수정 전 코드가 남긴 과거 행: seed 아동의 실제 게임·대화 회기가 비seed, 관찰은 임상 확인 상태.
+        db.get(TrainingSession, started["sessionId"]).is_seed = False
+        db.get(HoyaChatSession, chat.json()["sessionId"]).is_seed = False
+        first = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == started["sessionId"])).first()
+        first.verification_state = "CONFIRMED"
+        db.commit()
+    database = Path(str(sessions.kw["bind"].url.database))
+    before = hashlib.sha256(database.read_bytes()).hexdigest()
+    preview = repair.main(["--database", str(database)])
+    assert (preview["trainingSessions"], preview["chatSessions"]) == (1, 1)
+    assert preview["observationStates"] == {"CONFIRMED->DEMO_CONFIRMED": 1}
+    assert hashlib.sha256(database.read_bytes()).hexdigest() == before
+
+    applied = repair.main(["--database", str(database), "--apply"])
+    backup = Path(applied["backup"])
+    import sqlite3
+    old = sqlite3.connect(f"file:{backup.as_posix()}?mode=ro", uri=True)  # 백업은 수리 전 내용 그대로
+    try:
+        assert old.execute("SELECT is_seed FROM training_sessions WHERE id = ?", (started["sessionId"],)).fetchone()[0] == 0
+    finally:
+        old.close()
+    with sessions() as db:
+        assert db.get(TrainingSession, started["sessionId"]).is_seed is True
+        assert db.get(HoyaChatSession, chat.json()["sessionId"]).is_seed is True
+        states = set(db.scalars(select(ClinicalObservation.verification_state).where(ClinicalObservation.session_id == started["sessionId"])))
+        assert "DEMO_CONFIRMED" in states and "CONFIRMED" not in states
+        assert db.get(TrainingSession, real["sessionId"]).is_seed is False  # 실제 아동 기록은 그대로
+        assert db.scalar(select(AuditEvent).where(AuditEvent.action == "SEED_PROVENANCE_REPAIR")) is not None
+    again = repair.main(["--database", str(database)])
+    assert (again["trainingSessions"], again["chatSessions"], again["observationStates"]) == (0, 0, {})
+    backup.unlink()
+
+
 def _metric_session(db, child_id, mode, is_seed, first_try, status="completed", days_ago=1):
     from datetime import timedelta
     from app.models import ProgressMetric, TrainingGoal, TrainingPlan, now
