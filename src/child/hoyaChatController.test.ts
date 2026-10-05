@@ -53,6 +53,23 @@ describe('호야 대화 turn 흐름', () => {
     expect(t.actions.at(-1)).toBe('TALKING')
   })
 
+  it('서버가 게임을 권하면 그 말을 하기 전에 알리고, 대화는 계속 듣는다', async () => {
+    const suggested: string[] = []
+    const t = setup({ onNextActivity: activity => suggested.push(activity) })
+    t.ready()
+    t.controller.submit(t.utterance)
+    t.requests[0].resolve(t.reply("우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?", { nextActivity: 'daegu_crossing' }))
+    await t.flush()
+    expect(suggested).toEqual(['daegu_crossing'])
+    t.spoken[1].onStart(); t.spoken[1].onEnd()
+    expect(t.controller.state).toBe('LISTENING')
+    // 권하지 않은 답에는 알리지 않는다.
+    t.controller.submit(t.utterance)
+    t.requests[1].resolve(t.reply('좋아!', { nextActivity: null }))
+    await t.flush()
+    expect(suggested).toEqual(['daegu_crossing'])
+  })
+
   it('Case 2: 응답이 늦으면 "음..."을 한 번 말한 뒤 답한다', async () => {
     const t = setup()
     t.ready()

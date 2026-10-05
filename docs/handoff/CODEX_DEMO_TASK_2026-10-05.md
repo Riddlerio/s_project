@@ -97,6 +97,19 @@
 - 실행하지 못한 검사는 '미실행'으로 적는다. 실제 마이크·실기기는 사용자·Claude 측정 결과를 인용만 한다.
 - PR: `codex/demo-server` → `claude/dudu-followup`. 설명은 한국어로 쓰고, 동결 변경 승인 요청을 따로 적는다.
 
+### Claude 클라이언트가 이미 하는 것 (2026-10-05 구현, 서버가 맞출 것)
+
+- **대화:** `src/child/hoyaChatController.ts`의 `ChatReply`에 `nextActivity?: string | null`을 넣었다. 아동 응답에 이 필드가 오면 두두가 그 말을 하는 동안 아래 '대구대 건너기' 버튼이 빛난다. Codex는 `src/api/hoyaChat.ts`를 고치지 않아도 된다(타입이 controller에서 온다).
+- **시작 마찰 측정:** '대구대 건너기'는 공용 `MicUtterancePipeline` 대신 `src/game/crossing/onsetPipeline.ts`를 쓴다.
+  - 공용 경로는 발화 감지 기준(잡음+12dB)이 마찰음 기준(+6dB)보다 높아, 조용히 낸 /ㅅ/의 시작 마찰이 0으로 남는다(테스트로 재현).
+  - 새 경로는 감지 직전의 연속 마찰(최대 0.4초)을 되살려 `onsetFricationMs`·`voicedAfterFricationMs`를 채운다.
+  - 서버 규칙은 이 값을 그대로 받는다.
+- **놓침:** 기다리는 동안 말이 없으면 소리 없는 요약(`activeMs: 0`, `source: microphone`. DEMO면 `keyboard`)을 보낸다. 서버는 `no_speech`로 처리하면 된다(시도 미소모, 같은 줄 3번이면 넘어감).
+- **DEMO 입력:** 누르고 말하기로 보낸다. 요약은 `source: 'keyboard'`, `durationMs`=누른 시간, `onsetFricationMs: 150`, `voicedAfterFricationMs`=누른 시간−150이다. 다른 게임처럼 DEMO로 표시하고 임상 근거에서 빼야 한다.
+- **결과 읽기:** 응답에 `result` 필드가 있으면 그것을 쓴다. 없으면 기존 사건 이름으로 읽는다(`TARGET_SUCCESS`→success, `TARGET_RETRY`→retry, `NO_SPEECH`→no_speech, 나머지→uncertain). 줄 번호(`stripeIndex`)가 없으면 화면이 센다. 필드 이름이 바뀌면 `src/game/crossing/crossingJudge.ts` 한 곳만 고친다.
+- **완료:** 마지막 줄 뒤 `/api/play/sessions/{id}/complete`를 부른다(임대 토큰 헤더 포함, 다른 V2 게임과 같음).
+- **현재 상태:** 서버가 `daegu_crossing`을 모르면 활동 시작이 422다. 화면은 "서버에 아직 대구대 건너기가 준비되지 않았어요"라고 표시한다.
+
 ## 4. 지킬 원칙
 
 - 게임 점수(점프·칭찬)는 임상 자료가 아니다.

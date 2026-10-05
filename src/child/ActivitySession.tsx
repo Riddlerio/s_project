@@ -4,7 +4,7 @@ import { api, ApiError } from '../api/client'
 import { sendActivityUtterance, type ActivityItem, type ActivityRound, type ActivityStart } from '../api/activities'
 import type { Acoustic } from '../shared/types'
 import { HoyaActionController } from '../control/HoyaActionController'
-import type { HoyaAction } from '../control/speechGameSignal'
+import type { GameKind, HoyaAction } from '../control/speechGameSignal'
 import { ActivityScene, RoundFeedback, type SceneFx } from './ActivityScene'
 import { AttackChoice } from './AttackChoice'
 import './activityLayout.css'
@@ -16,7 +16,7 @@ import { detectCapabilities, missingText, supportsRealMode } from '../speech/cap
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { KoreanTts } from '../speech/koreanTts'
 
-const gameNames = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍' }
+const gameNames: Record<GameKind, string> = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍', daegu_crossing: '대구대 건너기' }
 
 export default function ActivitySession() {
   const { id } = useParams()

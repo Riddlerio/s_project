@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { completeHoyaChat, getHoyaChat, sendHoyaTurn, startHoyaChat, type HoyaChatSession } from '../api/hoyaChat'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { Hoya3D } from '../tiger/Hoya3D'
@@ -9,6 +9,12 @@ import { MicUtterancePipeline } from '../speech/micUtterance'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
 import { KoreanTts } from '../speech/koreanTts'
+import './duduDemo.css'
+
+/** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
+export const CROSSING_PATH = '/play/crossing'
+// 인사할 때 먼저 점프하고 나서 말한다.
+const GREETING_JUMP_MS = 1300
 
 const STATUS: Record<HoyaChatState, string> = {
   IDLE: '', LISTENING: '두두가 듣고 있어요', PROCESSING: '두두가 생각하고 있어요', FILLER_SPEAKING: '두두가 생각하고 있어요',
@@ -17,12 +23,15 @@ const STATUS: Record<HoyaChatState, string> = {
 
 export default function HoyaChat() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const autostart = (location.state as { autostart?: boolean } | null)?.autostart === true
+  const [suggested, setSuggested] = useState(false)
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = supportsRealMode('conversation_quest', capabilities)
   const [session, setSession] = useState<HoyaChatSession | null>(null)
   const [chatState, setChatState] = useState<HoyaChatState>('IDLE')
   const [action, setAction] = useState<HoyaAction>('IDLE')
-  const [hoyaText, setHoyaText] = useState('두두랑 이야기할래?')
+  const [hoyaText, setHoyaText] = useState(autostart ? '' : '두두랑 이야기할래?')
   const [preparing, setPreparing] = useState(false)
   const [micText, setMicText] = useState('')
   const [demoText, setDemoText] = useState('')
@@ -114,7 +123,13 @@ export default function HoyaChat() {
         resync: () => getHoyaChat(started.sessionId).then(value => ({ nextTurnIndex: value.nextTurnIndex, active: value.status === 'active' })),
         onState: setChatState, onAction: setAction, onText: setHoyaText,
         onComplete: () => { void completeHoyaChat(started.sessionId).catch(() => undefined); stopMicrophone() },
+        onNextActivity: activity => { if (activity === 'daegu_crossing') setSuggested(true) },
       })
+      // 인사: 먼저 점프하고(웃는 얼굴) 이어서 입을 움직이며 말한다.
+      const greet = () => {
+        setAction('CHEER')
+        window.setTimeout(() => { if (mounted.current && voice.current === tts) chat.start(started.openingText) }, GREETING_JUMP_MS)
+      }
       controller.current = chat
       setSession(started)
       if (mode === 'real') {
@@ -122,9 +137,9 @@ export default function HoyaChat() {
         // 실제 frame으로 1초 보정이 끝난 뒤 인사한다. 단순 시간 경과는 마이크 준비를 보장하지 않는다.
         await listenWithMicrophone(chat, () => {
           if (!mounted.current || voice.current !== tts) return
-          setMicText('마이크가 켜져 있어요'); chat.start(started.openingText)
+          setMicText('마이크가 켜져 있어요'); greet()
         })
-      } else chat.start(started.openingText)
+      } else greet()
     } catch (cause) {
       if (!mounted.current || voice.current !== tts) return
       controller.current?.dispose()
@@ -149,6 +164,19 @@ export default function HoyaChat() {
     setMicText('')
   }
 
+  // 로그인 직후에는 바로 두두가 인사한다(로그인 버튼 누름이 브라우저의 소리·마이크 허용 조건이 된다).
+  // 개발 모드(StrictMode)의 두 번 실행에서도 한 번만 시작하도록 다음 차례로 미루고 정리 때 취소한다.
+  useEffect(() => {
+    if (!autostart) return
+    const timer = window.setTimeout(() => { void begin(realSupported ? 'real' : 'demo') }, 0)
+    return () => window.clearTimeout(timer)
+  }, [autostart])
+
+  function goCrossing() {
+    finish()
+    navigate(CROSSING_PATH, { state: { from: 'chat' } })
+  }
+
   const listening = chatState === 'LISTENING'
   return <main className="child-screen game-screen">
     <h1>두두와 대화하기</h1>
@@ -171,5 +199,13 @@ export default function HoyaChat() {
     {chatState === 'ENDED' && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
     {!session && <button className="quiet" onClick={() => navigate('/play/home')}>돌아가기</button>}
     {error && <p role="alert">{error}</p>}
+    {session && <nav className={`dudu-next-game${suggested ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
+      {suggested && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐! ↓</span>}
+      <button className="dudu-next-button" onClick={goCrossing} disabled={!suggested}>
+        <span className="dudu-next-icon" aria-hidden="true">🚸</span>
+        <span><strong>대구대 건너기</strong><small>{suggested ? '두두랑 횡단보도를 건너 대구대까지!' : '대화를 조금 더 하면 열려요'}</small></span>
+      </button>
+      {!suggested && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
+    </nav>}
   </main>
 }

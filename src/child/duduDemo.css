@@ -1,0 +1,54 @@
+/* 5일 데모 흐름(대화 → 대구대 건너기 → 마무리) 전용 스타일. 깜박임은 초당 3회 미만, 움직임 줄이기를 따른다. */
+
+.dudu-next-game { position: sticky; bottom: 0; display: grid; justify-items: center; gap: .4rem; width: 100%; padding: .8rem 0 1rem; background: linear-gradient(transparent, #f5f6f1 35%); }
+.dudu-next-button { display: flex; align-items: center; gap: .9rem; min-width: min(420px, 92vw); padding: .9rem 1.4rem; border-radius: 22px; background: #fff; color: var(--ink); border: 2px solid var(--line); text-align: left; }
+.dudu-next-button strong { display: block; font-size: 1.2rem; }
+.dudu-next-button small { display: block; color: var(--muted); font-size: .85rem; font-weight: 600; }
+.dudu-next-button:disabled { opacity: .55; cursor: default; }
+.dudu-next-icon { font-size: 2rem; }
+.dudu-next-game.suggested .dudu-next-button { background: var(--forest); color: #fff; border-color: var(--lime); box-shadow: 0 0 0 4px #d6ee8766, 0 10px 26px #0e625540; animation: dudu-next-glow 1.6s ease-in-out infinite; }
+.dudu-next-game.suggested .dudu-next-button small { color: #e6f4d0; }
+.dudu-next-hint { font-weight: 900; color: var(--forest); animation: dudu-next-bob 1.2s ease-in-out infinite; }
+.dudu-skip { font-size: .78rem !important; padding: .3rem .6rem; }
+@keyframes dudu-next-glow { 50% { box-shadow: 0 0 0 8px #d6ee8733, 0 10px 26px #0e625540; } }
+@keyframes dudu-next-bob { 50% { transform: translateY(4px); } }
+
+/* 대구대 건너기 */
+.crossing-screen { min-height: 100vh; background: #eef4ef; color: var(--ink); }
+.crossing-shell { max-width: 1100px; margin: 0 auto; padding: 1rem; display: grid; gap: .8rem; }
+.crossing-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.crossing-top h1 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); }
+.crossing-stage { position: relative; height: min(62vh, 560px); min-height: 340px; border-radius: 26px; overflow: hidden; background: linear-gradient(#bfe3f2, #e9f6ee); }
+.crossing-caption { margin: 0; min-height: 2.6em; font-size: clamp(1.1rem, 2.4vw, 1.5rem); font-weight: 800; text-align: center; }
+.crossing-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: .25rem; }
+.crossing-steps span { width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #d7e2db; }
+.crossing-steps span.done { background: var(--forest); }
+.crossing-steps span.now { outline: 3px solid var(--lime); }
+.crossing-controls { display: flex; justify-content: center; gap: .6rem; flex-wrap: wrap; }
+.crossing-intro { display: grid; gap: .8rem; justify-items: center; text-align: center; padding: 1rem; background: #fff; border-radius: 22px; }
+.crossing-intro ol { text-align: left; margin: 0; padding-left: 1.2rem; line-height: 1.8; }
+.crossing-badge { font-size: .78rem; color: var(--muted); }
+
+/* 말풍선 레인: 음절 카드가 오른쪽에서 다가와 두두 머리 위 원에 들어온다. */
+.crossing-lane { position: absolute; left: 0; right: 0; top: 4%; height: 120px; pointer-events: none; }
+.crossing-ring { position: absolute; left: 50%; top: 10px; width: 112px; height: 112px; margin-left: -56px; border-radius: 50%; border: 5px dashed #ffffffcc; background: #ffffff55; }
+.crossing-ring.open { border-style: solid; border-color: #f4b400; background: #fff6d6cc; }
+.crossing-card { position: absolute; top: 18px; left: 50%; width: 96px; height: 96px; margin-left: -48px; display: grid; place-items: center; border-radius: 24px; background: #fff; box-shadow: 0 8px 20px #0e625533; font-size: 2.4rem; font-weight: 900; color: var(--ink); transition: transform var(--approach, 5s) linear, opacity .3s; }
+.crossing-card small { display: block; font-size: .8rem; color: var(--muted); font-weight: 700; }
+.crossing-card.word { width: 150px; margin-left: -75px; font-size: 2rem; }
+.crossing-card.away { transform: translateX(min(46vw, 520px)); opacity: .9; }
+.crossing-card.here { transform: translateX(0); }
+.crossing-card.gone { transform: translateX(-60vw); opacity: 0; transition: transform 1s ease-in, opacity 1s; }
+.crossing-card.cleared { transform: translateY(-30px) scale(.8); opacity: 0; transition: transform .6s ease-out, opacity .6s; }
+.crossing-praise { position: absolute; left: 72%; top: 46%; transform: translate(-50%, -50%); padding: .5rem 1.1rem; border-radius: 999px; background: #fff; font-size: 1.4rem; font-weight: 900; color: var(--forest); box-shadow: 0 8px 22px #0e625533; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint { animation: none; }
+  .crossing-card { transition: none !important; }
+}
+@media (max-width: 520px) {
+  .crossing-stage { height: 52vh; min-height: 300px; }
+  .crossing-card { width: 80px; height: 80px; margin-left: -40px; font-size: 2rem; }
+  .crossing-card.word { width: 124px; margin-left: -62px; font-size: 1.6rem; }
+  .crossing-ring { width: 96px; height: 96px; margin-left: -48px; }
+}

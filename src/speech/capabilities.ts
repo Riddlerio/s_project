@@ -10,6 +10,8 @@ export const GAME_REQUIREMENTS: Record<GameKind, SpeechCapability[]> = {
   sky_climb: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE'],
   monster_adventure: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE', 'ASR_AVAILABLE'],
   conversation_quest: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE', 'ASR_AVAILABLE'],
+  // 대구대 건너기는 소리 시작의 마찰 구간(음향)으로 판정한다. 음성 인식은 쓰지 않는다.
+  daegu_crossing: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE'],
 }
 
 type CapabilityScope = {
