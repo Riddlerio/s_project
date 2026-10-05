@@ -1,11 +1,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import { MathUtils, Vector3, type Group, type Mesh, type MeshStandardMaterial } from 'three'
 import type { HoyaAction } from '../../control/speechGameSignal'
 import { DuduCharacter } from '../../tiger/DuduCharacter'
 import { canUseWebGL, HoyaErrorBoundary, HoyaFallback } from '../../tiger/Hoya3D'
 import { STRIPES } from './crossingFlow'
 import { DaeguGate } from './DaeguGate'
+import { beatPhase } from './rhythm'
 
 /*
  * '대구대 건너기' 3D 장면. 흰 줄 10개의 횡단보도(초록불)를 두두가 한 줄씩 폴짝 건너 대구대 정문까지 간다.
@@ -98,10 +99,13 @@ function LandingFx({ stripe, animate }: { stripe: number; animate: boolean }) {
   </group>
 }
 
+/** 박 격자(어떤 마디의 시작 시각과 빠르기). 두두가 이 박에 맞춰 몸을 흔든다(rhythm.ts). */
+export interface BeatGrid { anchor: number; bpm: number }
+
 /** 도착 줄: 마지막 흰 줄을 지나 정문 앞 인도. */
 export const ARRIVAL_STRIPE = STRIPES + 1.3
 
-function Walker({ stripe, action, animate, bob, arrived }: { stripe: number; action: HoyaAction; animate: boolean; bob: boolean; arrived: boolean }) {
+function Walker({ stripe, action, animate, bob, arrived, beat }: { stripe: number; action: HoyaAction; animate: boolean; bob: boolean; arrived: boolean; beat?: MutableRefObject<BeatGrid | null> }) {
   const group = useRef<Group>(null)
   const from = useRef(stripe)
   const started = useRef(0)
@@ -118,7 +122,10 @@ function Walker({ stripe, action, animate, bob, arrived }: { stripe: number; act
     const eased = t * t * (3 - 2 * t)
     g.position.x = stripeX(MathUtils.lerp(from.current, stripe, eased))
     const hopping = t < 1 && stripe !== from.current
-    g.position.y = (hopping ? Math.sin(Math.PI * t) * 0.55 : 0) + (bob && animate && !hopping ? Math.abs(Math.sin(clock.elapsedTime * Math.PI * 1.5)) * 0.04 : 0)
+    // 박 타기: 박 격자가 있으면 박마다 발이 땅에 닿게(박 사이에 살짝 뜀) 흔든다. 없으면 일정하게 흔든다.
+    const grid = beat?.current
+    const sway = grid ? Math.sin(Math.PI * beatPhase(grid.anchor, grid.bpm, performance.now())) * 0.06 : Math.abs(Math.sin(clock.elapsedTime * Math.PI * 1.5)) * 0.04
+    g.position.y = (hopping ? Math.sin(Math.PI * t) * 0.55 : 0) + (bob && animate && !hopping ? sway : 0)
     g.rotation.z = hopping ? -0.18 * Math.sin(Math.PI * t) : 0
     // 카메라는 두두를 부드럽게 따라간다.
     const target = g.position.x
@@ -134,7 +141,7 @@ function Walker({ stripe, action, animate, bob, arrived }: { stripe: number; act
   </group>
 }
 
-export function CrossingScene({ stripe, action, animate, bob = true, arrived = false }: { stripe: number; action: HoyaAction; animate: boolean; bob?: boolean; arrived?: boolean }) {
+export function CrossingScene({ stripe, action, animate, bob = true, arrived = false, beat }: { stripe: number; action: HoyaAction; animate: boolean; bob?: boolean; arrived?: boolean; beat?: MutableRefObject<BeatGrid | null> }) {
   const [supported] = useState(() => canUseWebGL())
   const [lost, setLost] = useState(false)
   if (!supported || lost) return <HoyaFallback action={action} />
@@ -148,7 +155,7 @@ export function CrossingScene({ stripe, action, animate, bob = true, arrived = f
         <directionalLight position={[-5, 3, 4]} intensity={0.4} />
         <Street crossed={Math.min(STRIPES, Math.floor(stripe))} />
         <LandingFx stripe={stripe} animate={animate} />
-        <Walker stripe={stripe} action={action} animate={animate} bob={bob} arrived={arrived} />
+        <Walker stripe={stripe} action={action} animate={animate} bob={bob} arrived={arrived} beat={beat} />
       </Canvas>
     </HoyaErrorBoundary>
   </div>

@@ -62,11 +62,17 @@
 /* 말풍선 레인: 음절 카드가 오른쪽에서 다가와 두두 머리 위 원에 들어온다. */
 .crossing-lane { position: absolute; left: 0; right: 0; top: 4%; height: 130px; pointer-events: none; }
 .crossing-ring { position: absolute; left: 50%; top: 8px; width: 118px; height: 118px; margin-left: -59px; border-radius: 50%; border: 5px dashed var(--color-alpha-white-a85); background: var(--color-alpha-white-a30); }
-.crossing-ring.open { border-style: solid; border-color: var(--color-brand-gold); background: var(--color-alpha-yellow-l92-a80); animation: crossing-ring-pulse 1.1s ease-in-out infinite alternate; }
+.crossing-ring.open { border-style: solid; border-color: var(--color-brand-gold); background: var(--color-alpha-yellow-l92-a80); box-shadow: 0 0 0 8px var(--color-alpha-gold-a15); }
+/* 박: '똑'마다 동그라미가 한 번 살짝 뛴다(깜박임 아님). 두두가 부르는 박은 민트색. 듣는 동안(.open)은 움직이지 않는다. */
+.crossing-ring.tick { animation: ring-tick .22s ease-out; }
+.crossing-ring.dudu { border-style: solid; border-color: var(--color-brand-mint); background: var(--color-alpha-white-a85); }
+@keyframes ring-tick { 40% { transform: scale(1.09); border-color: var(--color-brand-gold); } }
 .crossing-card { position: absolute; top: 18px; left: 50%; width: 98px; height: 98px; margin-left: -49px; display: grid; place-items: center; border-radius: 26px; background: var(--color-surface-white); box-shadow: 0 10px 22px var(--color-alpha-forest-a22); font-size: 2.5rem; font-weight: 900; color: var(--ink); overflow: hidden; transition: transform var(--approach, 5s) linear, opacity .3s; }
 .crossing-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: var(--color-brand-mint); }
 .crossing-card.word { width: 156px; margin-left: -78px; font-size: 2.05rem; }
 .crossing-card.word::before { background: var(--color-brand-gold); }
+.crossing-card.pictured { grid-template-rows: auto auto; align-content: center; gap: 0; padding-top: 8px; font-size: 1.45rem; line-height: 1.05; }
+.crossing-card .word-picture { display: block; }
 .crossing-card.away { transform: translateX(min(46vw, 520px)) rotate(4deg); opacity: .92; }
 .crossing-card.here { transform: translateX(0) rotate(0); }
 .crossing-card.gone { transform: translateX(-60vw) rotate(-14deg); opacity: 0; transition: transform 1s ease-in, opacity 1s; }
@@ -78,10 +84,19 @@
   55% { transform: translateY(20px) scale(1.05) rotate(3deg); opacity: 1; color: var(--color-palette-orange-l33); background: var(--color-palette-yellow-l91); }
   100% { transform: translateY(190px) scale(.22); opacity: 0; background: var(--color-palette-yellow-l91); }
 }
-/* 말하기 동그라미에 들어온 글자는 숨 쉬듯 살짝 커졌다 작아진다(깜박임 아님) */
-.crossing-ring.open ~ .crossing-card.here { animation: card-breathe 1.2s ease-in-out infinite alternate; }
-@keyframes card-breathe { from { transform: translateX(0) scale(1); } to { transform: translateX(0) scale(1.07); } }
-@keyframes crossing-ring-pulse { to { transform: scale(1.06); box-shadow: 0 0 0 10px var(--color-alpha-gold-a15); } }
+/* 넷째 박: 카드가 동그라미에 '착' 들어온다(한 번). 듣는 동안에는 더 움직이지 않는다. */
+.crossing-card.landed { transform: translateX(0); animation: card-land .32s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes card-land { 0% { transform: translateX(0) scale(1.16); } 100% { transform: translateX(0) scale(1); } }
+
+/* 박 표시(무대 아래 가운데): 하나·둘·셋은 '똑', 넷째는 말할 박 */
+.crossing-beats { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: .4rem; z-index: 2; pointer-events: none; }
+.crossing-beats i { display: grid; place-items: center; min-width: 52px; height: 34px; padding: 0 .6rem; border-radius: 999px; background: var(--color-alpha-white-a85); border: 2px solid var(--color-alpha-white-a90); color: var(--forest); font-style: normal; font-weight: 900; font-size: .92rem; box-shadow: 0 4px 12px var(--color-alpha-forest-a12); transition: transform .08s ease-out, background-color .08s; }
+.crossing-beats i.done { background: var(--color-brand-lime); }
+.crossing-beats i.on { background: var(--color-brand-gold); color: var(--forest-deep); transform: scale(1.12); }
+.crossing-beats i.say { min-width: 64px; border-color: var(--color-brand-gold); }
+.crossing-beats.dudu i.say { border-color: var(--color-brand-mint); }
+.crossing-beats.dudu i.say.on { background: var(--color-brand-mint); color: var(--color-surface-white); }
+.crossing-chip.tempo { margin-left: .35rem; color: var(--forest-deep); background: var(--color-alpha-white-a90); }
 
 .crossing-countdown { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); padding: .4rem 1.6rem; border-radius: 999px; background: var(--color-alpha-white-a90); color: var(--forest); font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 900; box-shadow: 0 12px 30px var(--color-alpha-forest-a20); animation: crossing-count .5s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes crossing-count { from { transform: translate(-50%, -50%) scale(.4); opacity: 0; } }
@@ -101,6 +116,8 @@
 @keyframes pop-label { from { transform: scale(.3); opacity: 0; } }
 
 /* 대화·마무리 화면 */
+/* 한국어는 낱말 단위로 줄을 바꾼다('좋 / 아?'처럼 끊기지 않게) */
+.dudu-chat, .crossing-screen { word-break: keep-all; overflow-wrap: break-word; }
 .dudu-chat { min-height: 100vh; background: radial-gradient(circle at 80% 0%, var(--color-palette-yellow-l92-2) 0, transparent 35%), linear-gradient(180deg, var(--color-palette-teal-l92) 0%, var(--color-palette-neutral-l96) 60%) !important; }
 .dudu-chat h1 { margin-bottom: .2rem; }
 .dudu-chat-stage { position: relative; width: min(760px, 100%); height: 50vh; min-height: 320px; margin: .4rem auto 0; border-radius: 34px; background: radial-gradient(ellipse 46% 13% at 50% 90%, var(--color-palette-green-l76) 0 70%, transparent 72%), linear-gradient(var(--color-palette-teal-l88), var(--color-palette-neutral-l95-2)); border: 6px solid var(--color-surface-white); box-shadow: 0 18px 40px var(--color-alpha-forest-a18); overflow: hidden; }
@@ -108,21 +125,39 @@
 .dudu-bubble::before { content: ''; position: absolute; left: 50%; top: -10px; width: 20px; height: 20px; margin-left: -10px; background: var(--color-surface-white); transform: rotate(45deg); border-radius: 4px; }
 .dudu-status { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem auto; padding: .3rem .8rem; border-radius: 999px; background: var(--color-alpha-white-a80); color: var(--forest); font-weight: 800; font-size: .88rem; }
 .dudu-status:empty { display: none; }
+/* 그림 단서: 두두 말에 나온 목표 낱말을 그림 카드로(선택 질문이면 두 장) */
+.dudu-picture-cues { display: flex; justify-content: center; gap: .8rem; margin: .1rem auto .5rem; }
+.dudu-picture-cues figure { display: grid; justify-items: center; gap: .15rem; margin: 0; padding: .55rem .9rem .45rem; border-radius: 20px; background: var(--color-surface-white); border: 2px solid var(--line); box-shadow: 0 6px 16px var(--color-alpha-forest-a12); animation: picture-in .35s cubic-bezier(.2, 1.5, .4, 1); }
+.dudu-picture-cues figcaption { font-weight: 900; font-size: 1.05rem; color: var(--ink); }
+@keyframes picture-in { from { transform: scale(.7); opacity: 0; } }
+
+/* 마무리: 오늘 연습한 말(그림 카드, 점수 없음) */
+.dudu-practiced { margin: .4rem auto .6rem; max-width: min(640px, 92vw); text-align: center; }
+.dudu-practiced h2 { margin: 0 0 .5rem; font-size: 1rem; color: var(--forest); }
+.dudu-practiced ul { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.dudu-practiced li { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; min-width: 48px; min-height: 44px; padding: .25rem .8rem .25rem .5rem; border-radius: 999px; background: var(--color-surface-white); border: 2px solid var(--line); font-weight: 900; color: var(--ink); }
 
 /* 두두 음성 출처 표기(VOLI 무료 플랜 조건) */
 .voice-credit { margin: 1.2rem auto .4rem; text-align: center; color: var(--muted); font-size: .72rem; opacity: .85; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint, .crossing-ring.open, .crossing-countdown, .pop-burst *, .pop-label { animation: none !important; }
+  .dudu-picture-cues figure { animation: none; }
+  .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint, .crossing-ring.open, .crossing-ring.tick, .crossing-card.landed, .crossing-countdown, .pop-burst *, .pop-label { animation: none !important; }
+  .crossing-beats i { transition: none; }
+  .crossing-beats i.on { transform: none; }
   .crossing-card { transition: none !important; }
   .crossing-card.cleared { animation: none; opacity: 0; }
-  .crossing-ring.open ~ .crossing-card.here, .crossing-caption.praise, .crossing-caption.arrive, .praise-char, .praise-spark { animation: none !important; }
+  .crossing-caption.praise, .crossing-caption.arrive, .praise-char, .praise-spark { animation: none !important; }
   .praise-spark { display: none; }
 }
 @media (max-width: 520px) {
   .crossing-stage { height: 52vh; min-height: 300px; }
   .crossing-card { width: 80px; height: 80px; margin-left: -40px; font-size: 2rem; }
   .crossing-card.word { width: 124px; margin-left: -62px; font-size: 1.6rem; }
+  .crossing-card.pictured { font-size: 1.15rem; padding-top: 10px; }
+  .crossing-card.pictured .word-picture { width: 34px; height: 34px; }
+  .dudu-picture-cues figure { padding: .45rem .7rem .35rem; }
+  .dudu-picture-cues .word-picture { width: 52px; height: 52px; }
   .crossing-ring { width: 96px; height: 96px; margin-left: -48px; }
   /* 좁은 화면: '딱 맞았어!' 꼬리표를 동그라미 오른쪽 대신 아래 가운데에 둔다(무대 밖으로 잘리지 않게) */
   .pop-label { left: 0; top: 50px; transform: translateX(-50%); transform-origin: center; font-size: 1.2rem; animation-name: pop-label-center; }
@@ -131,5 +166,8 @@
   .crossing-path { gap: .22rem; padding: .5rem .6rem; }
   .crossing-path-step { width: 1.2rem; height: 1.2rem; font-size: .75rem; }
   .crossing-path-end { white-space: nowrap; font-size: .7rem; padding: 0 .15rem; }
+  .crossing-beats { bottom: 10px; gap: .3rem; }
+  .crossing-beats i { min-width: 44px; height: 30px; padding: 0 .45rem; font-size: .8rem; }
+  .crossing-beats i.say { min-width: 54px; }
 }
 @keyframes pop-label-center { from { transform: translateX(-50%) scale(.3); opacity: 0; } }

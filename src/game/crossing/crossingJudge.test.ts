@@ -43,6 +43,14 @@ const acoustic = { source: 'mic', durationMs: 400, activeMs: 300 } as Acoustic
 describe('대구대 건너기 서버 판정(Codex 계약)', () => {
   beforeEach(() => { vi.mocked(sendActivityUtterance).mockReset(); vi.mocked(api).mockClear() })
 
+  it('치료사가 정한 박자(시작 응답의 선택 필드 rhythm)를 쓰고, 없으면 기본값(84BPM·빨라지기 허용)', async () => {
+    fakeServer()
+    expect((await serverJudge('demo').start()).rhythm).toEqual({ startBpm: 84, allowFaster: true })
+    const base = await vi.mocked(startActivity)('daegu_crossing', 'demo')
+    vi.mocked(startActivity).mockResolvedValueOnce({ ...base, rhythm: { startBpm: 76, allowFaster: false } } as ActivityStart)
+    expect((await serverJudge('demo').start()).rhythm).toEqual({ startBpm: 76, allowFaster: false })
+  })
+
   it('서버 결과와 다음 항목 번호를 그대로 따르고, 다시면 같은 줄에 머문다', async () => {
     const server = fakeServer()
     const judge = serverJudge('demo')
