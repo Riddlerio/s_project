@@ -13,6 +13,7 @@ import { unlockDuduAudio } from '../speech/duduClips'
 import './duduDemo.css'
 import { playTurnChime, unlockFx, VoiceCredit } from './demoFx'
 import { TurnCue } from './turnCue'
+import { picturedWords, WordPicture } from './WordPicture'
 
 /** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
 export const CROSSING_PATH = '/play/crossing'
@@ -193,11 +194,16 @@ export default function HoyaChat() {
   const listening = chatState === 'LISTENING'
   // 두두가 권했거나 대화를 끝냈으면 아래 '대구대 건너기'가 열린다.
   const gameOpen = suggested || chatState === 'ENDED'
+  // 두두 말에 나온 목표 낱말은 그림으로도 보여 준다(어린 아이의 그림 단서, 선택 질문).
+  const pictures = picturedWords(hoyaText)
   const statusKind = chatState === 'LISTENING' ? 'listening' : chatState === 'RESPONSE_SPEAKING' ? 'speaking' : STATUS[chatState] ? 'thinking' : ''
   return <main className="child-screen game-screen dudu-chat">
     <h1>두두와 대화하기</h1>
     <div className="dudu-chat-stage"><Hoya3D action={action} /><TurnCue on={listening} /></div>
     <p className="speech-bubble dudu-bubble" aria-live="polite">{hoyaText || '\u00a0'}</p>
+    {pictures.length > 0 && <div className="dudu-picture-cues" role="group" aria-label="그림 단서">
+      {pictures.map(word => <figure key={word}><WordPicture word={word} size={64} /><figcaption>{word}</figcaption></figure>)}
+    </div>}
     <p className={`dudu-status ${statusKind}`} aria-live="polite">{STATUS[chatState]}</p>
     {!session && <div>
       <button disabled={preparing || !realSupported} onClick={() => { void begin('real') }}>대화 시작 (마이크)</button>

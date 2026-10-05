@@ -20,6 +20,7 @@ import { unlockDuduAudio } from '../speech/duduClips'
 import { outputLatencyMs, playFx, PopBurst, scheduleTicks, unlockFx, VoiceCredit, type PopKind, type TickHandle } from './demoFx'
 import { TurnCue } from './turnCue'
 import { isName } from './koreanText'
+import { hasPicture, WordPicture } from './WordPicture'
 import './duduDemo.css'
 
 /*
@@ -110,6 +111,8 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const startedAt = useRef(0)
   const firstWord = useRef<string | null>(null)
   const modelIntroduced = useRef(false)
+  // 오늘 연습한 말(마무리 화면에 그림 카드로 보여 준다. 맞았는지는 넘기지 않는다)
+  const practiced = useRef<string[]>([])
   // 쉬는 동안 마지막 줄까지 끝났으면 다시 시작할 때 도착으로 간다.
   const finishedWhilePaused = useRef(false)
   // 타이머 안에서 읽는 값은 ref로 둔다(지난 렌더의 값을 읽지 않게).
@@ -216,6 +219,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     setItem(next); setCardKey(key => key + 1); setCard('away'); setWindowOpen(false); setTurn(null); setBeat(0)
     setAction('IDLE'); setCaption('')
     if (next.level === 'word' && firstWord.current === null) firstWord.current = next.text
+    if (!practiced.current.includes(next.text)) practiced.current.push(next.text)
     const line = lead ?? (next.modelCue && !modelIntroduced.current ? MODEL_LEAD : null)
     if (line) { if (line === MODEL_LEAD) modelIntroduced.current = true; say(line, () => scheduleBars(next)); return }
     scheduleBars(next)
@@ -354,7 +358,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     const name = heroName.current
     void judge.current?.finish(Math.floor((Date.now() - startedAt.current) / 1000)).catch(() => undefined)
     say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(() => navigate('/play/goodbye', {
-      state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: name } }), 1200), 'CHEER', 'arrive')
+      state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: name, words: practiced.current } }), 1200), 'CHEER', 'arrive')
   }
 
   function togglePause() {
@@ -393,7 +397,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       <div><p className="eyebrow">대구대 건너기{mode === 'demo' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
         <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : '두두랑 대구대까지!'}</h1>
         {phase === 'play' && <><span className="crossing-chip">{ROUND_TITLES[roundIndex - 1]}</span>
-          <span className="crossing-chip tempo" aria-label={`빠르기 1분에 ${tempo}박`}><span aria-hidden="true">♩ {tempo}</span></span></>}</div>
+          <span className="crossing-chip tempo"><span aria-hidden="true">♩ {tempo}</span><span className="sr-only">빠르기 1분에 {tempo}박</span></span></>}</div>
       {phase === 'play' && <button className="secondary-action" onClick={togglePause}>{paused ? '다시 시작' : '잠깐 쉬기'}</button>}
     </header>
 
@@ -418,8 +422,9 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
         <CrossingScene stripe={stripe} action={action} animate={!windowOpen && !still && !paused} bob={phase === 'play'} arrived={phase === 'arrive'} beat={grid} />
         {phase === 'play' && <div className="crossing-lane" aria-hidden="true">
           <div key={`ring-${beatSerial}`} className={`crossing-ring${windowOpen ? ' open' : ''}${turn === 'dudu' && beat === 4 ? ' dudu' : ''}${beat >= 1 && beat <= 3 && !windowOpen ? ' tick' : ''}`} />
-          {item && card !== 'hidden' && <div key={cardKey} className={`crossing-card ${item.level === 'word' ? 'word' : ''} ${card}`}
-            style={{ ['--approach' as string]: `${Math.round(3 * beatMs(tempo))}ms` }}>{item.text}</div>}
+          {/* 낱말 라운드는 그림 보고 말하기다: 그림이 있는 낱말은 카드에 그림을 함께 보여 준다. */}
+          {item && card !== 'hidden' && <div key={cardKey} className={`crossing-card ${item.level === 'word' ? 'word' : ''}${item.level === 'word' && hasPicture(item.text) ? ' pictured' : ''} ${card}`}
+            style={{ ['--approach' as string]: `${Math.round(3 * beatMs(tempo))}ms` }}>{item.level === 'word' && <WordPicture word={item.text} size={46} />}<span>{item.text}</span></div>}
         </div>}
         {/* 박 표시(무대 아래): 1~3박은 '똑', 4박은 말할 박(두두 마디에서는 두두가 부르는 박). */}
         {phase === 'play' && <div className={`crossing-beats${turn ? ` ${turn}` : ''}`} aria-hidden="true">

@@ -5,13 +5,15 @@ import { KoreanTts } from '../speech/koreanTts'
 import { Hoya3D } from '../tiger/Hoya3D'
 import { PopBurst, VoiceCredit } from './demoFx'
 import { hasFinalConsonant } from './koreanText'
+import { hasPicture, WordPicture } from './WordPicture'
 import './duduDemo.css'
 
 /*
  * 마무리(2026-10-05 데모): 게임을 마치고 대화 화면으로 돌아와 두두가 오늘 한 일을 말하고 인사한다.
  * 아이에게는 시도 횟수만 말한다(점수·정확도 없음). 집에서 해 볼 낱말 하나를 권한다(일반화).
+ * 오늘 연습한 말을 그림 카드로 다시 보여 준다(맞았는지는 표시하지 않음).
  */
-type Arrival = { attempts?: number; word?: string; heroName?: string }
+type Arrival = { attempts?: number; word?: string; heroName?: string; words?: string[] }
 
 export function goodbyeLines({ attempts = 0, word = '사과' }: Arrival): string[] {
   const sound = word.slice(0, 1)
@@ -57,6 +59,10 @@ export default function DuduGoodbye() {
       <PopBurst kind="perfect" label="오늘의 모험 끝!" still={still} />
     </div>
     <p className="speech-bubble dudu-bubble" aria-live="polite">{text || '\u00a0'}</p>
+    {!!arrival.words?.length && <section className="dudu-practiced" aria-label="오늘 연습한 말">
+      <h2>오늘 연습한 말</h2>
+      <ul>{arrival.words.slice(0, 8).map(word => <li key={word}>{hasPicture(word) && <WordPicture word={word} size={40} />}<span>{word}</span></li>)}</ul>
+    </section>}
     {ended && <div className="crossing-controls">
       <button onClick={() => navigate('/play')}>처음으로</button>
     </div>}
