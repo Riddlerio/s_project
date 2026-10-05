@@ -38,6 +38,10 @@ jobs:
     # 지금까지 검증한 개발 환경(Windows)과 같은 곳에서 돌린다.
     runs-on: windows-latest
     timeout-minutes: 30
+    # 검사 스크립트가 한국어 결과를 출력한다. 러너 기본 콘솔 인코딩(cp1252)에서는 깨지므로 UTF-8로 맞춘다.
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
     defaults:
       run:
         shell: pwsh
