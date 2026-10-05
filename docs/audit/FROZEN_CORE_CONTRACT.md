@@ -119,4 +119,6 @@ npm.cmd audit
 - 캡처→파이프라인→인식기→제출 순서와 `CALIBRATION_MS`는 바꾸지 않았다.
 - 테스트: `onsetPipeline.test.ts`(기본값과 봐주기 비교), `koreanTts.test.ts`, `duduClips.test.ts`, `backend/tests/test_dudu_voice_lines.py`.
 
+**main 병합 예외(사용자 결정, 2026-10-05):** 6절의 수동 검증(실제 마이크·아이폰·실제 LLM) 전에 'CI 통과, 실제 마이크 미확인'으로 표시해 main에 병합한다. 수동 검증은 리허설에서 하고, 결과와 수정은 다음 PR로 올린다.
+
 **회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 [OK](리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.
