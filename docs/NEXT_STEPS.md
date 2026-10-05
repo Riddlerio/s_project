@@ -1,0 +1,312 @@
+# 앞으로 할 일
+
+> **기준 시각:** 2026-10-06 새벽 · main `6347708`(PR #18까지 병합)
+> 이 파일 하나로 다른 기기에서도 이어서 할 수 있게 정리했다.
+> - 지난 일과 결정: [WORK_HISTORY.md](WORK_HISTORY.md)
+> - Codex에게 번호로 시키는 일: [CODEX_TASKS.md](CODEX_TASKS.md)
+
+---
+
+## 0. 한눈에 보기
+
+데모는 **10/9**다. 남은 일은 약 **11~15시간** 분량이다.
+
+| 순서 | 할 일 | 담당 | 상태 | 예상 시간 |
+|:-:|---|---|:-:|:-:|
+| 1 | Codex 1·2번(시각 오류·빈 대화) PR 만들고 병합 | Codex(사용자가 지시) | ⏳ 코드·CI 끝, PR 전 | 15분 |
+| 2 | 1번 작은 마무리 2가지 | Codex 또는 Claude | ⬜ | 30분 |
+| 3 | 자연스러운 대화 대본 + 새 두두 음성 | Claude + 사용자(VOLI 로그인) | ⬜ | 2~3시간 |
+| 4 | 치료사 근거 패널 + 분석 그래프 + 전문 정보 | Claude | ⬜ | 3~4시간 |
+| 5 | 치료사 화면 시연 동선 점검(CODEX_TASKS 3번) | Codex | ⬜ 4번 뒤 | 1시간 |
+| 6 | 통합 점검(휴대폰 폭 전체 흐름)·문서 | Claude | ⬜ | 1~2시간 |
+| 7 | 아이폰 리허설과 수정 | 사용자 + Claude | ⬜ "리허설 할게" 때 | 2~3시간 |
+| 8 | (데모 뒤) 로컬 음성 대화 모델 실험 | 미정 | ⬜ | — |
+
+✅ 끝 · ⏳ 진행 중 · ⬜ 아직
+
+**제안 일정**
+- 10/6: 1~3
+- 10/7: 4~6
+- 10/8: 7(리허설)
+- 10/9: 여유와 시연
+
+3번과 4번은 순서를 바꿔도 된다. 대화가 부자연스럽다는 것이 시험에서 가장 눈에 띈 문제라서 3번을 먼저 둔다.
+
+---
+
+## 1. 지금 상태
+
+### 브랜치
+
+| 브랜치 | 내용 | 비고 |
+|---|---|---|
+| `main` | PR #18까지 병합 | 직접 push 금지 |
+| `claude/dudu-followup` | Claude 작업 브랜치 | 이 문서도 여기서 올림 |
+| `codex/therapist-fixes` | Codex 1·2번(`0c14ae3`) | `e3c25be` 기준. CI 통과, **PR 전**. main과 겹치는 파일 없음 |
+
+### 꼭 지킬 것
+- **`e3c25be`는 고치거나 rebase하지 않는다.** Codex 작업이 이 커밋에서 시작했다.
+- **main 병합은 merge commit으로 한다.** squash는 쓰지 않는다.
+- 병합은 PR과 CI 통과 뒤에만 한다. PR 제목에 "(CI 통과, 실제 기기 미확인)"을 붙인다.
+- `backend/.env`, DB 파일, 인증서, 키는 커밋하지 않는다.
+
+### 원래 PC에만 있는 것
+
+다른 기기에서는 새로 만들어야 한다.
+- 리허설 DB, 휴대폰용 인증서
+- Meshy·VOLI 로그인 창(자동화용 Edge)
+- 원래 폴더(`orca/s_project`)의 미커밋 파일
+- 옛 Codex 폴더(`codex_therapist_data`). 지금 Codex는 `codex_fixes` 폴더를 쓴다.
+
+---
+
+## 2. 다른 기기에서 시작하기 (Windows · PowerShell)
+
+### 2-1. 준비물
+- Git
+- Node.js 22, Python 3.14(CI와 같은 버전)
+- Edge 또는 Chrome
+- 휴대폰으로 시험하려면 OpenSSL. Git for Windows에 들어 있다.
+
+### 2-2. 받기와 설치
+```powershell
+git clone https://github.com/Riddlerio/s_project.git
+cd s_project
+git checkout main
+npm ci
+cd backend
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+cd ..
+```
+
+### 2-3. 시연 서버 켜기 (PC 화면으로 보기)
+```powershell
+# ① 시연 DB 만들기(처음 한 번). 저장소 밖 경로를 쓴다.
+New-Item -ItemType Directory -Force C:\speechhero | Out-Null
+$env:SEED_DEMO_DATA = "true"
+backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py provision --database C:\speechhero\rehearsal.db
+
+# ② 백엔드(PowerShell 창 1)
+cd backend
+$env:SEED_DEMO_DATA = "true"; $env:COOKIE_SECURE = "false"; $env:DATABASE_URL = "sqlite:///C:/speechhero/rehearsal.db"
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# ③ 화면(PowerShell 창 2, 저장소 루트)
+npm run dev
+```
+- 브라우저에서 `http://127.0.0.1:5173/play`를 연다.
+- **계정**(리허설 DB 전용): 아동 `DEMO-CROSSING`, 치료사 `demo-showcase`. 비밀번호는 둘 다 `speechhero`다.
+- **리허설 사이 초기화:** 서버를 끄고 아래를 실행한다. 오늘 기록만 지운다.
+  `backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py reset-today --include-mic --database C:\speechhero\rehearsal.db`
+
+### 2-4. 휴대폰(아이폰)으로 시험하기
+휴대폰은 `https` 주소에서만 마이크가 켜진다. PC와 휴대폰을 **같은 와이파이**에 연결한다.
+```powershell
+# ① 자체 서명 인증서(30일). 저장소에 넣지 않는다.
+New-Item -ItemType Directory -Force C:\speechhero\cert | Out-Null
+& "C:\Program Files\Git\usr\bin\openssl.exe" req -x509 -newkey rsa:2048 -nodes -keyout C:\speechhero\cert\key.pem -out C:\speechhero\cert\cert.pem -days 30 -subj "/CN=speechhero-local"
+
+# ② 2-3의 백엔드를 켠 채로, 저장소 루트에서
+node scripts\serve-phone.mjs C:\speechhero\cert
+
+# ③ PC의 IP 확인(IPv4 주소)
+ipconfig
+```
+- 휴대폰에서 `https://<PC의 IP>:5183/play`를 연다.
+- 경고가 뜨면 Safari는 `이 웹사이트 방문`, Chrome은 `고급 → 계속`을 누른다.
+- Windows 방화벽 창이 뜨면 **개인 네트워크만** 허용한다.
+- 시험이 끝나면 서버를 끈다.
+
+### 2-5. 검사 명령 (PR 전에 모두 통과)
+```powershell
+npm run typecheck; npm test; npm run build
+cd backend; New-Item -ItemType Directory -Force test-temp | Out-Null
+.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp test-temp/ci
+cd ..; git diff --check
+```
+
+**마지막 확인값(2026-10-06):** 프런트 290개, 백엔드 482개(Codex 브랜치는 485개)
+
+---
+
+## 3. 할 일 자세히
+
+### 1단계. Codex 1·2번 PR 병합 ⏳
+
+**한 것(Codex, `codex/therapist-fixes` `0c14ae3`)**
+- **시각:** 치료사 화면이 서버 시각을 UTC로 읽어 서울 시각으로 보인다(`src/therapist/formatTime.ts`). 회기 메모의 날짜도 서울 날짜로 만든다.
+- **빈 대화:** 대화 없이 끝난 기록(완료 턴 0개, 진행 중 아님)을 치료사 목록에서만 숨긴다. DB는 그대로다. 숨긴 개수는 `hiddenEmptyN`으로 알린다.
+- **검사:** 로컬 프런트 290개, 백엔드 485개 통과. CI 통과.
+
+**할 것**
+1. Codex에게 "PR #17 병합됐어. `codex/therapist-fixes`로 main PR 만들어 줘"라고 한다.
+2. CI 통과를 확인한 뒤 **merge commit**으로 병합한다.
+3. CI 잡이 15분 뒤 '취소'로 끝나면 실패가 아니다. 윈도우 러너를 기다리다 시간이 지난 것이다. 취소된 잡만 다시 돌린다: `gh run rerun <실행 번호> --failed`
+4. 병합 뒤 [CODEX_TASKS.md](CODEX_TASKS.md) 상태 표의 1·2번을 '완료(PR #번호)'로 바꾼다.
+
+### 2단계. 1번 작은 마무리 2가지 ⬜
+- `src/therapist/GameSettingsPanel.tsx`의 '최근 저장' 시각도 `formatTime`으로 보인다. 지금은 기기 시간대를 따른다.
+- `docs/audit/FROZEN_CORE_CONTRACT.md`에 한 절을 더한다. 내용은 "시각은 화면이 UTC로 읽어 서울 시각으로 보인다. 서버 응답 형식은 그대로다"이다. CODEX_TASKS 1번이 요구한 기록이다.
+- 참고: CODEX_TASKS 1번의 완료 기준 '서버 응답에 `+00:00`'은 화면 쪽 변환으로 대신 해결됐다. 그대로 둬도 된다.
+
+### 3단계. 자연스러운 대화 대본 + 새 두두 음성 ⬜ (Claude)
+
+**왜:** 아이폰 시험에서 대화가 부자연스러웠다. 지금 대본은 /ㅅ/ 낱말을 매번 고르기·빈칸 질문으로 직접 묻는다("사과가 좋아, 수박이 좋아?").
+
+**바꿀 흐름**
+1. 두두 인사 → "오늘 뭐 하고 놀았어?" (녹음 있음)
+2. 아이가 말한 주제를 받아 준다. 예: "놀이터에서 놀았구나!" (녹음 있음)
+3. 그 주제에서 /ㅅ/ 낱말이 나오기 쉬운 질문을 한다. 예: "시소도 탔어?", "제일 좋아하는 과일은 뭐야?" (**녹음 없음 → 새로 만듦**)
+4. 목표 낱말이 두 번 연달아 안 나오면 그때 돕는다: 고르기·빈칸·먼저 들려주기 (녹음 있음)
+5. 약 10번·5분 뒤 게임 안내 (그대로)
+
+**새로 녹음할 문장**(이미 `demo_provider.py`의 주제 질문에 있다)
+
+| 문장 | 글자 수(공백 포함) |
+|---|:-:|
+| 오늘 선생님이랑 어떤 수업 했어? | 18 |
+| 같이 뛴 선수가 있었어? | 13 |
+| 무슨 색으로 했어? | 10 |
+| 시소도 탔어? | 7 |
+| 제일 좋아하는 과일은 뭐야? | 15 |
+| 같이 무슨 놀이 했어? | 12 |
+| 그때 무슨 소리가 났어? | 13 |
+| **합계** | **88** (VOLI 남은 101자 안) |
+
+**필요한 것**
+- 사용자가 VOLI에 로그인한다. 목소리는 '하람'이다.
+- 받은 파일을 다음에 넣는다: `public/assets/voice/dudu/`, `shared/dudu_voice_lines.json`, 입 모양 자료(`node scripts/build-voice-envelopes.mjs`)
+
+**지킬 것**
+- DEMO 대본은 휴리스틱이다. `HEURISTIC_REGISTER.md` 9절을 갱신한다.
+- 제공자 이름과 응답 형식은 그대로 둔다(동결 계약).
+- TARGET_OBSERVED는 '목표 낱말이 든 시도'일 뿐 발음 정확도가 아니다.
+
+**완료 기준**
+- 첫 3턴에 고르기·빈칸 질문이 나오지 않는다.
+- 모든 문장이 녹음 파일로 재생된다(`backend/tests/test_dudu_voice_lines.py` 통과).
+- 게임 전환 규칙(10번·120초 / 300초)은 그대로다.
+
+### 4단계. 치료사 근거 패널 + 분석 그래프 + 전문 정보 ⬜ (Claude)
+
+**사용자 요청(10/6):** "언어치료사가 데이터를 분석할 때 효율적으로 볼 수 있게 그래프나 그림으로, 전문 지식과 센터 현실에 필요한 것을 깔끔하게."
+
+**화면 구성(초안)**
+1. **근거 패널:** 왜 /ㅅ/와 이 낱말인지, 어떤 아동이 대상인지, 무슨 치료인지 보여 준다(`shared/daegu_crossing_rationale.json`). 같은 데이터의 '조절 값'(시작 박자·빨라지기)은 빠른 설정 버튼으로 둔다.
+2. **추이 그래프:** 회기별 정반응률(치료사가 확인한 기록만)과 숙달선(예: 80%, 연속 3회기)
+3. **수준 × 위치 표:** 음절·낱말 × 어두·어중·어말 정확도. 다음 단계로 올릴지 판단할 때 쓴다.
+4. **오류 유형 막대:** 바람 소리 없음(파열음화 의심), 짧음(파찰음화 의심), 모음 없음. 자동 추정이라 '의심'으로 표시하고, 치료사가 확인한 수를 같이 보인다.
+5. **박자 변화:** 회기 안에서 시작 BPM → 끝 BPM
+6. **전문 정보:** /ㅅ/ 발달 시기, 흔한 오류 유형, 단서 순서(들려주기 → 보기 → 만지기 → 혼자), 다음 회기 제안(서버 계산), 가정 연습 문구, 회기 기록(SOAP) 초안 복사
+
+**만드는 방법**
+- 새 라이브러리 없이 SVG로 그린다.
+- 새 파일 위주로 만든다(`src/therapist/analytics/…`). 필요하면 읽기 전용 집계 API를 하나 둔다.
+
+**지킬 것**
+- 회기 간 변화는 치료 효과의 증명이 아니다(화면 문구에도 쓴다).
+- DEMO 자료는 임상 비교에서 뺀다.
+
+**완료 기준:** 1280px·390px에서 넘침이 없고, axe 위반이 0이며, 테스트가 통과한다.
+
+### 5단계. 치료사 화면 시연 동선 점검 ⬜ (Codex)
+[CODEX_TASKS.md](CODEX_TASKS.md) 3번 그대로다. 4단계가 main에 들어간 뒤 Codex에게 "3번 이행하고 알려줘"라고 한다.
+
+### 6단계. 통합 점검·문서 ⬜ (Claude)
+- 휴대폰 폭으로 전체 흐름을 자동 점검한다: 로그인 → 대화 → 건너기 10줄 → 마무리 → 치료사 기록
+- 공용 문서(README·ROADMAP·DEMO_RUNSHEET)를 갱신하고 리허설 DB를 새로 만든다.
+
+### 7단계. 아이폰 리허설 ⬜ (사용자 + Claude, "리허설 할게"라고 하면 시작)
+- [DEMO_RUNSHEET](handoff/DEMO_RUNSHEET_2026-10-05.md) 5절의 확인 목록을 따른다.
+- **이번에 꼭 볼 것**
+  - '사과'·'차과'·'다과'를 5번씩 말한다. 바른 소리는 통과하고 틀린 소리는 걸러지는지 본다(10/6 기준을 60ms로 낮춤).
+  - 틀렸을 때 입 모양 도움말이 잘 보이는지 본다.
+  - 배경이 확대되거나 끊기지 않는지 본다.
+- 결과에 따라 기준을 조금 맞추고 마지막 PR을 올린다.
+
+### 8단계. (데모 뒤) 로컬 음성 대화 모델 ⬜
+조사 결과는 아래 4절에 있다. 시작 순서는 다음과 같다.
+1. Ollama와 EXAONE 3.5 7.8B(또는 Kanana 1.5 8B)를 설치한다.
+2. 대화 제공자를 추가한다. 동결 계약이라 승인이 필요하다.
+3. 대화 기록을 치료사가 검수해 학습 자료로 만든다.
+4. QLoRA로 학습한다.
+
+---
+
+## 4. 로컬 음성 대화 모델 조사 요약 (2026-10-06)
+
+조사 기준 PC는 RTX 3070 Ti 8GB, RAM 32GB다.
+
+**결론**
+- **한 번에 처리하는 모델:** 한국어로 듣고 바로 말하는 공개 모델은 Qwen3-Omni(30B)뿐이다. 이 PC에서는 돌릴 수 없고, 목소리도 어른 목소리다. 카카오 Kanana-o는 API로만 공개돼 있다.
+- **현실적인 구성:** 듣기(Whisper) → 생각(EXAONE 3.5 7.8B / Kanana 1.5 8B, Ollama) → 말하기(MeloTTS). 셋 다 8GB에 들어간다.
+- **한계:** 모델을 붙여도 바로 매끈해지지는 않는다.
+  - 병목은 아이 말 인식, 응답 지연(약 1.5~3초로 추정, 실측 아님), 두두 목소리 일관성이다.
+  - LLM 답은 매번 새 문장이라 녹음 음성을 쓸 수 없다.
+- **10/9 데모:** 로컬 모델을 본편에 넣는 것은 추천하지 않는다. 3단계 대본 개선이 효과가 크다.
+
+| 역할 | 1순위 | 대안 | 주의 |
+|---|---|---|---|
+| 생각(LLM) | EXAONE 3.5 7.8B (Ollama 공식, 4.8GB) | Kanana 1.5 8B (Apache 2.0), Qwen3 8B | EXAONE은 비상업 라이선스로 알려짐(원문 확인 필요) |
+| 듣기(ASR) | Whisper large-v3-turbo | SenseVoice | 아동 말 오류가 많다. 한국어 4~7세 공개 수치는 미확인 |
+| 말하기(TTS) | MeloTTS (MIT, CPU 실시간) | Supertonic(OpenRAIL-M, 2026-07 저장소 보관), CosyVoice 3 0.5B(Apache) | 두두(VOLI '하람')와 다른 목소리 |
+
+**LoRA 미세조정**
+- **이 PC에서:** 가능하다. Unsloth 기준 4비트 학습 최소 메모리는 8B 6GB, 3B 3.5GB다.
+- **익히는 것:** 짧게 말하기, 질문 하나, 아이 눈높이, 주제를 따라가며 목표 낱말이 나오게 하기.
+- **못 하는 것:** 임상 판단, 안전 보장, 발음 판정. 그래서 서버 정책과 검증기는 그대로 둔다.
+- **필요한 데이터:** 언어치료사가 쓰거나 검수한 대화. 목표 소리별로 수백~수천 턴이 필요하다.
+- **주의:** VOLI 무료 약관에는 생성 음성으로 다른 모델을 학습해도 된다는 근거가 없다. 무단 복제·저장 방식도 금지한다(9.5절). 두두 목소리를 복제 학습하지 않는다.
+
+**인용수**(Semantic Scholar, 2026-10-06 조회)
+
+| 논문 | 연도 | 인용 |
+|---|:-:|:-:|
+| LoRA | 2021 | 23,827 |
+| Whisper | 2022 | 8,808 |
+| Qwen3 | 2025 | 8,695 |
+| QLoRA | 2023 | 5,841 |
+| Gemma 3 | 2025 | 1,955 |
+| VITS(MeloTTS의 바탕) | 2021 | 1,434 |
+| Qwen2.5-Omni | 2025 | 861 |
+| Moshi(영어 전용) | 2024 | 802 |
+| Qwen3-Omni | 2025 | 547 |
+| CosyVoice 2 / 3 | 2024 / 2025 | 478 / 251 |
+| Qwen3.5-Omni | 2026 | 158 |
+| EXAONE 3.5 / 4.0 | 2024 / 2025 | 64 / 30 |
+| Kid-Whisper(아동 음성 인식) | 2023 | 58 |
+| Kanana | 2025 | 25 |
+| SLP와 맞춘 멀티모달 LLM | 2025 | 0 |
+| TalBot(미취학 언어중재 로봇) | 2025 | 1 |
+
+언어치료 전용 한국어 모델은 찾지 못했다. 관련 연구는 아직 초기(인용 0~1)라 **치료사가 확인하는 구조**가 맞다.
+
+**출처**
+- 모델: [Qwen3-Omni 모델 카드](https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct), [Kanana-o API 문서](https://huggingface.co/kakaocorp/Kanana-1.5-o-9.8B-instruct-2602-API_Doc), [Kanana 1.5 8B](https://huggingface.co/kakaocorp/kanana-1.5-8b-instruct-2505), [Ollama EXAONE 3.5](https://ollama.com/library/exaone3.5)
+- 음성 합성: [한국어 로컬 TTS 목록](https://github.com/HeeJayC/Awesome-Korean-TTS-Local-), [Supertonic](https://github.com/supertone-inc/supertonic)
+- 학습·약관: [Unsloth 요구 사항](https://unsloth.ai/docs/get-started/fine-tuning-for-beginners/unsloth-requirements.md), [VOLI 약관](https://voli.ai/en/terms/service)
+- 연구: [Kid-Whisper](https://ojs.aaai.org/index.php/AIES/article/download/31618/33785/35682), [SLP 정렬 멀티모달 LLM](https://arxiv.org/html/2506.05879v1), [TalBot](https://arxiv.org/pdf/2509.22287)
+
+---
+
+## 5. 사용자가 정할 것
+
+- [ ] 3단계(대화)와 4단계(치료사 분석) 중 무엇을 먼저 할지
+- [ ] 앱 이름 'Speech Hero' 중복 확인: 미국 실어증 앱과 이름이 같다. 포스터 전에 정한다([DECISIONS_PENDING](DECISIONS_PENDING.md)).
+- [ ] 원래 폴더 안 옛 복제본 `s_project/`를 지울지. Orca 앱 기록이 이 폴더를 가리킨다.
+- [ ] 옛 Codex 폴더 `codex_therapist_data`를 지울지. 작업은 이미 main에 들어갔다.
+- [ ] 데모 뒤 로컬 음성 대화 모델을 실험할지
+
+---
+
+## 6. 같이 보는 문서
+
+| 문서 | 내용 |
+|---|---|
+| [WORK_HISTORY.md](WORK_HISTORY.md) | 9/27~10/6에 한 일과 중요한 결정 |
+| [CODEX_TASKS.md](CODEX_TASKS.md) | Codex에게 번호로 시키는 일과 공통 규칙 |
+| [DEMO_RUNSHEET](handoff/DEMO_RUNSHEET_2026-10-05.md) | 시연 순서, 계정, 리허설 확인 목록 |
+| [MIC_MEASUREMENT](handoff/MIC_MEASUREMENT_2026-10-05.md) | 판정 기준과 근거(6절에 10/6 조정) |
+| [건너기 설계 근거](clinical/DAEGU_CROSSING_RATIONALE_2026-10-05.md) | 왜 /ㅅ/, 누구를 위한 치료인지 |
+| [동결 계약](audit/FROZEN_CORE_CONTRACT.md) | 바꾸기 전에 승인이 필요한 곳 |
