@@ -14,9 +14,12 @@ import './duduDemo.css'
 import { playTurnChime, unlockFx, VoiceCredit } from './demoFx'
 import { TurnCue } from './turnCue'
 import { picturedWords, WordPicture } from './WordPicture'
+import { GameCard } from './GameCard'
 
 /** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
 export const CROSSING_PATH = '/play/crossing'
+/** '대구대 건너기' 카드 그림(Meshy 이미지 생성, Nano Banana Pro, 2026-10-05. docs/ASSET_LICENSES.md). */
+const CROSSING_CARD_ART = '/assets/art/crossing_card.webp'
 // 인사할 때 먼저 점프하고 나서 말한다.
 const GREETING_JUMP_MS = 1300
 
@@ -48,6 +51,7 @@ export default function HoyaChat() {
   const microphoneToken = useRef(0)
   const cueTimer = useRef<number | undefined>(undefined)
   const mounted = useRef(false)
+  const nextGameRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     mounted.current = true
@@ -185,6 +189,13 @@ export default function HoyaChat() {
     return () => window.clearTimeout(timer)
   }, [autostart])
 
+  // 두두가 게임을 권하면 카드가 보이게 한 번 내린다(휴대폰처럼 화면이 좁아 카드가 아래에 있을 때).
+  useEffect(() => {
+    if (!suggested) return
+    const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    nextGameRef.current?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' })
+  }, [suggested])
+
   function goCrossing() {
     unlockDuduAudio(); unlockFx()
     finish()
@@ -197,39 +208,49 @@ export default function HoyaChat() {
   // 두두 말에 나온 목표 낱말은 그림으로도 보여 준다(어린 아이의 그림 단서, 선택 질문).
   const pictures = picturedWords(hoyaText)
   const statusKind = chatState === 'LISTENING' ? 'listening' : chatState === 'RESPONSE_SPEAKING' ? 'speaking' : STATUS[chatState] ? 'thinking' : ''
-  return <main className="child-screen game-screen dudu-chat">
-    <h1>두두와 대화하기</h1>
-    <div className="dudu-chat-stage"><Hoya3D action={action} /><TurnCue on={listening} /></div>
-    <p className="speech-bubble dudu-bubble" aria-live="polite">{hoyaText || '\u00a0'}</p>
-    {pictures.length > 0 && <div className="dudu-picture-cues" role="group" aria-label="그림 단서">
-      {pictures.map(word => <figure key={word}><WordPicture word={word} size={64} /><figcaption>{word}</figcaption></figure>)}
-    </div>}
-    <p className={`dudu-status ${statusKind}`} aria-live="polite">{STATUS[chatState]}</p>
-    {!session && <div>
-      <button disabled={preparing || !realSupported} onClick={() => { void begin('real') }}>대화 시작 (마이크)</button>
-      <button disabled={preparing} onClick={() => { void begin('demo') }}>DEMO로 대화 시작</button>
-      {!realSupported && <p className="small">{missingText('conversation_quest', capabilities)}</p>}
-    </div>}
-    {session?.mode === 'real' && chatState !== 'ENDED' && <p className="small">{listening ? micText || '마이크가 켜져 있어요' : '두두가 말할 때는 마이크가 잠시 쉬어요'}</p>}
-    {session?.mode === 'demo' && chatState !== 'ENDED' && <div>
-      <label>두두에게 할 말<input value={demoText} maxLength={80} onChange={event => setDemoText(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') sendDemo() }} /></label>
-      <button disabled={!listening} onClick={sendDemo}>두두에게 말하기</button>
-      <p className="small">DEMO 대화입니다. 글자로 입력한 말이며 실제 음성 자료가 아닙니다.</p>
-    </div>}
-    {session && chatState !== 'ENDED' && <button onClick={finish}>대화 끝내기</button>}
-    {/* 시연 흐름(로그인 → 대화 → 건너기 → 마무리)으로 들어왔으면 집(지도·아이템)으로 나가지 않는다(사용자 결정: 데모에 아이템 없음). */}
-    {chatState === 'ENDED' && !autostart && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
-    {!session && <button className="quiet" onClick={() => navigate(autostart ? '/play' : '/play/home')}>{autostart ? '처음으로' : '돌아가기'}</button>}
-    {error && <p role="alert">{error}</p>}
-    {session && <nav className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
-      {gameOpen && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐! ↓</span>}
-      <button className="dudu-next-button" onClick={goCrossing} disabled={!gameOpen}>
-        <span className="dudu-next-icon" aria-hidden="true">🚸</span>
-        <span><strong>대구대 건너기</strong><small>{gameOpen ? '두두랑 횡단보도를 건너 대구대까지!' : '대화를 조금 더 하면 열려요'}</small></span>
-      </button>
-      {!gameOpen && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
-    </nav>}
+  return <main className="child-screen game-screen dudu-chat dudu-hub dudu-sky">
+    <header className="dudu-hub-top">
+      <h1 className="dudu-hub-title">두두와 대화하기<small>말하는 용기가 자라는 곳</small></h1>
+      {session && chatState !== 'ENDED' && <button className="quiet dudu-hub-end" onClick={finish}>대화 끝내기</button>}
+    </header>
+    <div className="dudu-hub-main">
+      {/* 두두를 세로로 크게 세운다(참고 디자인). 아이가 말할 차례면 '네 차례!'가 두두 무대에 뜬다. */}
+      <section className="dudu-hub-dudu">
+        <div className="dudu-chat-stage tall"><Hoya3D action={action} /><TurnCue on={listening} /></div>
+      </section>
+      <section className="dudu-hub-talk">
+        <div className="speech-bubble dudu-bubble">
+          <p aria-live="polite">{hoyaText || '\u00a0'}</p>
+          {/* 두두 말에 나온 목표 낱말은 말풍선 안에 그림으로도 보여 준다(어린 아이의 그림 단서). */}
+          {pictures.length > 0 && <div className="dudu-picture-cues" role="group" aria-label="그림 단서">
+            {pictures.map(word => <figure key={word}><WordPicture word={word} size={60} /><figcaption>{word}</figcaption></figure>)}
+          </div>}
+        </div>
+        <p className={`dudu-status ${statusKind}`} aria-live="polite">{STATUS[chatState]}</p>
+        {!session && <div className="dudu-hub-start">
+          <button className="dudu-hub-cta" disabled={preparing || !realSupported} onClick={() => { void begin('real') }}><span aria-hidden="true">▶</span> 대화 시작 (마이크)</button>
+          <button className="secondary-action" disabled={preparing} onClick={() => { void begin('demo') }}>DEMO로 대화 시작</button>
+          {!realSupported && <p className="small">{missingText('conversation_quest', capabilities)}</p>}
+        </div>}
+        {session?.mode === 'real' && chatState !== 'ENDED' && <p className="small dudu-hub-note">{listening ? micText || '마이크가 켜져 있어요' : '두두가 말할 때는 마이크가 잠시 쉬어요'}</p>}
+        {session?.mode === 'demo' && chatState !== 'ENDED' && <div className="dudu-hub-demo">
+          <label>두두에게 할 말<input value={demoText} maxLength={80} onChange={event => setDemoText(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Enter') sendDemo() }} /></label>
+          <button disabled={!listening} onClick={sendDemo}>두두에게 말하기</button>
+          <p className="small">DEMO 대화입니다. 글자로 입력한 말이며 실제 음성 자료가 아닙니다.</p>
+        </div>}
+        {/* 시연 흐름(로그인 → 대화 → 건너기 → 마무리)으로 들어왔으면 집(지도·아이템)으로 나가지 않는다(사용자 결정: 데모에 아이템 없음). */}
+        {chatState === 'ENDED' && !autostart && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
+        {!session && <button className="quiet" onClick={() => navigate(autostart ? '/play' : '/play/home')}>{autostart ? '처음으로' : '돌아가기'}</button>}
+        {error && <p role="alert">{error}</p>}
+        {session && <nav ref={nextGameRef} className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
+          {gameOpen && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐!</span>}
+          <GameCard title="대구대 건너기" badge="리듬게임" image={CROSSING_CARD_ART} open={gameOpen} onClick={goCrossing}
+            subtitle="박자에 맞춰 말하며 횡단보도를 건너 대구대까지!" lockedText="두두랑 이야기를 조금 더 하면 열려요" />
+          {!gameOpen && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
+        </nav>}
+      </section>
+    </div>
     <VoiceCredit />
   </main>
 }

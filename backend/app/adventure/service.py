@@ -147,6 +147,7 @@ def activity_payload(db, session):
                 "firstItem": None if complete else state["currentItem"],
                 "nextAttemptIndex": state["roundAttempt"],
                 "completedRounds": list(range(1, 6 if complete else state["roundIndex"])),
+                **({"rhythm": state["rhythm"]} if state.get("rhythm") is not None else {}),
                 **crossing.cursor(state)}
     return {"sessionId": session.id, "game": game, "mode": session.mode,
             "heroName": child.hero_name,

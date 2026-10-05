@@ -392,7 +392,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
   const roundIndex = item?.roundIndex ?? 1
   const beatLabel = turn === 'dudu' ? '두두' : '말해!'
-  return <main className="crossing-screen"><div className="crossing-shell">
+  return <main className="crossing-screen dudu-sky"><div className="crossing-shell">
     <header className="crossing-top">
       <div><p className="eyebrow">대구대 건너기{mode === 'demo' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
         <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : '두두랑 대구대까지!'}</h1>

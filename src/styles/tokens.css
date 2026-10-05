@@ -31,6 +31,7 @@
   --color-palette-green-l38: #4d7462;
   --color-palette-green-l38-2: #526e61;
   --color-palette-green-l39: #587068;
+  --color-palette-green-l39-2: #5e9a2c;
   --color-palette-green-l41: #4b876b;
   --color-palette-green-l41-2: #567a6a;
   --color-palette-green-l43: #508b71;
@@ -125,6 +126,9 @@
   --color-palette-teal-l85: #bfe3f2;
   --color-palette-teal-l88: #cdebf5;
   --color-palette-teal-l92: #dff1f7;
+  --color-palette-sky-l76: #8fd3f4;
+  --color-palette-sky-l87: #bfe6fa;
+  --color-palette-sky-l94: #e2f4fd;
   --color-palette-yellow-l62: #ffd23f;
   --color-palette-yellow-l78: #ead9a2;
   --color-palette-yellow-l78-2: #ffe48f;
@@ -172,6 +176,7 @@
   --color-alpha-white-a85: #ffffffd9;
   --color-alpha-white-a90: #ffffffe6;
   --font-family-base: Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-family-display: NanumSquareRound, Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 22px;

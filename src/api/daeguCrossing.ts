@@ -1,6 +1,8 @@
 import { api } from './client'
 import type { Acoustic } from '../shared/types'
 
+export interface DaeguCrossingRhythm { startBpm: number; allowFaster: boolean }
+
 export interface DaeguCrossingRound {
   index: number
   id: string
@@ -26,6 +28,7 @@ export interface DaeguCrossingItem {
   pictureKey: string
 }
 export interface DaeguCrossingSnapshot extends DaeguCrossingProgress {
+  rhythm?: DaeguCrossingRhythm
   sessionId: string
   game: 'daegu_crossing'
   mode: 'real' | 'demo'

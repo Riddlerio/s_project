@@ -22,7 +22,7 @@ import type { PaceEvent } from './crossingFlow'
  * - 2번 연속 어려우면 4BPM 느리게, 72까지다.
  * - 바꾼 뒤에는 기록을 비워서 한 번에 하나씩만 바꾼다.
  *
- * 근거(docs/handoff/DEMO_FLOW_PLAN_2026-10-05.md 6절)
+ * 근거(docs/clinical/DAEGU_CROSSING_RATIONALE_2026-10-05.md 4절·7절)
  * - 4~5세는 너무 느린 박에서 오히려 박을 놓친다(80~100BPM).
  * - 속도는 정확도가 확보된 뒤 마지막에 올린다(DTTC, 리듬 세상 설계).
  */

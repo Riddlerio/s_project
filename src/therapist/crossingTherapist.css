@@ -1,0 +1,23 @@
+.crossing-panel-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.crossing-panel-heading h2 { margin: 0; }
+.crossing-setting-badge { padding: .35rem .65rem; border-radius: 999px; color: var(--forest-deep); background: var(--color-palette-green-l87-2); font-size: .82rem; }
+.crossing-settings fieldset { margin: 1rem 0; padding: 0; border: 0; }
+.crossing-settings .crossing-tempo-label { max-width: 24rem; }
+.crossing-settings .crossing-faster-toggle { display: flex; align-items: center; gap: .7rem; margin-top: 1rem; padding: 1rem; background: var(--color-palette-neutral-l96-2); border: 1px solid var(--line); border-radius: .65rem; }
+.crossing-settings .crossing-faster-toggle input { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--forest); }
+.crossing-faster-toggle span { display: flex; flex: 1; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.crossing-faster-toggle strong { font-size: .85rem; }
+.crossing-settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.crossing-settings-actions p { margin: 0; }
+.crossing-save-message { color: var(--forest); }
+.crossing-summary { margin: 1.25rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--color-palette-neutral-l98-3); }
+.crossing-summary h3 { margin-top: 0; }
+.crossing-summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; margin: .75rem 0; }
+.crossing-summary-metrics div { background: var(--color-surface-white); padding: .8rem; border: 1px solid var(--line); border-radius: .5rem; }
+.crossing-summary-metrics dt { font-size: .85rem; color: var(--muted); }
+.crossing-summary-metrics dd { margin: .35rem 0 0; font-size: 1.4rem; font-weight: 700; }
+.crossing-automatic-evidence { margin: 1rem 0; padding: 1rem; border-left: 3px solid var(--color-palette-green-l68); background: var(--color-palette-neutral-l96-2); }
+.crossing-automatic-evidence h4 { margin-top: 0; }
+.crossing-automatic-evidence ul { padding-left: 1.25rem; }
+.crossing-automatic-evidence p:last-child { margin-bottom: 0; }
+.crossing-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

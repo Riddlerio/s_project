@@ -51,21 +51,25 @@ export default function DuduGoodbye() {
   // 도착 정보는 화면에 들어올 때 한 번만 읽는다. 개발 모드의 두 번 실행은 정리에서 첫 타이머를 취소한다.
   }, [])
 
-  return <main className="child-screen game-screen dudu-chat">
-    <h1>두두와 대화하기</h1>
-    <div className="dudu-chat-stage">
-      <Hoya3D action={action} />
-      {/* 마지막 박자: 한 번만 터지는 축하(움직임 줄이기에서는 멈춘 별) */}
-      <PopBurst kind="perfect" label="오늘의 모험 끝!" still={still} />
+  return <main className="child-screen game-screen dudu-chat dudu-hub dudu-sky">
+    <header className="dudu-hub-top"><h1 className="dudu-hub-title">두두와 대화하기<small>오늘의 모험을 마쳤어요</small></h1></header>
+    <div className="dudu-hub-main">
+      <section className="dudu-hub-dudu">
+        <div className="dudu-chat-stage tall">
+          <Hoya3D action={action} />
+          {/* 마지막 박자: 한 번만 터지는 축하(움직임 줄이기에서는 멈춘 별) */}
+          <PopBurst kind="perfect" label="오늘의 모험 끝!" still={still} />
+        </div>
+      </section>
+      <section className="dudu-hub-talk">
+        <div className="speech-bubble dudu-bubble"><p aria-live="polite">{text || '\u00a0'}</p></div>
+        {!!arrival.words?.length && <section className="dudu-practiced" aria-label="오늘 연습한 말">
+          <h2>오늘 연습한 말</h2>
+          <ul>{arrival.words.slice(0, 8).map(word => <li key={word}>{hasPicture(word) && <WordPicture word={word} size={40} />}<span>{word}</span></li>)}</ul>
+        </section>}
+        {ended && <div className="dudu-hub-start"><button className="dudu-hub-cta" onClick={() => navigate('/play')}>처음으로</button></div>}
+      </section>
     </div>
-    <p className="speech-bubble dudu-bubble" aria-live="polite">{text || '\u00a0'}</p>
-    {!!arrival.words?.length && <section className="dudu-practiced" aria-label="오늘 연습한 말">
-      <h2>오늘 연습한 말</h2>
-      <ul>{arrival.words.slice(0, 8).map(word => <li key={word}>{hasPicture(word) && <WordPicture word={word} size={40} />}<span>{word}</span></li>)}</ul>
-    </section>}
-    {ended && <div className="crossing-controls">
-      <button onClick={() => navigate('/play')}>처음으로</button>
-    </div>}
     <VoiceCredit />
   </main>
 }

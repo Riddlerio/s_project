@@ -10,10 +10,16 @@ export interface InsightObservation {
   durationMs: number | null; audioQuality: string; aiResult: string; result: string; source: EvidenceSource
   verification: string; provenance: Provenance; measurementSource: string; qualityFlags: string[]
   excludedReasons: string[]; included: boolean; reviewNote: string; acoustic: Record<string, number>
+  automaticEvidence?: string[]
+}
+export interface CrossingSummary {
+  attemptN: number; autoSuccessN: number; deferredN: number; confirmedN: number; reviewTotalN: number
+  rhythm: { startBpm: number; allowFaster: boolean } | null
 }
 export interface SessionInsights {
   sessionId: string; source: EvidenceSource; observations: InsightObservation[]
   rounds: (InsightStats & { roundIndex: number })[]; summary: InsightStats; note: string; limitations: string[]
+  crossingSummary?: CrossingSummary
 }
 export interface TrendPoint extends InsightStats { sessionId: string; startedAt: string }
 export interface GoalTrend {
