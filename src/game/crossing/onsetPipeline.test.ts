@@ -4,7 +4,7 @@ import type { Acoustic } from '../../shared/types'
 import type { VadFrame } from '../../speech/vad'
 import { SustainTracker } from '../../speech/sustainTracker'
 import { judgeOnset, onsetReason } from './crossingFlow'
-import { ONSET_TOLERANCE, OnsetPipeline, preRollFrames } from './onsetPipeline'
+import { frameMark, ONSET_DUMP_FRAMES, ONSET_TOLERANCE, OnsetPipeline, preRollFrames } from './onsetPipeline'
 
 // 잡음 -60dB. 조용한 /ㅅ/(잡음+9dB, 고주파): 마찰음 판정(6dB)은 되지만 발화 감지(12dB) 전. 모음은 크고 저주파.
 const silence = (t: number): VadFrame => ({ tMs: t, rmsDb: -60, hfRatio: 0.1, spectralCentroidHz: 800 })
@@ -104,5 +104,16 @@ describe('대구대 건너기 발화 요약', () => {
     const quiet = utterance([(t: number) => ({ tMs: t, rmsDb: -50, hfRatio: 0.08, spectralCentroidHz: 900 }), 400])
     expect(onsetReason(quiet)).toBe('quiet')
     expect(judgeOnset(quiet)).toBe('uncertain')
+  })
+
+  it('점검용으로 발화 앞 0.3초를 되살린 앞부분부터 남긴다(S 마찰·V 유성·x 그 밖·. 조용)', () => {
+    const frames: VadFrame[] = []
+    let t = 0
+    for (const [make, ms] of [[silence, 1300], [breath, 20], [loudS, 160], [vowel, 300], [silence, 1200]] as [(t: number) => VadFrame, number][]) for (let i = 0; i < ms; i += 20) { frames.push(make(t)); t += 20 }
+    const pipeline = new OnsetPipeline()
+    run(pipeline, frames)
+    expect(pipeline.lastOnsetFrames).toHaveLength(ONSET_DUMP_FRAMES)
+    const marks = pipeline.lastOnsetFrames.map(frame => frameMark(frame, pipeline.vad.noiseFloor)).join('')
+    expect(marks).toBe('xSSSSSSSSVVVVVV')
   })
 })

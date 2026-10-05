@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client'
 import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { availableVoices, DUDU_PITCH, pickDuduVoice, readDuduVoiceSetting, saveDuduVoiceSetting } from '../speech/duduVoice'
-import { OnsetPipeline } from '../game/crossing/onsetPipeline'
+import { frameMark, OnsetPipeline } from '../game/crossing/onsetPipeline'
+import type { VadFrame } from '../speech/vad'
 import { judgeOnset, ONSET_RULE, onsetReason, type OnsetReason } from '../game/crossing/crossingFlow'
 
 /*
@@ -13,8 +14,8 @@ import { judgeOnset, ONSET_RULE, onsetReason, type OnsetReason } from '../game/c
  */
 const LINES = ['안녕~ 만나서 반가워! 나는 두두야.', '정말 잘했어!', "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?", '오늘 나랑 얘기해 줘서 고마워. 다음에 또 만나!']
 // 바르게 낸 소리는 '맞음'이 나와야 하고, 일부러 틀리게 낸 소리(흔한 /ㅅ/ 오류: 파열음화·파찰음화·생략)는 '맞음'이 나오면 안 된다.
-const CORRECT_TAGS = ['사', '스'] as const
-const WRONG_TAGS = ['다', '타', '차', '자', '아'] as const
+const CORRECT_TAGS = ['사', '시', '스'] as const
+const WRONG_TAGS = ['다', '타', '차', '자', '하', '아'] as const
 const REFERENCE_TAGS = ['스~', '기타'] as const
 const expectation = (tag: string) => (CORRECT_TAGS as readonly string[]).includes(tag) ? 'correct' : (WRONG_TAGS as readonly string[]).includes(tag) ? 'wrong' : 'reference'
 // 대구대 건너기와 같은 판정(crossingFlow.judgeOnset)과 이유를 그대로 보여 준다.
@@ -24,7 +25,9 @@ const REASON_TEXT: Record<OnsetReason, string> = {
 }
 // 시작 마찰은 대구대 건너기와 같은 경로로 잰다: 발화 감지(잡음+12dB) 전에 지나간 조용한 /ㅅ/를 앞부분에서 되살린다.
 
-type Row = { id: number; at: string; tag: string; acoustic: Acoustic; preRollMs: number }
+type Row = { id: number; at: string; tag: string; acoustic: Acoustic; preRollMs: number; onsetFrames: VadFrame[]; noiseFloorDb: number }
+/** 앞 0.3초 모양: S 마찰, V 유성, x 그 밖의 소리, . 조용 */
+const pattern = (row: Row) => row.onsetFrames.map(frame => frameMark(frame, row.noiseFloorDb)).join('')
 type BeatResult = { beats: number; hits: number; offsetsMs: number[] }
 
 function VoicePanel() {
@@ -92,7 +95,10 @@ function MicPanel() {
         const { events, acoustic } = pipeline.process(frame)
         if (pipeline.calibrated && !noiseShown) { noiseShown = true; setNoise(pipeline.vad.noiseFloor) }
         for (const event of events) if (event.type === 'VOICE_START') onsets.current.push(zero.current + event.tMs)
-        if (acoustic) { const preRollMs = pipeline.preRollMs; setRows(previous => [...previous, { id: previous.length + 1, at: new Date().toLocaleTimeString(), tag: tagRef.current, acoustic, preRollMs }]) }
+        if (acoustic) {
+          const preRollMs = pipeline.preRollMs, onsetFrames = pipeline.lastOnsetFrames, noiseFloorDb = pipeline.vad.noiseFloor
+          setRows(previous => [...previous, { id: previous.length + 1, at: new Date().toLocaleTimeString(), tag: tagRef.current, acoustic, preRollMs, onsetFrames, noiseFloorDb }])
+        }
       })
       zero.current = performance.now()
       setRunning(true); setStatus('듣는 중. 한 번에 하나씩 말하고 1초 쉬어 주세요.')
@@ -124,11 +130,13 @@ function MicPanel() {
   const judged = rows.map(row => ({ row, result: judgeOnset(row.acoustic), reason: onsetReason(row.acoustic), expected: expectation(row.tag) }))
   const mismatch = (entry: (typeof judged)[number]) => entry.expected === 'correct' ? entry.result !== 'success' : entry.expected === 'wrong' && entry.result === 'success'
   const results = { userAgent: navigator.userAgent, secure: window.isSecureContext, noiseFloorDb: noise, rule: ONSET_RULE,
-    rows: judged.map(({ row, result, reason, expected }) => ({ tag: row.tag, expected, result, reason, preRollMs: row.preRollMs, ...pick(row.acoustic) })), beat }
+    rows: judged.map(({ row, result, reason, expected }) => ({ tag: row.tag, expected, result, reason, preRollMs: row.preRollMs, ...pick(row.acoustic),
+      // 앞 0.3초 프레임: [잡음보다 몇 dB, 4~8kHz 비율 %, 무게중심 Hz, 영교차 %]
+      onsetPattern: pattern(row), onsetFrames: row.onsetFrames.map(frame => [Math.round(frame.rmsDb - row.noiseFloorDb), Math.round(frame.hfRatio * 100), Math.round(frame.spectralCentroidHz ?? 0), Math.round((frame.zcr ?? 0) * 100)]) })), beat }
   const tags = [...new Set(judged.map(entry => entry.row.tag))]
   return <section style={card}>
     <h2>2. 마이크 · 바른 소리와 틀린 소리</h2>
-    <p style={muted}>아래에서 말할 소리를 고르고 그 소리를 한 번 말한 뒤 1초 쉬어 주세요. 바른 소리('사')와 일부러 틀린 소리('다'·'타'·'차'·'자'·'아')를 각각 5번씩 말하면, 게임 판정이 둘을 구분하는지 볼 수 있습니다. 이어폰을 쓰거나 스피커 소리를 줄여 주세요.</p>
+    <p style={muted}>아래에서 말할 소리를 고르고 그 소리를 한 번 말한 뒤 1초 쉬어 주세요. 바른 소리('사'·'시')와 일부러 틀린 소리('차'·'자'·'하' 등)를 각각 5번씩 말하면, 게임 판정이 둘을 구분하는지 볼 수 있습니다. 표시와 다른 소리를 일부러 냈다면 알려 주세요. 이어폰을 쓰거나 스피커 소리를 줄여 주세요.</p>
     <p>{running ? <button onClick={stop}>마이크 끄기</button> : <button style={primary} onClick={() => void start()}>마이크 켜기</button>} <span>{status}</span></p>
     <div style={{ height: 14, background: '#e5ebe7', borderRadius: 7, overflow: 'hidden', maxWidth: 420 }}><div style={{ width: `${Math.max(0, Math.min(100, (level + 80) * 1.4))}%`, height: '100%', background: '#1f6b57' }} /></div>
     <p style={muted}>소리 크기 {level.toFixed(0)} dB · 잡음 기준 {noise === null ? '측정 중' : `${noise.toFixed(0)} dB`}</p>
@@ -141,11 +149,11 @@ function MicPanel() {
       return <span key={value} style={{ marginRight: 14 }}><b>{value}</b> 맞음 {group.filter(entry => entry.result === 'success').length}/{group.length}</span>
     })}{judged.some(mismatch) && <span style={warn}> · 기대와 다른 판정 {judged.filter(mismatch).length}개(노란 줄)</span>}</p>}
     <table style={{ borderCollapse: 'collapse', fontSize: 13 }}>
-      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '되살린 앞부분', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '게임 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
+      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '되살린 앞부분', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '앞 0.3초(S 마찰·V 유성·x 그 밖)', '게임 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
       <tbody>{judged.map(entry => {
         const { row, reason } = entry
         const a = row.acoustic
-        return <tr key={row.id} style={mismatch(entry) ? { background: '#fff3c4' } : undefined}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(a.onsetFricationMs)}</td><td style={cell}>{ms(row.preRollMs)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={cell}>{REASON_TEXT[reason]}</td></tr>
+        return <tr key={row.id} style={mismatch(entry) ? { background: '#fff3c4' } : undefined}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(a.onsetFricationMs)}</td><td style={cell}>{ms(row.preRollMs)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={{ ...cell, fontFamily: 'ui-monospace, Consolas, monospace', letterSpacing: 1 }}>{pattern(row)}</td><td style={cell}>{REASON_TEXT[reason]}</td></tr>
       })}</tbody>
     </table>
     <h2 style={{ marginTop: 20 }}>3. 박자에 맞춰 말하기</h2>

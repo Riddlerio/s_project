@@ -1,5 +1,5 @@
 import type { Acoustic } from '../../shared/types'
-import { isFrication } from '../../speech/fricativeDetector'
+import { isFrication, isVoicedLike } from '../../speech/fricativeDetector'
 import { CALIBRATION_MS } from '../../speech/micUtterance'
 import { SustainTracker } from '../../speech/sustainTracker'
 import { DEFAULT_VAD, VadStateMachine, type VadEvent, type VadFrame } from '../../speech/vad'
@@ -24,6 +24,15 @@ const HISTORY_MS = 700
  * 한두 프레임이 시작 구간을 닫았기 때문이다. 이 게임에서만 앞부분 40ms, 마찰 도중 20ms 꺼짐을 봐준다.
  */
 export const ONSET_TOLERANCE = { leadInMs: 40, dipMs: 20 }
+/** 개발 점검용으로 남기는 발화 앞부분 프레임 수(20ms × 15 = 0.3초). 판정에는 쓰지 않는다. */
+export const ONSET_DUMP_FRAMES = 15
+
+/** 프레임 한 글자 표시: S 마찰, V 유성(모음 쪽), x 그 밖의 소리(숨·입술·터짐), . 조용. 시작 마찰 재기와 같은 기준이다. */
+export function frameMark(frame: VadFrame, noiseFloorDb: number): string {
+  if (isFrication(frame, noiseFloorDb)) return 'S'
+  if (isVoicedLike(frame, noiseFloorDb)) return 'V'
+  return frame.rmsDb > noiseFloorDb + 6 ? 'x' : '.'
+}
 
 /** 감지 시작 직전의 프레임 중 다시 넣을 것: 감지 대기 구간 전부 + 그 앞의 연속 마찰(한 프레임 끊김 허용). */
 export function preRollFrames(history: readonly VadFrame[], candidateStartMs: number, noiseFloorDb: number, maxMs = PRE_ROLL_MAX_MS): VadFrame[] {
@@ -45,7 +54,10 @@ export class OnsetPipeline {
   private calibrationStart: number | null = null
   private history: VadFrame[] = []
   private candidateStart = 0
+  private utterance: VadFrame[] = []
   preRollMs = 0
+  /** 마지막 발화의 앞 0.3초(되살린 앞부분 포함). 점검 화면이 판정 이유를 보여 줄 때만 쓴다. */
+  lastOnsetFrames: VadFrame[] = []
 
   constructor(endHoldMs = 500) {
     this.vad = new VadStateMachine({ ...DEFAULT_VAD, endHoldMs, startMarginDb: CROSSING_START_MARGIN_DB, minStartDbFloor: CROSSING_MIN_START_DB })
@@ -55,7 +67,7 @@ export class OnsetPipeline {
   get calibrated(): boolean { return this.calibrationStart !== null && this.calibration.length === 0 }
 
   /** 진행 중이던 발화를 버린다(두두가 말한 뒤 다시 들을 때). 잡음 기준은 유지한다. */
-  resetUtterance(): void { this.vad.reset(); this.tracker.reset(this.vad.noiseFloor); this.history = []; this.preRollMs = 0 }
+  resetUtterance(): void { this.vad.reset(); this.tracker.reset(this.vad.noiseFloor); this.history = []; this.preRollMs = 0; this.utterance = [] }
 
   process(frame: VadFrame): { events: VadEvent[]; acoustic?: Acoustic } {
     if (this.calibrationStart === null) this.calibrationStart = frame.tMs
@@ -69,9 +81,10 @@ export class OnsetPipeline {
       this.tracker.reset(this.vad.noiseFloor)
       const pre = preRollFrames(this.history, this.candidateStart, this.vad.noiseFloor)
       this.preRollMs = pre.length ? frame.tMs - pre[0].tMs : 0
-      for (const old of pre) this.tracker.process(old)
+      this.utterance = []
+      for (const old of pre) this.feed(old)
     }
-    if (active || events.some(event => event.type === 'VOICE_START')) this.tracker.process(frame)
+    if (active || events.some(event => event.type === 'VOICE_START')) this.feed(frame)
     if (!active) {
       this.history.push(frame)
       while (this.history.length && frame.tMs - this.history[0].tMs > HISTORY_MS) this.history.shift()
@@ -80,7 +93,14 @@ export class OnsetPipeline {
     if (!end) return { events }
     const acoustic = this.summary(end)
     this.history = []
+    this.lastOnsetFrames = this.utterance
+    this.utterance = []
     return { events, acoustic }
+  }
+
+  private feed(frame: VadFrame): void {
+    this.tracker.process(frame)
+    if (this.utterance.length < ONSET_DUMP_FRAMES) this.utterance.push(frame)
   }
 
   private summary(event: VadEvent): Acoustic {

@@ -91,6 +91,18 @@ const MEASURED: [string, number, number, number, number, number, string][] = [
   ['#23 스(마찰 40ms)', 382, 40, 238, -37.3, -63.5, 'retry'],
   ['#27 스(마찰 99ms)', 460, 98.9, 297, -37.1, -63.5, 'success'],
   ['#30 스~(작음)', 279, 0, 0, -51.7, -63.5, 'uncertain'],
+  // 2차(잡음 -62.8): 표시와 실제를 사용자가 확인했다. 2-#39~41은 표시 '아'였지만 실제로 '사'라고 말했다.
+  ['2-#15 차', 519, 59.1, 355, -38.2, -62.8, 'retry'],
+  ['2-#16 차', 500, 39.2, 339, -40.0, -62.8, 'retry'],
+  ['2-#17 자', 519, 59, 378, -36.3, -62.8, 'retry'],
+  ['2-#18 자', 500, 39.5, 376, -38.6, -62.8, 'retry'],
+  ['2-#13 타', 541, 0, 0, -33.5, -62.8, 'retry'],
+  ['2-#34 아', 959, 0, 0, -32.4, -62.8, 'retry'],
+  ['2-#39 사(표시 아)', 758, 79.1, 276, -40.9, -62.8, 'success'],
+  ['2-#40 사(표시 아)', 458, 98, 257, -41.1, -62.8, 'success'],
+  ['2-#7 스', 579, 138.7, 355, -37.7, -62.8, 'success'],
+  // 알려진 놓침: 마찰 60ms(3프레임)인 바른 '사'는 차·자(59ms)와 길이로 가를 수 없어 지금은 '다시'다.
+  ['2-#27 사(60ms, 놓침)', 580, 60, 418, -35.5, -62.8, 'retry'],
 ]
 
 describe('실측 기준(2026-10-05)', () => {
@@ -100,7 +112,7 @@ describe('실측 기준(2026-10-05)', () => {
 
   it('다·마찰 없음은 하나도 맞음이 되지 않고, 작게 말한 것은 틀림이 아니라 판단하지 않음이다', () => {
     const results = MEASURED.map(([label, durationMs, onset, voiced, rms, noise]) => ({ label, result: judgeOnset({ activeMs: durationMs, durationMs, onsetFricationMs: onset, voicedAfterFricationMs: voiced, meanRmsDb: rms, noiseFloorDb: noise }) }))
-    expect(results.filter(entry => entry.label.includes('다') && entry.result === 'success')).toEqual([])
+    expect(results.filter(entry => /다|타|차|자|#34 아/.test(entry.label) && entry.result === 'success')).toEqual([])
     expect(results.filter(entry => entry.label.includes('작음')).every(entry => entry.result === 'uncertain')).toBe(true)
   })
 
