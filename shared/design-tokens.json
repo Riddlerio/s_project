@@ -508,6 +508,18 @@
     "$type": "color",
     "$value": "#dff1f7"
    },
+   "sky-l76": {
+    "$type": "color",
+    "$value": "#8fd3f4"
+   },
+   "sky-l87": {
+    "$type": "color",
+    "$value": "#bfe6fa"
+   },
+   "sky-l94": {
+    "$type": "color",
+    "$value": "#e2f4fd"
+   },
    "yellow-l62": {
     "$type": "color",
     "$value": "#ffd23f"
