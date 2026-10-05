@@ -51,6 +51,7 @@ export default function HoyaChat() {
   const microphoneToken = useRef(0)
   const cueTimer = useRef<number | undefined>(undefined)
   const mounted = useRef(false)
+  const nextGameRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     mounted.current = true
@@ -188,6 +189,13 @@ export default function HoyaChat() {
     return () => window.clearTimeout(timer)
   }, [autostart])
 
+  // 두두가 게임을 권하면 카드가 보이게 한 번 내린다(휴대폰처럼 화면이 좁아 카드가 아래에 있을 때).
+  useEffect(() => {
+    if (!suggested) return
+    const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    nextGameRef.current?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' })
+  }, [suggested])
+
   function goCrossing() {
     unlockDuduAudio(); unlockFx()
     finish()
@@ -235,7 +243,7 @@ export default function HoyaChat() {
         {chatState === 'ENDED' && !autostart && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
         {!session && <button className="quiet" onClick={() => navigate(autostart ? '/play' : '/play/home')}>{autostart ? '처음으로' : '돌아가기'}</button>}
         {error && <p role="alert">{error}</p>}
-        {session && <nav className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
+        {session && <nav ref={nextGameRef} className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
           {gameOpen && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐!</span>}
           <GameCard title="대구대 건너기" badge="리듬게임" image={CROSSING_CARD_ART} open={gameOpen} onClick={goCrossing}
             subtitle="박자에 맞춰 말하며 횡단보도를 건너 대구대까지!" lockedText="두두랑 이야기를 조금 더 하면 열려요" />

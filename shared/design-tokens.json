@@ -132,6 +132,10 @@
     "$type": "color",
     "$value": "#587068"
    },
+   "green-l39-2": {
+    "$type": "color",
+    "$value": "#5e9a2c"
+   },
    "green-l41": {
     "$type": "color",
     "$value": "#4b876b"
@@ -748,6 +752,19 @@
    "base": {
     "$type": "fontFamily",
     "$value": [
+     "Pretendard",
+     "Noto Sans KR",
+     "Apple SD Gothic Neo",
+     "Malgun Gothic",
+     "system-ui",
+     "sans-serif"
+    ]
+   },
+   "display": {
+    "$type": "fontFamily",
+    "$description": "아동 화면의 제목·버튼·말풍선용 둥근 글꼴(나눔스퀘어라운드, OFL, public/assets/fonts). 없으면 기본 글꼴.",
+    "$value": [
+     "NanumSquareRound",
      "Pretendard",
      "Noto Sans KR",
      "Apple SD Gothic Neo",

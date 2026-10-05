@@ -41,7 +41,8 @@
 | 3D 장면 소품(횡단보도·동글동글한 나무·덤불·신호등·먼 건물) | 코드 도형이다(`CrossingScene.tsx`, `DaeguGate.tsx`). 나무는 생성 그림의 둥근 나무 모양에 맞췄다(Meshy 3D는 쓰지 않음) |
 | 목표 낱말 그림 6개(사과·수박·사자·시소·소리·소풍) | 코드로 그린 SVG다(`src/child/WordPicture.tsx`) |
 | 게임 카드 대체 그림 | 코드로 그린 SVG다(`src/child/GameCard.tsx`). 생성 그림을 불러오지 못할 때 쓴다 |
-| 글꼴 | 이름만 지정한다(Pretendard, Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic). 글꼴 파일은 넣지 않았고, 기기에 설치된 것을 쓴다 |
+| 글꼴(기본) | 이름만 지정한다(Pretendard, Noto Sans KR, Apple SD Gothic Neo, Malgun Gothic). 글꼴 파일은 넣지 않았고, 기기에 설치된 것을 쓴다 |
+| 글꼴(아동 화면 제목·버튼·말풍선) | **나눔스퀘어라운드** B·EB 웹폰트(`public/assets/fonts/nanumsquareround/`, 합계 약 520KB, 한글 2,350자). NAVER 나눔글꼴, SIL Open Font License 1.1. 라이선스 전문을 같은 폴더 `OFL.txt`에 두었다. 웹폰트 변환본은 github.com/gshn/fonts에서 받았다. 글꼴 자체를 팔지 않는 한 상업적 사용도 된다. 앱 보안 설정(CSP `font-src 'self'`) 때문에 외부 글꼴 서버 대신 파일을 함께 둔다 |
 | 이모지(🚸 🐾 🚦 등) | 기기의 기본 이모지 글꼴로 보인다 |
 | 디자인 토큰 | `shared/design-tokens.json`. 직접 정한 값이다 |
 

@@ -39,7 +39,7 @@ export function GameCard({ title, subtitle, badge, image, open, lockedText, onCl
     </span>
     <span className="game-card-body">
       <span className="game-card-text"><strong>{title}</strong><small>{open ? subtitle : lockedText}</small></span>
-      <span className="game-card-go" aria-hidden="true">›</span>
+      <span className="game-card-go" aria-hidden="true">▶</span>
     </span>
   </button>
 }

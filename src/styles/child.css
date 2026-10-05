@@ -173,3 +173,20 @@
   radial-gradient(ellipse 75% 220px at 18% calc(100% + 120px), var(--color-palette-green-l76) 0 60%, transparent 61%),
   radial-gradient(ellipse 70% 190px at 88% calc(100% + 110px), var(--color-palette-green-l85-2) 0 60%, transparent 61%),
   linear-gradient(180deg, var(--color-palette-sky-l76) 0%, var(--color-palette-sky-l87) 38%, var(--color-palette-sky-l94) 68%, var(--color-palette-green-l90-2) 100%) !important; background-attachment: fixed !important; }
+
+/* 둥근 글꼴(나눔스퀘어라운드, OFL, public/assets/fonts/nanumsquareround/OFL.txt). 아동 화면의 제목·버튼·말풍선을 통통하고 부드럽게(2026-10-05, 동물의 숲·듀오링고 참고) */
+@font-face { font-family: 'NanumSquareRound'; src: url('/assets/fonts/nanumsquareround/NanumSquareRoundB.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'NanumSquareRound'; src: url('/assets/fonts/nanumsquareround/NanumSquareRoundEB.woff2') format('woff2'); font-weight: 800 900; font-display: swap; }
+.child-screen, .crossing-screen { font-family: var(--font-family-display); }
+/* 글꼴이 바뀌어도 아동 화면 버튼은 44px 이상(누르는 크기) */
+.child-screen button, .crossing-screen button { min-height: 44px; }
+
+/* 시연 화면(하늘 배경)의 버튼: 아래에 진한 '턱'이 있어 누르면 쑥 들어가는 3D 버튼(듀오링고식). 누르는 곳은 넉넉하게 */
+.dudu-sky button:not(.quiet):not(.game-card) { --lip: var(--forest-deep); min-height: 52px; border-radius: 18px; font-weight: 800; letter-spacing: -.01em; box-shadow: 0 5px 0 var(--lip), 0 10px 18px var(--color-alpha-forest-a18); transition: transform .08s ease-out, box-shadow .08s ease-out, background-color .15s; }
+.dudu-sky button:not(.quiet):not(.game-card):hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 0 var(--lip), 0 12px 20px var(--color-alpha-forest-a20); }
+.dudu-sky button:not(.quiet):not(.game-card):active:not(:disabled), .dudu-sky button.pressed { transform: translateY(4px); box-shadow: 0 1px 0 var(--lip), 0 3px 8px var(--color-alpha-forest-a16); }
+.dudu-sky button.secondary-action { --lip: var(--color-palette-green-l78); background: var(--color-surface-white); border: 2px solid var(--color-palette-green-l78); color: var(--forest-deep); }
+.dudu-sky button:disabled { box-shadow: 0 3px 0 var(--color-alpha-forest-a16); }
+/* 제목: 흰 테두리를 두른 스티커 글씨(배경 그림 위에서도 또렷하게) */
+.dudu-sky h1 { text-shadow: 0 2px 0 var(--color-surface-white), 2px 0 0 var(--color-surface-white), -2px 0 0 var(--color-surface-white), 0 -2px 0 var(--color-surface-white), 2px 2px 0 var(--color-surface-white), -2px 2px 0 var(--color-surface-white), 0 6px 14px var(--color-alpha-forest-a20); }
+@media (prefers-reduced-motion: reduce) { .dudu-sky button { transition: none !important; } }
