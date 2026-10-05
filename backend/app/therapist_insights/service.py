@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from datetime import timedelta, timezone
 from math import isfinite
 
 from sqlalchemy import select
@@ -18,6 +19,7 @@ LIMITATIONS = [
 ACOUSTIC_KEYS = ("durationMs", "voicedMs", "bestRunMs", "fricationMs", "onsetLatencyMs", "onsetFricationMs", "voicedAfterFricationMs",
                  "meanRmsDb", "noiseFloorDb", "snrDb", "clippingRatio")
 EXCLUDED_QUALITY = {"POOR", "LOW_SNR", "NOISY_FLOOR", "CLIPPING", "TOO_SHORT", "TOO_LONG", "INVALID_ACOUSTIC"}
+SEOUL = timezone(timedelta(hours=9), "Asia/Seoul")
 
 
 def source_of(session, child):
@@ -123,7 +125,11 @@ def session_insights(db, child, session):
     source = source_of(session, child)
     source_label = {"REAL": "실제", "DEMO": "DEMO", "SAMPLE": "샘플"}[source]
     rate = f"{total['successRate']}%" if total["successRate"] is not None else "자료 없음"
-    note = (f"{session.started_at.date().isoformat()} {source_label} 회기: 관찰 {total['observedN']}건. "
+    started_at = session.started_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    session_date = started_at.astimezone(SEOUL).date()
+    note = (f"{session_date.isoformat()} {source_label} 회기: 관찰 {total['observedN']}건. "
             f"치료사 확인·교정 후 평가 가능 {total['evaluableN']}건 중 성공 {total['successN']}건({rate}). "
             f"분모 제외 {total['excludedN']}건(출처·검토 상태·평가 보류·음질 기준). "
             "불확실·무발화·음질 문제는 실패로 세지 않음. 임상 진단이나 치료 효과의 증명이 아님.")

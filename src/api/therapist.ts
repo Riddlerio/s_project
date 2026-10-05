@@ -28,7 +28,7 @@ export interface ConversationSessionInsight {
   sessionId: string; startedAt: string; status: string; source: 'REAL' | 'DEMO' | 'SAMPLE'
   completedTurnN: number; targetObservedN: number; uncertainN: number; noSpeechN: number
 }
-export interface ConversationInsightsData { sessions: ConversationSessionInsight[]; limitation: string }
+export interface ConversationInsightsData { sessions: ConversationSessionInsight[]; limitation: string; hiddenEmptyN?: number }
 export const childConversationInsights = (childId: string) =>
   api<ConversationInsightsData>(`/children/${childId}/conversation-insights`)
 export const gameChildConversationInsights = (sessionId: string) =>

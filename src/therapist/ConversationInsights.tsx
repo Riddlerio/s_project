@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react'
 import { childConversationInsights, gameChildConversationInsights } from '../api/therapist'
 import type { ConversationInsightsData } from '../api/therapist'
 import { SOURCE_LABELS } from './insights'
+import { formatDateTime } from './formatTime'
 
 export function ConversationSessionList({ data }: { data: ConversationInsightsData }) {
   return <>
     <p>{data.limitation}</p>
     {!data.sessions.length && <p>대화 기록이 없습니다.</p>}
     {data.sessions.map(session => <article className="card" key={session.sessionId}>
-      <h3>{new Date(session.startedAt).toLocaleString()} · {SOURCE_LABELS[session.source]} 대화</h3>
+      <h3>{formatDateTime(session.startedAt)} · {SOURCE_LABELS[session.source]} 대화</h3>
       <p><strong>대화 중 목표 낱말 시도 {session.targetObservedN}회</strong></p>
       <p>완료된 대화 턴 {session.completedTurnN}회 · 불확실 {session.uncertainN}회 · 무발화 {session.noSpeechN}회</p>
       {session.source !== 'REAL' && <p className="notice">실제 임상 비교에서 제외되는 연습 자료입니다.</p>}
     </article>)}
+    {!!data.hiddenEmptyN && <p className="small">대화 없이 끝난 기록 {data.hiddenEmptyN}건은 숨겼습니다.</p>}
   </>
 }
 

@@ -1,7 +1,7 @@
 """치료사 전용 대화 기록. 게임의 임상 성공률과 합산하지 않는다."""
 from collections import Counter, defaultdict
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from ..models import HoyaChatSession, HoyaChatTurn
 from .service import source_of
@@ -15,7 +15,16 @@ LIMITATION = (
 
 
 def conversation_insights(db, child):
-    sessions = list(db.scalars(select(HoyaChatSession).where(HoyaChatSession.child_id == child.id)
+    has_completed_turn = select(HoyaChatTurn.id).where(
+        HoyaChatTurn.session_id == HoyaChatSession.id,
+        HoyaChatTurn.status == "COMPLETED",
+    ).exists()
+    hidden_empty = (HoyaChatSession.status != "active") & ~has_completed_turn
+    hidden_empty_n = db.scalar(select(func.count()).select_from(HoyaChatSession).where(
+        HoyaChatSession.child_id == child.id, hidden_empty)) or 0
+    sessions = list(db.scalars(select(HoyaChatSession).where(
+        HoyaChatSession.child_id == child.id,
+        or_(HoyaChatSession.status == "active", has_completed_turn))
                               .order_by(HoyaChatSession.started_at.desc(), HoyaChatSession.id.desc())
                               .limit(LIMIT)).all())
     counts = defaultdict(Counter)
@@ -29,4 +38,4 @@ def conversation_insights(db, child):
          "source": source_of(session, child), "completedTurnN": sum(counts[session.id].values()),
          "targetObservedN": counts[session.id]["TARGET_OBSERVED"],
          "uncertainN": counts[session.id]["UNCERTAIN"], "noSpeechN": counts[session.id]["NO_SPEECH"]}
-        for session in sessions], "limitation": LIMITATION}
+        for session in sessions], "hiddenEmptyN": hidden_empty_n, "limitation": LIMITATION}

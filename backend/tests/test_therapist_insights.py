@@ -1,8 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
-from app.models import Child, ClinicalObservation, ClinicalVerification, now
+from app.models import Child, ClinicalObservation, ClinicalVerification, TrainingSession, now
 from test_api_flow import api, auth, student_auth
 from test_therapist_planning import add_child, add_session, second_therapist
 
@@ -67,6 +67,24 @@ def test_empty_data_and_seed_child_never_become_real(api):
     assert result["summary"]["evaluableN"] == 0
     assert "연습 자료" in result["note"]
     assert client.get(f"/api/children/{child}/goal-trends").json()["groups"] == []
+
+
+def test_session_note_uses_seoul_date_for_sqlite_utc_timestamp(api):
+    client, sessions = api
+    child = add_child(client, auth(client), "날짜 확인")
+    session_id = add_session(sessions, child, [])
+    with sessions() as db:
+        db.get(TrainingSession, session_id).started_at = datetime(2026, 10, 5, 15, 30, tzinfo=timezone.utc)
+        db.commit()
+    with sessions() as db:
+        assert db.get(TrainingSession, session_id).started_at.tzinfo is None
+    path = f"/api/sessions/{session_id}/insights"
+    assert client.get(path).json()["note"].startswith("2026-10-06 ")
+
+    with sessions() as db:
+        db.get(TrainingSession, session_id).started_at = datetime(2026, 10, 5, 14, 30, tzinfo=timezone.utc)
+        db.commit()
+    assert client.get(path).json()["note"].startswith("2026-10-05 ")
 
 
 def test_grouping_baseline_and_recent_window(api):
