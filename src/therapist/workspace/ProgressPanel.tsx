@@ -3,7 +3,7 @@ import ConversationInsights from '../ConversationInsights'
 import type { GoalTrends } from '../insights'
 import ActivityRecommendationPanel from '../ActivityRecommendationPanel'
 import GoalTrendChart from '../charts/GoalTrendChart'
-import { recommendationBadges, sessionSourceText, sessionStatusText } from '../clinicalLabels'
+import { confidenceText, recommendationBadges, recommendationStatusText, sessionSourceText, sessionStatusText } from '../clinicalLabels'
 import type { RecommendationProvenance } from '../clinicalLabels'
 import { LEVEL_LABELS, STATUS_LABELS } from '../planning'
 import type { PlanningContext, SessionPlan } from '../planning'
@@ -43,7 +43,7 @@ export default function ProgressPanel({ childId, context, trends, sessions, plan
 
 function LegacyRecommendationRow({ rec, onDecide }: { rec: LegacyRecommendation; onDecide: Props['onDecide'] }) {
   const badges = recommendationBadges(rec.provenance)
-  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>신뢰도: {rec.confidence} · {rec.status}</p>
+  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>신뢰도: {confidenceText(rec.confidence)} · {recommendationStatusText(rec.status)}</p>
     {rec.status === 'pending' && <form onSubmit={event => { event.preventDefault(); const note = String(new FormData(event.currentTarget).get('note') || ''); onDecide(rec.id, 'reject', note) }}>
       {rec.provenance?.demoPractice ? <p className="muted">DEMO 연습 기반 추천은 목표에 반영할 수 없어 거절만 할 수 있습니다.</p> : <>
       <button type="button" onClick={() => onDecide(rec.id, 'accept', '')}>수락</button>

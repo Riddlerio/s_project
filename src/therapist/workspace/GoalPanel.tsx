@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CUE_LABELS, LEVEL_LABELS, POSITION_LABELS, parseWords } from '../planning'
+import { GOAL_SOURCE_LABELS } from '../clinicalLabels'
 
 // 서버 GoalInput(snake_case)과 같은 필드. 목표 저장은 새 버전을 만든다(기존 버전 구조 유지).
 export interface GoalRow { version: number; target_phoneme: string; target_sound: string; word_position: string; level: string; min_level: string; session_duration_min: number; repetition_target: number; priority: string; preferred_cue: string; excluded_words: string[]; excluded_games: string[]; priority_targets: string[]; note: string; source: string }
@@ -26,6 +27,6 @@ export default function GoalPanel({ goal, history, onSave }: { goal: GoalRow | n
       <label>제외 단어(쉼표로 구분) <input defaultValue={draft.excluded_words.join(', ')} key={`e-${draft.version}`} onBlur={event => set('excluded_words', parseWords(event.target.value))} /></label>
     </div>
     <button onClick={() => { void save() }}>새 버전으로 목표 저장</button>
-    <details><summary>목표 이력 {history.length}개</summary><ul>{history.map(row => <li key={row.version}>v{row.version} · /{row.target_phoneme}/ {LEVEL_LABELS[row.level] || row.level} · {row.source}</li>)}</ul></details>
+    <details><summary>목표 이력 {history.length}개</summary><ul>{history.map(row => <li key={row.version}>v{row.version} · /{row.target_phoneme}/ {LEVEL_LABELS[row.level] || row.level} · {GOAL_SOURCE_LABELS[row.source] || row.source}</li>)}</ul></details>
   </section>
 }

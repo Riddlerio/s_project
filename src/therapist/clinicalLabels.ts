@@ -36,6 +36,14 @@ export function sessionStatusText(status?: string | null): string {
   return status === 'completed' ? '완료' : status === 'active' ? '진행 중' : '상태 미상'
 }
 
+/** 추천·활동 제안의 신뢰도·처리 상태. 서버 값(high·MEDIUM·pending·PENDING 등, 대소문자 섞임)을 영어로 보이지 않게 한다. */
+export const RECOMMENDATION_CONFIDENCE: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' }
+export const RECOMMENDATION_STATUS: Record<string, string> = { pending: '검토 대기', accepted: '수락', modified: '수정', rejected: '거부' }
+export const confidenceText = (value?: string | null) => (value && RECOMMENDATION_CONFIDENCE[value.toLowerCase()]) || value || '-'
+export const recommendationStatusText = (value?: string | null) => (value && RECOMMENDATION_STATUS[value.toLowerCase()]) || value || '-'
+/** 목표 버전이 어디서 왔는지. */
+export const GOAL_SOURCE_LABELS: Record<string, string> = { manual: '치료사 입력', seed: '샘플', recommendation: '추천 수락', recommendation_modified: '추천 수정 반영', demo_rehearsal: '시연용' }
+
 export type RecommendationProvenance = { sessionMode: string | null; sessionIsSeed: boolean; clinicalEligible: boolean; demoPractice: boolean }
 
 /** legacy 추천 카드의 출처 표시. 임상 근거 회기에서 나온 추천에는 표시가 없다. */
