@@ -1,0 +1,806 @@
+{
+ "$description": "Speech Hero 디자인 토큰(DTCG 형식). 값의 원본이다. src/styles/tokens.css는 scripts/build-design-tokens.mjs로 만든다.",
+ "color": {
+  "brand": {
+   "forest": {
+    "$type": "color",
+    "$value": "#0e6255"
+   },
+   "forest-deep": {
+    "$type": "color",
+    "$value": "#09483f"
+   },
+   "gold": {
+    "$type": "color",
+    "$value": "#f4b400"
+   },
+   "leaf": {
+    "$type": "color",
+    "$value": "#7ac13a"
+   },
+   "lime": {
+    "$type": "color",
+    "$value": "#d6ee87"
+   },
+   "mint": {
+    "$type": "color",
+    "$value": "#13a389"
+   }
+  },
+  "text": {
+   "ink": {
+    "$type": "color",
+    "$value": "#19302b"
+   },
+   "muted": {
+    "$type": "color",
+    "$value": "#5c706a"
+   }
+  },
+  "surface": {
+   "black": {
+    "$type": "color",
+    "$value": "#000000"
+   },
+   "line": {
+    "$type": "color",
+    "$value": "#dce4dc"
+   },
+   "page": {
+    "$type": "color",
+    "$value": "#f5f6f1"
+   },
+   "paper": {
+    "$type": "color",
+    "$value": "#fffefa"
+   },
+   "white": {
+    "$type": "color",
+    "$value": "#ffffff"
+   }
+  },
+  "palette": {
+   "green-l16": {
+    "$type": "color",
+    "$value": "#173a2d"
+   },
+   "green-l19": {
+    "$type": "color",
+    "$value": "#233d32"
+   },
+   "green-l21": {
+    "$type": "color",
+    "$value": "#1c4f3d"
+   },
+   "green-l21-2": {
+    "$type": "color",
+    "$value": "#284536"
+   },
+   "green-l23": {
+    "$type": "color",
+    "$value": "#284f3b"
+   },
+   "green-l24": {
+    "$type": "color",
+    "$value": "#1f5b47"
+   },
+   "green-l26": {
+    "$type": "color",
+    "$value": "#285b49"
+   },
+   "green-l27": {
+    "$type": "color",
+    "$value": "#315b48"
+   },
+   "green-l29": {
+    "$type": "color",
+    "$value": "#326455"
+   },
+   "green-l30": {
+    "$type": "color",
+    "$value": "#346453"
+   },
+   "green-l33": {
+    "$type": "color",
+    "$value": "#426657"
+   },
+   "green-l34": {
+    "$type": "color",
+    "$value": "#3e6f5d"
+   },
+   "green-l36": {
+    "$type": "color",
+    "$value": "#3e785e"
+   },
+   "green-l36-2": {
+    "$type": "color",
+    "$value": "#477058"
+   },
+   "green-l37": {
+    "$type": "color",
+    "$value": "#388363"
+   },
+   "green-l38": {
+    "$type": "color",
+    "$value": "#4d7462"
+   },
+   "green-l38-2": {
+    "$type": "color",
+    "$value": "#526e61"
+   },
+   "green-l39": {
+    "$type": "color",
+    "$value": "#587068"
+   },
+   "green-l41": {
+    "$type": "color",
+    "$value": "#4b876b"
+   },
+   "green-l41-2": {
+    "$type": "color",
+    "$value": "#567a6a"
+   },
+   "green-l43": {
+    "$type": "color",
+    "$value": "#508b71"
+   },
+   "green-l49": {
+    "$type": "color",
+    "$value": "#609a77"
+   },
+   "green-l50": {
+    "$type": "color",
+    "$value": "#87b945"
+   },
+   "green-l60": {
+    "$type": "color",
+    "$value": "#82af81"
+   },
+   "green-l60-2": {
+    "$type": "color",
+    "$value": "#b9d45f"
+   },
+   "green-l61": {
+    "$type": "color",
+    "$value": "#88b09d"
+   },
+   "green-l63": {
+    "$type": "color",
+    "$value": "#8ab7a4"
+   },
+   "green-l63-2": {
+    "$type": "color",
+    "$value": "#8db5a3"
+   },
+   "green-l65": {
+    "$type": "color",
+    "$value": "#8dbda8"
+   },
+   "green-l68": {
+    "$type": "color",
+    "$value": "#9cbea8"
+   },
+   "green-l75": {
+    "$type": "color",
+    "$value": "#aad4b8"
+   },
+   "green-l76": {
+    "$type": "color",
+    "$value": "#b9dca8"
+   },
+   "green-l76-2": {
+    "$type": "color",
+    "$value": "#badcaa"
+   },
+   "green-l78": {
+    "$type": "color",
+    "$value": "#bdd0c6"
+   },
+   "green-l78-2": {
+    "$type": "color",
+    "$value": "#bfd0c5"
+   },
+   "green-l78-3": {
+    "$type": "color",
+    "$value": "#c6dfaf"
+   },
+   "green-l79": {
+    "$type": "color",
+    "$value": "#b9d8bd"
+   },
+   "green-l79-2": {
+    "$type": "color",
+    "$value": "#bad9c2"
+   },
+   "green-l80": {
+    "$type": "color",
+    "$value": "#bcdcc3"
+   },
+   "green-l80-2": {
+    "$type": "color",
+    "$value": "#bddcc5"
+   },
+   "green-l80-3": {
+    "$type": "color",
+    "$value": "#bfd8bf"
+   },
+   "green-l80-4": {
+    "$type": "color",
+    "$value": "#c4d4c8"
+   },
+   "green-l80-5": {
+    "$type": "color",
+    "$value": "#d9edaa"
+   },
+   "green-l81": {
+    "$type": "color",
+    "$value": "#cbdcbf"
+   },
+   "green-l81-2": {
+    "$type": "color",
+    "$value": "#e3f5a8"
+   },
+   "green-l83": {
+    "$type": "color",
+    "$value": "#cadbcd"
+   },
+   "green-l83-2": {
+    "$type": "color",
+    "$value": "#cce1c4"
+   },
+   "green-l84": {
+    "$type": "color",
+    "$value": "#cedfd3"
+   },
+   "green-l85": {
+    "$type": "color",
+    "$value": "#cee3d6"
+   },
+   "green-l85-2": {
+    "$type": "color",
+    "$value": "#d0e7cb"
+   },
+   "green-l86": {
+    "$type": "color",
+    "$value": "#cfe6d1"
+   },
+   "green-l86-2": {
+    "$type": "color",
+    "$value": "#d4e9cc"
+   },
+   "green-l87": {
+    "$type": "color",
+    "$value": "#d3e8dc"
+   },
+   "green-l87-2": {
+    "$type": "color",
+    "$value": "#d5e8d8"
+   },
+   "green-l87-3": {
+    "$type": "color",
+    "$value": "#d9e9d4"
+   },
+   "green-l89": {
+    "$type": "color",
+    "$value": "#e3f1d7"
+   },
+   "green-l89-2": {
+    "$type": "color",
+    "$value": "#e6f4d0"
+   },
+   "green-l90": {
+    "$type": "color",
+    "$value": "#e9f4d8"
+   },
+   "green-l90-2": {
+    "$type": "color",
+    "$value": "#ecf5d8"
+   },
+   "green-l91": {
+    "$type": "color",
+    "$value": "#e6f0df"
+   },
+   "green-l91-2": {
+    "$type": "color",
+    "$value": "#e8f1df"
+   },
+   "green-l91-3": {
+    "$type": "color",
+    "$value": "#eaf2dc"
+   },
+   "green-l91-4": {
+    "$type": "color",
+    "$value": "#ecf5dc"
+   },
+   "green-l92": {
+    "$type": "color",
+    "$value": "#e3f3e8"
+   },
+   "green-l93": {
+    "$type": "color",
+    "$value": "#f8ffdc"
+   },
+   "neutral-l35": {
+    "$type": "color",
+    "$value": "#50645d"
+   },
+   "neutral-l39": {
+    "$type": "color",
+    "$value": "#5d6468"
+   },
+   "neutral-l45": {
+    "$type": "color",
+    "$value": "#668074"
+   },
+   "neutral-l45-2": {
+    "$type": "color",
+    "$value": "#687c73"
+   },
+   "neutral-l47": {
+    "$type": "color",
+    "$value": "#6f8378"
+   },
+   "neutral-l48": {
+    "$type": "color",
+    "$value": "#6f877b"
+   },
+   "neutral-l52": {
+    "$type": "color",
+    "$value": "#789288"
+   },
+   "neutral-l53": {
+    "$type": "color",
+    "$value": "#7b9185"
+   },
+   "neutral-l82": {
+    "$type": "color",
+    "$value": "#cbd8d0"
+   },
+   "neutral-l84": {
+    "$type": "color",
+    "$value": "#ceddd9"
+   },
+   "neutral-l84-2": {
+    "$type": "color",
+    "$value": "#cfddd1"
+   },
+   "neutral-l91": {
+    "$type": "color",
+    "$value": "#e1eeea"
+   },
+   "neutral-l91-2": {
+    "$type": "color",
+    "$value": "#e6f0e2"
+   },
+   "neutral-l92": {
+    "$type": "color",
+    "$value": "#e4efe7"
+   },
+   "neutral-l92-2": {
+    "$type": "color",
+    "$value": "#e7efe4"
+   },
+   "neutral-l93": {
+    "$type": "color",
+    "$value": "#e8f2e7"
+   },
+   "neutral-l93-2": {
+    "$type": "color",
+    "$value": "#eef3e5"
+   },
+   "neutral-l94": {
+    "$type": "color",
+    "$value": "#e9f6ee"
+   },
+   "neutral-l94-2": {
+    "$type": "color",
+    "$value": "#eef4e9"
+   },
+   "neutral-l95": {
+    "$type": "color",
+    "$value": "#eef6ee"
+   },
+   "neutral-l95-2": {
+    "$type": "color",
+    "$value": "#eef8ef"
+   },
+   "neutral-l95-3": {
+    "$type": "color",
+    "$value": "#f1f5ef"
+   },
+   "neutral-l95-4": {
+    "$type": "color",
+    "$value": "#f3f7f0"
+   },
+   "neutral-l95-5": {
+    "$type": "color",
+    "$value": "#f4f8ec"
+   },
+   "neutral-l96": {
+    "$type": "color",
+    "$value": "#f3f8f1"
+   },
+   "neutral-l96-2": {
+    "$type": "color",
+    "$value": "#f4f8f0"
+   },
+   "neutral-l96-3": {
+    "$type": "color",
+    "$value": "#f7f7f2"
+   },
+   "neutral-l96-4": {
+    "$type": "color",
+    "$value": "#f7f9f3"
+   },
+   "neutral-l98": {
+    "$type": "color",
+    "$value": "#f4fff3"
+   },
+   "neutral-l98-2": {
+    "$type": "color",
+    "$value": "#f4fff7"
+   },
+   "neutral-l98-3": {
+    "$type": "color",
+    "$value": "#fcfdf8"
+   },
+   "orange-l12": {
+    "$type": "color",
+    "$value": "#3b2a00"
+   },
+   "orange-l15": {
+    "$type": "color",
+    "$value": "#4f3600"
+   },
+   "orange-l24": {
+    "$type": "color",
+    "$value": "#674415"
+   },
+   "orange-l33": {
+    "$type": "color",
+    "$value": "#a86b00"
+   },
+   "orange-l35": {
+    "$type": "color",
+    "$value": "#94621f"
+   },
+   "orange-l83": {
+    "$type": "color",
+    "$value": "#e0d9c6"
+   },
+   "orange-l83-2": {
+    "$type": "color",
+    "$value": "#e2d3c7"
+   },
+   "orange-l91": {
+    "$type": "color",
+    "$value": "#f3e9df"
+   },
+   "orange-l91-2": {
+    "$type": "color",
+    "$value": "#fff0d2"
+   },
+   "teal-l19": {
+    "$type": "color",
+    "$value": "#124e43"
+   },
+   "teal-l19-2": {
+    "$type": "color",
+    "$value": "#154b42"
+   },
+   "teal-l22": {
+    "$type": "color",
+    "$value": "#0b6654"
+   },
+   "teal-l25": {
+    "$type": "color",
+    "$value": "#265b4e"
+   },
+   "teal-l85": {
+    "$type": "color",
+    "$value": "#bfe3f2"
+   },
+   "teal-l88": {
+    "$type": "color",
+    "$value": "#cdebf5"
+   },
+   "teal-l92": {
+    "$type": "color",
+    "$value": "#dff1f7"
+   },
+   "yellow-l62": {
+    "$type": "color",
+    "$value": "#ffd23f"
+   },
+   "yellow-l78": {
+    "$type": "color",
+    "$value": "#ead9a2"
+   },
+   "yellow-l78-2": {
+    "$type": "color",
+    "$value": "#ffe48f"
+   },
+   "yellow-l89": {
+    "$type": "color",
+    "$value": "#fff6c8"
+   },
+   "yellow-l90": {
+    "$type": "color",
+    "$value": "#f1ecdc"
+   },
+   "yellow-l91": {
+    "$type": "color",
+    "$value": "#fff6cf"
+   },
+   "yellow-l91-2": {
+    "$type": "color",
+    "$value": "#fff6d2"
+   },
+   "yellow-l92": {
+    "$type": "color",
+    "$value": "#fff6d6"
+   },
+   "yellow-l92-2": {
+    "$type": "color",
+    "$value": "#fff7d6"
+   },
+   "yellow-l93": {
+    "$type": "color",
+    "$value": "#fff8dc"
+   },
+   "yellow-l94": {
+    "$type": "color",
+    "$value": "#fff7de"
+   }
+  },
+  "alpha": {
+   "black-a13": {
+    "$type": "color",
+    "$value": "#00000022",
+    "$description": "{color.surface.black} 투명도 13%"
+   },
+   "black-a20": {
+    "$type": "color",
+    "$value": "#00000033",
+    "$description": "{color.surface.black} 투명도 20%"
+   },
+   "black-a40": {
+    "$type": "color",
+    "$value": "#00000066",
+    "$description": "{color.surface.black} 투명도 40%"
+   },
+   "forest-a08": {
+    "$type": "color",
+    "$value": "#0e625514",
+    "$description": "{color.brand.forest} 투명도 8%"
+   },
+   "forest-a12": {
+    "$type": "color",
+    "$value": "#0e62551f",
+    "$description": "{color.brand.forest} 투명도 12%"
+   },
+   "forest-a16": {
+    "$type": "color",
+    "$value": "#0e625529",
+    "$description": "{color.brand.forest} 투명도 16%"
+   },
+   "forest-a18": {
+    "$type": "color",
+    "$value": "#0e62552e",
+    "$description": "{color.brand.forest} 투명도 18%"
+   },
+   "forest-a20": {
+    "$type": "color",
+    "$value": "#0e625533",
+    "$description": "{color.brand.forest} 투명도 20%"
+   },
+   "forest-a22": {
+    "$type": "color",
+    "$value": "#0e625538",
+    "$description": "{color.brand.forest} 투명도 22%"
+   },
+   "forest-a25": {
+    "$type": "color",
+    "$value": "#0e625540",
+    "$description": "{color.brand.forest} 투명도 25%"
+   },
+   "green-l16-a05": {
+    "$type": "color",
+    "$value": "#173a2d0c",
+    "$description": "{color.palette.green-l16} 투명도 5%"
+   },
+   "green-l16-a06": {
+    "$type": "color",
+    "$value": "#173a2d10",
+    "$description": "{color.palette.green-l16} 투명도 6%"
+   },
+   "green-l19-a06": {
+    "$type": "color",
+    "$value": "#233d3210",
+    "$description": "{color.palette.green-l19} 투명도 6%"
+   },
+   "green-l19-a10": {
+    "$type": "color",
+    "$value": "#233d3219",
+    "$description": "{color.palette.green-l19} 투명도 10%"
+   },
+   "green-l61-a60": {
+    "$type": "color",
+    "$value": "#88b09d99",
+    "$description": "{color.palette.green-l61} 투명도 60%"
+   },
+   "lime-a20": {
+    "$type": "color",
+    "$value": "#d6ee8733",
+    "$description": "{color.brand.lime} 투명도 20%"
+   },
+   "lime-a40": {
+    "$type": "color",
+    "$value": "#d6ee8766",
+    "$description": "{color.brand.lime} 투명도 40%"
+   },
+   "gold-a15": {
+    "$type": "color",
+    "$value": "#f4b40026",
+    "$description": "{color.brand.gold} 투명도 15%"
+   },
+   "gold-a33": {
+    "$type": "color",
+    "$value": "#f4b40055",
+    "$description": "{color.brand.gold} 투명도 33%"
+   },
+   "yellow-l62-a40": {
+    "$type": "color",
+    "$value": "#ffd23f66",
+    "$description": "{color.palette.yellow-l62} 투명도 40%"
+   },
+   "yellow-l62-a60": {
+    "$type": "color",
+    "$value": "#ffd23f99",
+    "$description": "{color.palette.yellow-l62} 투명도 60%"
+   },
+   "yellow-l89-a17": {
+    "$type": "color",
+    "$value": "#fff6c82c",
+    "$description": "{color.palette.yellow-l89} 투명도 17%"
+   },
+   "yellow-l89-a54": {
+    "$type": "color",
+    "$value": "#fff6c88a",
+    "$description": "{color.palette.yellow-l89} 투명도 54%"
+   },
+   "yellow-l92-a80": {
+    "$type": "color",
+    "$value": "#fff6d6cc",
+    "$description": "{color.palette.yellow-l92} 투명도 80%"
+   },
+   "paper-a31": {
+    "$type": "color",
+    "$value": "#fffefa50",
+    "$description": "{color.surface.paper} 투명도 31%"
+   },
+   "paper-a33": {
+    "$type": "color",
+    "$value": "#fffefa55",
+    "$description": "{color.surface.paper} 투명도 33%"
+   },
+   "paper-a40": {
+    "$type": "color",
+    "$value": "#fffefa66",
+    "$description": "{color.surface.paper} 투명도 40%"
+   },
+   "paper-a68": {
+    "$type": "color",
+    "$value": "#fffefaad",
+    "$description": "{color.surface.paper} 투명도 68%"
+   },
+   "white-a30": {
+    "$type": "color",
+    "$value": "#ffffff4d",
+    "$description": "{color.surface.white} 투명도 30%"
+   },
+   "white-a49": {
+    "$type": "color",
+    "$value": "#ffffff7d",
+    "$description": "{color.surface.white} 투명도 49%"
+   },
+   "white-a53": {
+    "$type": "color",
+    "$value": "#ffffff88",
+    "$description": "{color.surface.white} 투명도 53%"
+   },
+   "white-a67": {
+    "$type": "color",
+    "$value": "#ffffffaa",
+    "$description": "{color.surface.white} 투명도 67%"
+   },
+   "white-a80": {
+    "$type": "color",
+    "$value": "#ffffffcc",
+    "$description": "{color.surface.white} 투명도 80%"
+   },
+   "white-a85": {
+    "$type": "color",
+    "$value": "#ffffffd9",
+    "$description": "{color.surface.white} 투명도 85%"
+   },
+   "white-a90": {
+    "$type": "color",
+    "$value": "#ffffffe6",
+    "$description": "{color.surface.white} 투명도 90%"
+   }
+  }
+ },
+ "font": {
+  "family": {
+   "base": {
+    "$type": "fontFamily",
+    "$value": [
+     "Pretendard",
+     "Noto Sans KR",
+     "Apple SD Gothic Neo",
+     "Malgun Gothic",
+     "system-ui",
+     "sans-serif"
+    ]
+   }
+  }
+ },
+ "radius": {
+  "sm": {
+   "$type": "dimension",
+   "$value": "12px"
+  },
+  "md": {
+   "$type": "dimension",
+   "$value": "16px"
+  },
+  "lg": {
+   "$type": "dimension",
+   "$value": "22px"
+  },
+  "xl": {
+   "$type": "dimension",
+   "$value": "30px"
+  },
+  "pill": {
+   "$type": "dimension",
+   "$value": "999px"
+  }
+ },
+ "shadow": {
+  "card": {
+   "$type": "shadow",
+   "$value": {
+    "offsetX": "0px",
+    "offsetY": "18px",
+    "blur": "40px",
+    "spread": "0px",
+    "color": "{color.alpha.forest-a18}"
+   }
+  }
+ },
+ "motion": {
+  "duration": {
+   "fast": {
+    "$type": "duration",
+    "$value": "180ms"
+   },
+   "pop": {
+    "$type": "duration",
+    "$value": "550ms"
+   }
+  },
+  "easing": {
+   "spring": {
+    "$type": "cubicBezier",
+    "$value": [
+     0.2,
+     1.6,
+     0.4,
+     1
+    ]
+   }
+  }
+ }
+}
