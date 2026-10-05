@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type Ref } from 'react'
+import { useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import {
   BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, DoubleSide, FrontSide,
   Color, LatheGeometry, MathUtils, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace, SphereGeometry, TubeGeometry,
@@ -8,6 +8,7 @@ import {
 import type { HoyaAction } from '../control/speechGameSignal'
 import { emblemTexture } from './duduEmblem'
 import { speakingLevel } from '../speech/duduClips'
+import { createPerkClock, prefersReducedMotion } from './duduPerk'
 
 /*
  * 두두 절차형 3D 시제품. 원래 정면 도안(정체성 기준)과 2026-10-03에 받은 정면·측면·후면 조형 도면을
@@ -320,6 +321,10 @@ export function DuduModel({ action, animate = true }: { action: HoyaAction; anim
   const pose = useRef<Pose>({ ...REST })
   const capeFlare = useRef(0)
   const stillAction = useRef<HoyaAction | null>(null)
+  // '네 차례' 귀 쫑긋(duduPerk.ts): 듣기로 바뀌는 순간 두 귀를 위로 잠깐 늘인다.
+  const ears = useRef<(Group | null)[]>([null, null])
+  const perk = useMemo(() => createPerkClock(), [])
+  const [reduced] = useState(prefersReducedMotion)
 
   useFrame(({ clock }, delta) => {
     if (!animate && stillAction.current === action) return
@@ -355,6 +360,8 @@ export function DuduModel({ action, animate = true }: { action: HoyaAction; anim
     }
     capeFlare.current = p.cape
     shapeCape(g.cape, capeFlare.current, t)
+    const perked = perk(action, !animate || reduced)
+    ears.current.forEach(ear => ear?.scale.set(1 - 0.06 * perked, 1 + 0.32 * perked, 1))
   })
 
   const eye = (sx: number) => {
@@ -414,7 +421,7 @@ export function DuduModel({ action, animate = true }: { action: HoyaAction; anim
         <group position={[0, HEAD_Y + 0.12, 0]}>
           <mesh geometry={g.sphere} material={m.head} scale={HEAD_R.toArray()} />
           <mesh geometry={g.small} material={m.plain} position={MUZZLE.c.toArray()} scale={MUZZLE.r.toArray()} />
-          {[-1, 1].map(sx => <group key={sx} position={[0.6 * sx, 0.6, -0.08]} rotation={[0, 0, -0.42 * sx]}>
+          {[-1, 1].map(sx => <group key={sx} ref={ear => { ears.current[sx < 0 ? 0 : 1] = ear }} position={[0.6 * sx, 0.6, -0.08]} rotation={[0, 0, -0.42 * sx]}>
             <mesh geometry={g.small} material={m.earBack} scale={[0.27, 0.25, 0.12]} position={[0, 0, -0.025]} />
             <mesh geometry={g.small} material={m.plain} scale={[0.25, 0.23, 0.11]} />
             <mesh geometry={g.small} material={m.earInner} scale={[0.15, 0.14, 0.06]} position={[0, -0.02, 0.07]} />

@@ -5,7 +5,7 @@ import TOKENS from '../../shared/design-tokens.json'
  * 디자인 토큰(Phase 3, 2026-10-05): shared/design-tokens.json이 원본이고 src/styles/tokens.css는 생성 파일이다.
  * 스타일 파일에는 색을 직접 쓰지 않고 토큰 변수만 쓴다(값이 한곳에서 관리되게).
  */
-const STYLE_FILES = ['src/styles/global.css', 'src/styles/child.css', 'src/styles/therapist.css', 'src/child/duduDemo.css']
+const STYLE_FILES = ['src/styles/global.css', 'src/styles/child.css', 'src/styles/therapist.css', 'src/child/duduDemo.css', 'src/child/turnCue.css']
 
 async function read(path: string): Promise<string> {
   // 이 프로젝트는 node 타입 선언을 쓰지 않아 동적 import로 읽는다(테스트는 node 환경).

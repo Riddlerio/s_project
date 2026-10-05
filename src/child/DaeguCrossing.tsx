@@ -14,7 +14,8 @@ import { AudioCapture } from '../speech/audioCapture'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { KoreanTts } from '../speech/koreanTts'
 import { unlockDuduAudio } from '../speech/duduClips'
-import { playFx, PopBurst, VoiceCredit, type PopKind } from './demoFx'
+import { playFx, playTurnChime, PopBurst, unlockFx, VoiceCredit, type PopKind } from './demoFx'
+import { TurnCue } from './turnCue'
 import { isName } from './koreanText'
 import './duduDemo.css'
 
@@ -115,7 +116,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   }
 
   async function begin(selected: 'real' | 'demo') {
-    unlockDuduAudio()
+    unlockDuduAudio(); unlockFx()
     setError(''); setMode(selected); modeRef.current = selected
     const provider = preview ? previewJudge() : serverJudge(selected)
     judge.current = provider
@@ -169,13 +170,17 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     }, still ? 300 : approachMs)
   }
 
+  /** '네 차례': 두두 귀 쫑긋 + 차임 → 차임이 다 들린 뒤 듣기를 열고 빛·배지를 켠다(차임이 마이크에 들어가지 않게). */
   function openWindow() {
     if (pausedRef.current) return
-    setWindowOpen(true); setAction('LISTENING'); setCaption(`'${current.current?.text}' 하고 말해 줘!`)
-    pipeline.current?.resetUtterance()
-    windowOpenedAt.current = performance.now(); speechStartAt.current = null
-    listening.current = true
-    windowTimer.current = window.setTimeout(() => { if (listening.current) closeWindow(null) }, pace.current.windowMs)
+    setAction('LISTENING')
+    later(() => {
+      setWindowOpen(true); setCaption(`'${current.current?.text}' 하고 말해 줘!`)
+      pipeline.current?.resetUtterance()
+      windowOpenedAt.current = performance.now(); speechStartAt.current = null
+      listening.current = true
+      windowTimer.current = window.setTimeout(() => { if (listening.current) closeWindow(null) }, pace.current.windowMs)
+    }, playTurnChime())
   }
 
   /** 듣기를 끝낸다. acoustic이 없으면 기다리는 동안 말이 없었던 것(지나감)이다. */
@@ -316,6 +321,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
         </div>}
         {pop && <PopBurst key={pop.key} kind={pop.kind} label={pop.label} still={still} />}
         {countdown && <div className="crossing-countdown" role="status">{countdown}</div>}
+        <TurnCue on={phase === 'play' && windowOpen} />
       </div>
       <p key={captionKey} className={`crossing-caption${caption ? '' : ' empty'}${captionStyle === 'normal' ? '' : ` ${captionStyle}`}`} aria-live="polite">
         {captionStyle === 'normal' || still ? caption || ' ' : <>

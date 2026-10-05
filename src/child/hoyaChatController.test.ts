@@ -260,3 +260,57 @@ describe('호야 대화 turn 흐름', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 })
+
+describe("'네 차례' 신호 뒤에 듣기(2026-10-05 Phase 4)", () => {
+  function cueSetup() {
+    const cues: (() => void)[] = []
+    const t = setup({ beforeListen: open => { cues.push(open) } })
+    return { ...t, cues }
+  }
+
+  it('두두 말이 끝나도 신호가 끝나기 전에는 듣지 않고 발화를 받지 않는다', () => {
+    const t = cueSetup()
+    t.controller.start('안녕!'); t.spoken[0].onStart(); t.spoken[0].onEnd()
+    expect(t.cues).toHaveLength(1)
+    expect(t.controller.state).toBe('RESPONSE_SPEAKING')
+    expect(t.controller.listening).toBe(false)
+    expect(t.controller.submit(t.utterance)).toBe(false)
+    t.cues[0]()
+    expect(t.controller.state).toBe('LISTENING')
+    expect(t.actions.at(-1)).toBe('LISTENING')
+    expect(t.controller.submit(t.utterance)).toBe(true)
+  })
+
+  it('답할 때마다 신호를 내고, 대화를 끝내는 답 뒤에는 내지 않는다', async () => {
+    const t = cueSetup()
+    t.controller.start('안녕!'); t.spoken[0].onEnd(); t.cues[0]()
+    t.controller.submit(t.utterance)
+    t.requests[0].resolve(t.reply())
+    await t.flush()
+    t.spoken[1].onEnd()
+    expect(t.cues).toHaveLength(2)
+    t.cues[1]()
+    t.controller.submit(t.utterance)
+    t.requests[1].resolve(t.reply('다음에 또 이야기하자!', { sessionComplete: true }))
+    await t.flush()
+    t.spoken[2].onEnd()
+    expect(t.cues).toHaveLength(2)
+    expect(t.controller.state).toBe('ENDED')
+  })
+
+  it('신호 중에 대화를 끝내면 늦게 끝난 신호가 듣기를 열지 않는다', () => {
+    const t = cueSetup()
+    t.controller.start('안녕!'); t.spoken[0].onEnd()
+    t.controller.end()
+    t.cues[0]()
+    expect(t.controller.state).toBe('ENDED')
+    expect(t.controller.submit(t.utterance)).toBe(false)
+  })
+
+  it('신호를 두 번 불러도 한 번만 연다', () => {
+    const t = cueSetup()
+    t.controller.start('안녕!'); t.spoken[0].onEnd()
+    t.cues[0](); t.cues[0]()
+    expect(t.states.filter(state => state === 'LISTENING')).toHaveLength(1)
+  })
+})

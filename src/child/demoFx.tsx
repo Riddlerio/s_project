@@ -2,6 +2,7 @@
  * 데모 화면 효과: 성공했을 때 "펑!" 터지는 별·종이 조각과 짧은 효과음.
  * 화면 연출일 뿐 임상 자료가 아니다. 깜박임 없이 한 번만 터지고(초당 3회 미만), 빨간색을 쓰지 않으며,
  * 움직임 줄이기에서는 별 하나만 멈춰서 보여 준다. 효과음은 듣기가 끝난 뒤에만 낸다(마이크에 들어가지 않게).
+ * '네 차례' 차임은 듣기가 열리기 전에만 울리고, 다 들린 뒤에 듣기를 연다(playTurnChime).
  */
 import { VOICE_CREDIT } from '../speech/duduClips'
 
@@ -45,6 +46,34 @@ function tone(ctx: AudioContext, at: number, from: number, to: number, ms: numbe
   amp.gain.exponentialRampToValueAtTime(0.0001, at + ms / 1000)
   osc.connect(amp).connect(ctx.destination)
   osc.start(at); osc.stop(at + ms / 1000 + 0.02)
+}
+
+/** 누를 때 불러 효과음 오디오를 깨운다. iOS는 누름 안에서 시작한 오디오만 소리를 낸다(실제 아이폰 확인은 리허설 때). */
+export function unlockFx() { audio() }
+
+/** '네 차례' 차임이 끝나는 시각(ms, 예약 여유 포함)과 그 뒤 마이크를 열기 전 조용히 기다리는 시간(방 울림이 잦아들게). */
+const CHIME_END_MS = 290
+const CHIME_TAIL_MS = 160
+/** 차임 뒤 마이크를 열기까지의 기본 시간. 기기 출력 지연(블루투스 등)이 있으면 그만큼 더 기다린다. */
+export const TURN_CUE_MS = CHIME_END_MS + CHIME_TAIL_MS
+
+/** 차임이 다 들린 뒤 마이크를 열어도 되는 시간(ms). 출력 지연이 크면 늘리되 1초를 넘기지 않는다. */
+export function turnCueWait(outputLatencySec: number | undefined): number {
+  const latency = Number.isFinite(outputLatencySec) && (outputLatencySec as number) > 0 ? (outputLatencySec as number) * 1000 : 0
+  return Math.round(Math.min(1000, Math.max(TURN_CUE_MS, CHIME_END_MS + latency + CHIME_TAIL_MS)))
+}
+
+/**
+ * '네 차례' 차임: 부드럽게 올라가는 두 음(솔→레, 약 0.27초). 마이크가 아이 말을 듣기 전에만 부른다.
+ * 돌려준 시간(ms)이 지난 뒤에 듣기를 연다(차임이 마이크에 들어가 아이 말로 잡히지 않게). 소리를 못 내도 같은 시간을 쓴다.
+ */
+export function playTurnChime(): number {
+  const ctx = audio()
+  if (!ctx) return TURN_CUE_MS
+  const now = ctx.currentTime + 0.01
+  tone(ctx, now, 784, 784, 110, 0.07)
+  tone(ctx, now + 0.1, 1175, 1175, 160, 0.06)
+  return turnCueWait(ctx.outputLatency || ctx.baseLatency)
 }
 
 /** 펑(성공), 딱 맞았을 때는 이어서 반짝 두 음. 휘익(지나감)은 낮고 부드럽게. */

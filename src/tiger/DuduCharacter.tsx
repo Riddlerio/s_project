@@ -10,6 +10,7 @@ import { attachDuduFace, faceState, type FaceState } from './duduFace'
 import { speakingLevel } from '../speech/duduClips'
 import { createGrounding, limitRootDrift, softenClip } from './duduMotion'
 import { attachDuduTail, swayDuduTail } from './duduTail'
+import { applyHeadPerk, createPerkClock, findHeadBone, prefersReducedMotion } from './duduPerk'
 
 /*
  * 두두 캐릭터 진입점. 모델 파일(GLB, 2026-10-04 사용자 승인으로 GLTFLoader 도입)을 먼저 쓰고,
@@ -59,6 +60,12 @@ function GlbDudu({ data, action, animate, expression }: Props & { data: Loaded; 
   const tail = useMemo(() => optional('꼬리', () => attachDuduTail(scene)), [scene])
   const face = useMemo(() => optional('표정', () => attachDuduFace(scene)), [scene])
   const ground = useMemo(() => optional('바닥 보정', () => createGrounding(scene)), [scene])
+  // '네 차례' 귀 쫑긋: 듣기로 바뀌는 순간 머리를 위로 잠깐 늘인다(귀가 머리 뼈에 붙어 있음). 움직임 줄이기에서는 하지 않는다.
+  const head = useMemo(() => findHeadBone(scene), [scene])
+  const perk = useMemo(() => createPerkClock(), [scene])
+  const [reduced] = useState(prefersReducedMotion)
+  // 정지 장면이 되면 원래 머리 크기로 돌린다(쫑긋 중간에 멈추지 않게).
+  useEffect(() => { if (!animate) applyHeadPerk(head, 0) }, [animate, head])
   useEffect(() => () => tail?.dispose(), [tail])
   useEffect(() => () => face?.dispose(), [face])
   // 정지 장면에서도 동작에 맞는 표정(웃는 눈·벌린 입)은 한 번 반영한다.
@@ -89,6 +96,7 @@ function GlbDudu({ data, action, animate, expression }: Props & { data: Loaded; 
     if (!animate) return
     mixer.update(Math.min(delta, 0.05))
     ground?.apply()
+    applyHeadPerk(head, perk(action, reduced))
     face?.update(expression ?? faceState(action, clock.elapsedTime, true, speakingLevel()))
     if (tail && action !== 'LISTENING') swayDuduTail(tail, clock.elapsedTime, LIVELY.has(action))
   })
