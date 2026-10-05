@@ -13,6 +13,7 @@ import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { KoreanTts } from '../speech/koreanTts'
+import { playFx, PopBurst, type PopKind } from './demoFx'
 import { isName } from './koreanText'
 import './duduDemo.css'
 
@@ -24,6 +25,8 @@ import './duduDemo.css'
 type Card = 'hidden' | 'away' | 'here' | 'gone' | 'cleared'
 const PRAISE_SHOW_MS = 1400
 const MAX_SPEECH_MS = 4000
+// 말풍선이 동그라미에 들어온 뒤 이 안에 말을 시작하면 '딱 맞았어!'(큰 펑). 화면 연출일 뿐 판정·기록에 쓰지 않는다.
+const ON_TIME_MS = 1500
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /** preview: 개발 검토 화면(crossing-review.html)에서만 true. 서버 없이 근사 판정으로 장면을 확인한다. */
@@ -38,10 +41,10 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const [cardKey, setCardKey] = useState(0)
   const [windowOpen, setWindowOpen] = useState(false)
   const [stripe, setStripe] = useState(0)
-  const [done, setDone] = useState(0)
   const [action, setAction] = useState<HoyaAction>('IDLE')
   const [caption, setCaption] = useState('')
-  const [praise, setPraise] = useState('')
+  const [pop, setPop] = useState<{ key: number; kind: PopKind; label: string } | null>(null)
+  const [countdown, setCountdown] = useState('')
   const [paused, setPaused] = useState(false)
   const [error, setError] = useState('')
   const [holding, setHolding] = useState(false)
@@ -58,6 +61,8 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const timers = useRef<number[]>([])
   const windowTimer = useRef<number | null>(null)
   const holdStart = useRef<number | null>(null)
+  const windowOpenedAt = useRef(0)
+  const speechStartAt = useRef<number | null>(null)
   const current = useRef<CrossingItem | null>(null)
   const counts = useRef({ attempts: 0, successes: 0 })
   const startedAt = useRef(0)
@@ -107,7 +112,10 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       if (selected === 'real') await startMicrophone()
       startedAt.current = Date.now()
       setPhase('play')
-      present(started.first, pace.current.approachMs)
+      // 시작 전 기대감: 두두가 손을 흔들며 "준비~ 시작!"
+      setAction('WAVE'); setCountdown('준비~')
+      later(() => setCountdown('시작!'), 900)
+      later(() => { setCountdown(''); present(started.first, pace.current.approachMs) }, 1600)
     } catch (cause) {
       // 서버가 이 게임을 모르면 422다(서버 작업 전). 그 밖에는 서버가 준 문구를 쓴다.
       setError(cause instanceof ApiError && cause.status === 422 ? '서버에 아직 대구대 건너기가 준비되지 않았어요.'
@@ -124,6 +132,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       if (!onset.calibrated) { onset.process(frame); return }
       if (!listening.current || speaking.current) return
       const { events, acoustic } = onset.process(frame)
+      if (events.some(event => event.type === 'VOICE_START')) speechStartAt.current ??= performance.now()
       if (events.some(event => event.type === 'VOICE_START') && windowTimer.current !== null) {
         // 말을 시작했으면 기다림 시간이 끝나도 말을 다 들을 때까지 기다린다(최대 4초).
         window.clearTimeout(windowTimer.current)
@@ -150,6 +159,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     if (pausedRef.current) return
     setWindowOpen(true); setAction('LISTENING'); setCaption(`'${current.current?.text}' 하고 말해 줘!`)
     pipeline.current?.resetUtterance()
+    windowOpenedAt.current = performance.now(); speechStartAt.current = null
     listening.current = true
     windowTimer.current = window.setTimeout(() => { if (listening.current) closeWindow(null) }, pace.current.windowMs)
   }
@@ -169,7 +179,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     if (!provider || !item || busy.current) return
     busy.current = true
     if (acoustic) counts.current.attempts++
-    else { setCard('gone'); setAction('THINKING'); say(MISS_LINE, undefined, 'THINKING') }
+    else { setCard('gone'); setAction('THINKING'); playFx('whoosh'); say(MISS_LINE, undefined, 'THINKING') }
     try {
       const sent: Acoustic = acoustic ?? { durationMs: 0, voicedMs: 0, activeMs: 0, meanRmsDb: -60, peakRmsDb: -60, meanHfRatio: 0, onsetLatencyMs: 0, source: modeRef.current === 'demo' ? 'keyboard' : 'microphone' }
       const turn = await provider.submit(item, { transcript: null, acoustic: sent })
@@ -185,7 +195,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     history.current.push(event)
     pace.current = nextPace(pace.current, history.current)
     const advanced = turn.next === null || turn.next.stripeIndex !== item.stripeIndex
-    if (advanced) setDone(value => value + 1)
+
     const proceed = () => {
       if (turn.complete || !turn.next) { arrive(); return }
       present(turn.next, advanced ? pace.current.approachMs : Math.max(1500, pace.current.approachMs / 2))
@@ -193,9 +203,12 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     if (turn.result === 'success') {
       counts.current.successes++
       setCard('cleared'); setStripe(value => Math.min(STRIPES, value + 1)); setAction('CHEER')
+      const started = speechStartAt.current
+      const kind: PopKind = started !== null && started - windowOpenedAt.current <= ON_TIME_MS ? 'perfect' : 'good'
       const line = praiseLine(counts.current.successes - 1)
-      setPraise(line); later(() => setPraise(''), PRAISE_SHOW_MS)
-      say(line, () => later(proceed, 300), 'CHEER')
+      setPop({ key: Date.now(), kind, label: kind === 'perfect' ? '딱 맞았어!' : '펑!' }); playFx(kind)
+      later(() => setPop(null), PRAISE_SHOW_MS)
+      say(kind === 'perfect' ? `딱 맞았어! ${line}` : line, () => later(proceed, 300), 'CHEER')
       return
     }
     if (missed) { later(proceed, 1800); return }
@@ -236,7 +249,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   }
 
   // DEMO: 누르고 있는 동안 말하는 것으로 본다(실제 발음 평가가 아님).
-  function holdDown() { if (listening.current) { holdStart.current = performance.now(); setHolding(true) } }
+  function holdDown() { if (listening.current) { holdStart.current = performance.now(); speechStartAt.current ??= holdStart.current; setHolding(true) } }
   function holdUp() {
     if (holdStart.current === null) return
     const ms = Math.round(performance.now() - holdStart.current)
@@ -256,16 +269,18 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   return <main className="crossing-screen"><div className="crossing-shell">
     <header className="crossing-top">
       <div><p className="eyebrow">대구대 건너기{mode === 'demo' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
-        <h1>{phase === 'play' ? `${roundIndex}구간 · ${ROUND_TITLES[roundIndex - 1]}` : '두두랑 대구대까지!'}</h1></div>
+        <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : '두두랑 대구대까지!'}</h1>
+        {phase === 'play' && <span className="crossing-chip">{ROUND_TITLES[roundIndex - 1]}</span>}</div>
       {phase === 'play' && <button className="secondary-action" onClick={togglePause}>{paused ? '다시 시작' : '잠깐 쉬기'}</button>}
     </header>
 
     {phase === 'intro' && <section className="crossing-intro">
-      <h2>두두가 횡단보도를 건너 대구대까지 가요</h2>
+      <div className="crossing-intro-art" aria-hidden="true"><span>🚦 초록불! 대구대까지 10칸</span></div>
+      <h2>두두랑 횡단보도를 건너 대구대까지 가요</h2>
       <ol>
-        <li>말풍선이 두두 머리 위 동그라미에 들어오면 그 소리를 말해 줘.</li>
-        <li>잘 말하면 두두가 흰 줄 하나를 폴짝 건너요.</li>
-        <li>처음 몇 번은 두두가 먼저 들려줄게. 천천히 해도 괜찮아!</li>
+        <li><b>1</b>말풍선이 두두 머리 위 동그라미에 들어오면 그 소리를 말해 줘.</li>
+        <li><b>2</b>잘 말하면 펑! 두두가 흰 줄 하나를 폴짝 건너요.</li>
+        <li><b>3</b>처음에는 두두가 먼저 들려줄게. 천천히 해도 괜찮아!</li>
       </ol>
       <div className="crossing-controls">
         <button disabled={!realSupported} onClick={() => { void begin('real') }}>마이크로 시작</button>
@@ -283,11 +298,14 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
           {item && card !== 'hidden' && <div key={cardKey} className={`crossing-card ${item.level === 'word' ? 'word' : ''} ${card}`}
             style={{ ['--approach' as string]: `${pace.current.approachMs}ms` }}>{item.text}</div>}
         </div>}
-        {praise && <div className="crossing-praise" role="status">{praise}</div>}
+        {pop && <PopBurst key={pop.key} kind={pop.kind} label={pop.label} still={still} />}
+        {countdown && <div className="crossing-countdown" role="status">{countdown}</div>}
       </div>
-      <p className="crossing-caption" aria-live="polite">{caption}</p>
-      <div className="crossing-steps" aria-label={`${STRIPES}줄 중 ${done}줄 지남`}>
-        {Array.from({ length: STRIPES }, (_, i) => <span key={i} className={i < done ? 'done' : i === done ? 'now' : ''} />)}
+      <p className={`crossing-caption${caption ? '' : ' empty'}`} aria-live="polite">{caption || ' '}</p>
+      <div className="crossing-path" aria-label={`흰 줄 ${STRIPES}개 중 ${Math.min(stripe, STRIPES)}개 건넘`}>
+        <span className="crossing-path-end start" aria-hidden="true">출발</span>
+        {Array.from({ length: STRIPES }, (_, i) => <span key={i} className={`crossing-path-step${i < stripe ? ' done' : ''}${i === stripe ? ' here' : ''}`}>{i === stripe && phase === 'play' ? '🐾' : ''}</span>)}
+        <span className="crossing-path-end goal" aria-hidden="true">대구대</span>
       </div>
       {phase === 'play' && mode === 'demo' && <div className="crossing-controls">
         <button className={holding ? 'pressed' : ''} disabled={!windowOpen && !holding}

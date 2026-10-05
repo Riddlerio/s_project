@@ -38,6 +38,8 @@ export function serverJudge(mode: 'real' | 'demo'): CrossingJudge {
   let round: ActivityRound | null = null
   let activityItem: ActivityItem | null = null
   let stripe = 1, tries = 0, quiet = 0
+  // 서버가 돌려준 시도 번호를 그대로 다음 요청에 쓴다(계약: src/api/daeguCrossing.ts).
+  let attemptIndex = 1
   const toItem = (item: ActivityItem, currentRound: ActivityRound, extra: Extra = {}): CrossingItem => ({
     itemId: item.itemId, text: item.displayText, level: item.level === 'word' ? 'word' : 'syllable',
     roundIndex: currentRound.index, stripeIndex: extra.stripeIndex ?? stripe,
@@ -50,11 +52,13 @@ export function serverJudge(mode: 'real' | 'demo'): CrossingJudge {
       session = await startActivity('daegu_crossing', mode)
       round = session.currentRound
       activityItem = session.firstItem
+      attemptIndex = session.nextAttemptIndex ?? 1
       return { first: toItem(session.firstItem, session.currentRound, session as Extra), heroName: session.heroName }
     },
     async submit(item, attempt) {
       if (!session || !round || !activityItem) throw new Error('CROSSING_NOT_STARTED')
-      const response = await sendActivityUtterance(session, activityItem, item.roundIndex, tries + 1, attempt.transcript, attempt.acoustic)
+      const response = await sendActivityUtterance(session, activityItem, item.roundIndex, attemptIndex, attempt.transcript, attempt.acoustic)
+      attemptIndex = response.nextAttemptIndex ?? attemptIndex + 1
       const extra = response as ActivityResponse & Extra
       const result = extra.result ?? resultFromEvents(response.events)
       if (result === 'retry') { tries++; quiet = 0 } else if (result !== 'success') quiet++

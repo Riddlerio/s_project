@@ -11,6 +11,13 @@ import { DEFAULT_VAD, VadStateMachine, type VadEvent, type VadFrame } from '../.
  * 감지 대기 구간을 추적기에 다시 넣는다. 판정은 음향 근사다(정확한 발음 평가가 아님).
  */
 export const PRE_ROLL_MAX_MS = 400
+/**
+ * 이 게임의 발화 감지 시작 기준: 잡음 + 9dB(공용 기본 12dB). 사용자 실측(2026-10-05)에서 '사'는 잡혔지만
+ * '스'처럼 조용한 /ㅅ/가 중심인 소리를 가끔 놓쳐서 낮췄다. 조용한 방 기준이며 잡음이 큰 곳에서는 잘못 시작할 수 있다.
+ */
+export const CROSSING_START_MARGIN_DB = 9
+// 절대 하한도 함께 낮춘다(공용 -50dB). 조용한 방(잡음 -60dB)에서는 하한이 9dB 기준보다 높아 조용한 /ㅅ/를 막았다.
+export const CROSSING_MIN_START_DB = -56
 const HISTORY_MS = 700
 
 /** 감지 시작 직전의 프레임 중 다시 넣을 것: 감지 대기 구간 전부 + 그 앞의 연속 마찰(한 프레임 끊김 허용). */
@@ -36,7 +43,7 @@ export class OnsetPipeline {
   preRollMs = 0
 
   constructor(endHoldMs = 500) {
-    this.vad = new VadStateMachine({ ...DEFAULT_VAD, endHoldMs })
+    this.vad = new VadStateMachine({ ...DEFAULT_VAD, endHoldMs, startMarginDb: CROSSING_START_MARGIN_DB, minStartDbFloor: CROSSING_MIN_START_DB })
     this.tracker = new SustainTracker('any_sound', -60)
   }
 

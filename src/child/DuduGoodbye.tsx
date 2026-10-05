@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { KoreanTts } from '../speech/koreanTts'
 import { Hoya3D } from '../tiger/Hoya3D'
+import { PopBurst } from './demoFx'
 import { hasFinalConsonant } from './koreanText'
 import './duduDemo.css'
 
@@ -28,6 +29,7 @@ export default function DuduGoodbye() {
   const [action, setAction] = useState<HoyaAction>('CHEER')
   const [text, setText] = useState('')
   const [ended, setEnded] = useState(false)
+  const still = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
   useEffect(() => {
     const tts = new KoreanTts()
@@ -46,10 +48,14 @@ export default function DuduGoodbye() {
   // 도착 정보는 화면에 들어올 때 한 번만 읽는다. 개발 모드의 두 번 실행은 정리에서 첫 타이머를 취소한다.
   }, [])
 
-  return <main className="child-screen game-screen">
+  return <main className="child-screen game-screen dudu-chat">
     <h1>두두와 대화하기</h1>
-    <div style={{ height: '48vh', minHeight: 300, width: '100%' }}><Hoya3D action={action} /></div>
-    <p className="speech-bubble" aria-live="polite">{text || '두두가 기다리고 있어요'}</p>
+    <div className="dudu-chat-stage">
+      <Hoya3D action={action} />
+      {/* 마지막 박자: 한 번만 터지는 축하(움직임 줄이기에서는 멈춘 별) */}
+      <PopBurst kind="perfect" label="오늘의 모험 끝!" still={still} />
+    </div>
+    <p className="speech-bubble dudu-bubble" aria-live="polite">{text || '\u00a0'}</p>
     {ended && <div className="crossing-controls">
       <button onClick={() => navigate('/play')}>처음으로</button>
     </div>}

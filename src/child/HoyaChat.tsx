@@ -178,11 +178,12 @@ export default function HoyaChat() {
   }
 
   const listening = chatState === 'LISTENING'
-  return <main className="child-screen game-screen">
+  const statusKind = chatState === 'LISTENING' ? 'listening' : chatState === 'RESPONSE_SPEAKING' ? 'speaking' : STATUS[chatState] ? 'thinking' : ''
+  return <main className="child-screen game-screen dudu-chat">
     <h1>두두와 대화하기</h1>
-    <div style={{ height: '48vh', minHeight: 300, width: '100%' }}><Hoya3D action={action} /></div>
-    <p className="speech-bubble" aria-live="polite">{hoyaText}</p>
-    <p aria-live="polite">{STATUS[chatState]}</p>
+    <div className="dudu-chat-stage"><Hoya3D action={action} /></div>
+    <p className="speech-bubble dudu-bubble" aria-live="polite">{hoyaText || '\u00a0'}</p>
+    <p className={`dudu-status ${statusKind}`} aria-live="polite">{STATUS[chatState]}</p>
     {!session && <div>
       <button disabled={preparing || !realSupported} onClick={() => { void begin('real') }}>대화 시작 (마이크)</button>
       <button disabled={preparing} onClick={() => { void begin('demo') }}>DEMO로 대화 시작</button>

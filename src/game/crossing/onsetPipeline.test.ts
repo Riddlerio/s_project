@@ -40,6 +40,17 @@ describe('대구대 건너기 발화 요약', () => {
     expect(onset?.activeMs).toBeGreaterThan(0)
   })
 
+  it("조용한 '스~'(잡음+10dB 마찰만)는 공용 기준으로는 시작조차 안 되지만 이 경로는 잡는다", () => {
+    const frames: VadFrame[] = []
+    let t = 0
+    const add = (make: (t: number) => VadFrame, ms: number) => { for (let i = 0; i < ms; i += 20) { frames.push(make(t)); t += 20 } }
+    const quietS = (time: number): VadFrame => ({ tMs: time, rmsDb: -50, hfRatio: 0.55, spectralCentroidHz: 5200 })
+    add(silence, 1300); add(quietS, 600); add(silence, 1200)
+    expect(run(new MicUtterancePipeline('any_sound'), frames)).toBeUndefined()
+    const onset = run(new OnsetPipeline(), frames)
+    expect(onset?.onsetFricationMs).toBeGreaterThanOrEqual(500)
+  })
+
   it('앞부분은 연속된 마찰과 감지 대기 구간만, 최대 0.4초까지 가져온다', () => {
     const history = [silence(0), s(20), silence(40), silence(60), s(80), s(100), silence(120), s(140), s(160)]
     expect(preRollFrames(history, 180, -60).map(frame => frame.tMs)).toEqual([80, 100, 120, 140, 160])

@@ -1,7 +1,8 @@
 import type { Acoustic } from '../../shared/types'
 
 /*
- * '대구대 건너기' 진행 규칙(2026-10-05 데모 설계안 2절). 실제 판정·진행은 서버가 정하고 화면은 그 결과만 따른다.
+ * '대구대 건너기' 진행 규칙(2026-10-05 데모 설계안 2절, 같은 날 사용자 피드백으로 20줄 → 10줄).
+ * 실제 판정·진행은 서버가 정하고 화면은 그 결과만 따른다. 두두는 서버가 성공이라고 할 때마다 한 줄씩 건넌다.
  * 여기의 미리보기 진행·근사 판정은 개발 검토 화면(서버 없이)에서만 쓴다. 같은 규칙을 서버 지시서(CODEX_DEMO_TASK)에 적었다.
  */
 export type CrossingResult = 'success' | 'retry' | 'uncertain' | 'no_speech'
@@ -12,24 +13,24 @@ export interface CrossingItem {
   modelCue: boolean
 }
 
-export const STRIPES = 20
-export const ITEMS_PER_ROUND = 4
+export const STRIPES = 10
+// 치료사 타임라인의 5라운드 구조는 유지한다(5라운드 × 2줄).
+export const ITEMS_PER_ROUND = 2
 export const MAX_TRIES = 3
 export const MAX_QUIET = 3
 export const ROUND_TITLES = ['두두 따라 건너기', '혼자 건너기', '모음 바꿔 건너기', '낱말 건너기', '정문까지'] as const
 
 const SYLLABLES = ['사', '소', '수', '시']
-const WORDS = ['사과', '수박', '소리', '시소']
 
-/** 목표 /ㅅ/의 미리보기 계획(5라운드 × 4줄). 낱말 단계면 1~3라운드도 낱말이다. */
+/** 목표 /ㅅ/의 미리보기 계획(5라운드 × 2줄). 낱말 단계면 1~3라운드도 낱말이다. 서버 사양과 같다. */
 export function previewPlan(level: 'syllable' | 'word' = 'syllable'): CrossingItem[] {
   const word = level === 'word'
   const rounds: string[][] = [
-    word ? ['사과', '사과', '수박', '수박'] : ['사', '사', '사', '사'],
-    word ? ['소리', '소리', '시소', '시소'] : ['사', '사', '사', '사'],
-    word ? ['수박', '시소', '사과', '소리'] : ['소', '시', '사', '수'],
-    WORDS,
-    ['수', '사과', '시', '수박'],
+    word ? ['사과', '사과'] : ['사', '사'],
+    word ? ['수박', '수박'] : ['사', '사'],
+    word ? ['소리', '시소'] : ['소', '시'],
+    ['사과', '수박'],
+    ['수', '시소'],
   ]
   return rounds.flatMap((texts, r) => texts.map((text, i) => ({
     itemId: `preview-${r + 1}-${i + 1}`, text, level: SYLLABLES.includes(text) ? 'syllable' as const : 'word' as const,

@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { CrossingProgress, FASTEST_PACE, judgeOnset, nextPace, praiseLine, previewPlan, resultFromEvents, START_PACE, STRIPES, type PaceEvent } from './crossingFlow'
 
 describe('대구대 건너기 진행', () => {
-  it('미리보기 계획은 5라운드 × 4줄 = 20줄이고 1라운드만 두두가 먼저 들려준다', () => {
+  it('미리보기 계획은 5라운드 × 2줄 = 10줄이고 1라운드만 두두가 먼저 들려준다', () => {
     const plan = previewPlan()
     expect(plan).toHaveLength(STRIPES)
-    expect(plan.map(item => item.stripeIndex)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
-    expect(plan.filter(item => item.modelCue).map(item => item.roundIndex)).toEqual([1, 1, 1, 1])
+    expect(plan.map(item => item.stripeIndex)).toEqual(Array.from({ length: 10 }, (_, i) => i + 1))
+    expect(plan.map(item => item.itemIndexInRound)).toEqual([1, 2, 1, 2, 1, 2, 1, 2, 1, 2])
+    expect(plan.filter(item => item.modelCue).map(item => item.roundIndex)).toEqual([1, 1])
     expect(plan.filter(item => item.roundIndex === 4).every(item => item.level === 'word')).toBe(true)
-    expect(previewPlan('word').slice(0, 12).every(item => item.level === 'word')).toBe(true)
+    expect(previewPlan('word').slice(0, 6).every(item => item.level === 'word')).toBe(true)
   })
 
   it('성공이면 다음 줄, 다시는 3번까지, 불확실·무발화는 시도를 쓰지 않고 3번 연속이면 넘어간다', () => {
@@ -26,7 +27,7 @@ describe('대구대 건너기 진행', () => {
 
   it('끝까지 가면 다음 줄은 없다', () => {
     const progress = new CrossingProgress(previewPlan())
-    for (let i = 0; i < 19; i++) progress.record('success')
+    for (let i = 0; i < 9; i++) progress.record('success')
     expect(progress.record('success')).toEqual({ advanced: true, next: null })
   })
 })
