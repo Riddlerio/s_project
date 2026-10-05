@@ -22,6 +22,16 @@
 .crossing-stage { position: relative; height: min(60vh, 560px); min-height: 340px; border-radius: 30px; overflow: hidden; background: linear-gradient(#bfe3f2, #e9f6ee); border: 6px solid #fff; box-shadow: 0 18px 40px #0e62552e, inset 0 0 0 1px #0e625514; }
 .crossing-caption { position: relative; justify-self: center; margin: .2rem 0 0; max-width: min(720px, 94vw); padding: .7rem 1.3rem; border-radius: 22px; background: #fff; box-shadow: 0 8px 22px #0e62551f; font-size: clamp(1.1rem, 2.3vw, 1.45rem); font-weight: 800; text-align: center; }
 .crossing-caption.empty { visibility: hidden; }
+/* 칭찬·도착 말풍선: 금빛으로 통통 튀어나오고 글자가 하나씩 떠오르며 둘레에 별이 한 번 반짝인다 */
+.crossing-caption.praise, .crossing-caption.arrive { background: linear-gradient(135deg, #fff8dc, #ffe48f); color: #4f3600; box-shadow: 0 10px 26px #f4b40055, inset 0 0 0 2px #ffffffaa; animation: praise-pop .55s cubic-bezier(.2, 1.6, .4, 1); }
+.crossing-caption.praise::before, .crossing-caption.arrive::before { background: #fff6d2; }
+.crossing-caption.arrive { font-size: clamp(1.3rem, 2.8vw, 1.8rem); padding: .8rem 1.6rem; }
+.praise-word { white-space: nowrap; }
+.praise-char { display: inline-block; white-space: pre; animation: praise-char .45s cubic-bezier(.2, 1.7, .4, 1) both; animation-delay: calc(var(--i) * 45ms); }
+.praise-spark { position: absolute; left: var(--x); top: var(--y); width: 16px; height: 16px; background: var(--c); opacity: 0; pointer-events: none; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); filter: drop-shadow(0 1px 1px #0002); animation: praise-spark .9s ease-out forwards; animation-delay: var(--d); }
+@keyframes praise-pop { from { transform: scale(.6); opacity: 0; } }
+@keyframes praise-char { from { transform: translateY(14px) scale(.4); opacity: 0; } }
+@keyframes praise-spark { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; transform: scale(1.25) rotate(30deg); } 100% { opacity: 0; transform: translateY(-18px) scale(.6) rotate(90deg); } }
 .crossing-caption::before { content: ''; position: absolute; left: 50%; top: -10px; width: 20px; height: 20px; margin-left: -10px; background: #fff; transform: rotate(45deg); border-radius: 4px; }
 .crossing-controls { display: flex; justify-content: center; align-items: center; gap: .7rem; flex-wrap: wrap; }
 .crossing-controls .small { flex-basis: 100%; text-align: center; color: var(--muted); }
@@ -57,7 +67,17 @@
 .crossing-card.away { transform: translateX(min(46vw, 520px)) rotate(4deg); opacity: .92; }
 .crossing-card.here { transform: translateX(0) rotate(0); }
 .crossing-card.gone { transform: translateX(-60vw) rotate(-14deg); opacity: 0; transition: transform 1s ease-in, opacity 1s; }
-.crossing-card.cleared { transform: translateY(-10px) scale(1.25); opacity: 0; transition: transform .45s cubic-bezier(.2, 1.6, .4, 1), opacity .45s .15s; }
+/* 맞힌 글자: 금빛으로 반짝이며 커졌다가 두두 쪽(아래)으로 내려가 사라진다. 글자 힘으로 두두가 건너는 느낌. */
+.crossing-card.cleared { transition: none; animation: card-clear .8s cubic-bezier(.25, .9, .3, 1) forwards; }
+@keyframes card-clear {
+  0% { transform: translateX(0) scale(1); }
+  32% { transform: translateX(0) scale(1.32) rotate(-4deg); background: #fff6cf; color: #a86b00; box-shadow: 0 0 0 7px #ffd23f99, 0 0 34px 12px #ffd23f66; }
+  55% { transform: translateY(20px) scale(1.05) rotate(3deg); opacity: 1; color: #a86b00; background: #fff6cf; }
+  100% { transform: translateY(190px) scale(.22); opacity: 0; background: #fff6cf; }
+}
+/* 말하기 동그라미에 들어온 글자는 숨 쉬듯 살짝 커졌다 작아진다(깜박임 아님) */
+.crossing-ring.open ~ .crossing-card.here { animation: card-breathe 1.2s ease-in-out infinite alternate; }
+@keyframes card-breathe { from { transform: translateX(0) scale(1); } to { transform: translateX(0) scale(1.07); } }
 @keyframes crossing-ring-pulse { to { transform: scale(1.06); box-shadow: 0 0 0 10px #f4b40026; } }
 
 .crossing-countdown { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); padding: .4rem 1.6rem; border-radius: 999px; background: #ffffffe6; color: var(--forest); font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 900; box-shadow: 0 12px 30px #0e625533; animation: crossing-count .5s cubic-bezier(.2, 1.6, .4, 1); }
@@ -92,10 +112,21 @@
 @media (prefers-reduced-motion: reduce) {
   .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint, .crossing-ring.open, .crossing-countdown, .pop-burst *, .pop-label { animation: none !important; }
   .crossing-card { transition: none !important; }
+  .crossing-card.cleared { animation: none; opacity: 0; }
+  .crossing-ring.open ~ .crossing-card.here, .crossing-caption.praise, .crossing-caption.arrive, .praise-char, .praise-spark { animation: none !important; }
+  .praise-spark { display: none; }
 }
 @media (max-width: 520px) {
   .crossing-stage { height: 52vh; min-height: 300px; }
   .crossing-card { width: 80px; height: 80px; margin-left: -40px; font-size: 2rem; }
   .crossing-card.word { width: 124px; margin-left: -62px; font-size: 1.6rem; }
   .crossing-ring { width: 96px; height: 96px; margin-left: -48px; }
+  /* 좁은 화면: '딱 맞았어!' 꼬리표를 동그라미 오른쪽 대신 아래 가운데에 둔다(무대 밖으로 잘리지 않게) */
+  .pop-label { left: 0; top: 50px; transform: translateX(-50%); transform-origin: center; font-size: 1.2rem; animation-name: pop-label-center; }
+  .pop-burst.perfect .pop-label { font-size: 1.35rem; }
+  .crossing-caption.arrive { font-size: 1.2rem; padding: .7rem 1.1rem; }
+  .crossing-path { gap: .22rem; padding: .5rem .6rem; }
+  .crossing-path-step { width: 1.2rem; height: 1.2rem; font-size: .75rem; }
+  .crossing-path-end { white-space: nowrap; font-size: .7rem; padding: 0 .15rem; }
 }
+@keyframes pop-label-center { from { transform: translateX(-50%) scale(.3); opacity: 0; } }
