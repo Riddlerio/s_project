@@ -143,6 +143,8 @@ backend\.venv\Scripts\python.exe -m pytest backend\tests -q --basetemp backend\t
 backend\.venv\Scripts\python.exe backend\scripts\smoke_api.py
 ```
 
+GitHub Actions의 최소 CI(`.github/workflows/ci.yml`, 2026-10-05)가 `main`·`claude/**`·`codex/**`에 올릴 때와 PR에서 같은 검사를 돌립니다. 프런트는 Ubuntu에서 타입 검사·테스트·빌드·`npm audit`(high)를, 백엔드는 Windows에서 pytest와 DEMO API smoke를 실행합니다. 배포와 브랜치 보호는 하지 않습니다.
+
 pytest가 Windows 임시 폴더 접근 오류를 내면 `backend/tests`를 대상으로, 새 `--basetemp` 경로와 `-p no:cacheprovider`를 지정합니다. 2026-10-05 `claude/dudu-followup`에서 백엔드 445개·프런트엔드 247개와 타입 검사·빌드·smoke 3항목·`npm audit`(취약점 0)이 통과했습니다. 2026-09-29 백엔드 228개·프런트엔드 62개 통과는 [V2 검증 기록](docs/v2/VALIDATION_REPORT.md)의 과거 수치입니다. 2026-10-04 통합 검사에서 백엔드 324개·프런트엔드 172개와 타입 검사·빌드·DEMO API smoke가 통과했습니다. 정확한 환경·명령·남은 수동 검수는 [치료사 데이터 작업 기록](docs/handoff/CODEX_THERAPIST_DATA_RESULT_2026-10-04.md)에 기록합니다.
 
 ## 환경 변수와 API
