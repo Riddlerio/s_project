@@ -468,7 +468,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       </div>
       {phase === 'play' && mode === 'demo' && <div className="crossing-controls">
         <button className={holding ? 'pressed' : ''} disabled={!windowOpen && !holding}
-          onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small">Space</span></button>
+          onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small key-hint">Space</span></button>
         <p className="small">DEMO 입력입니다. 실제 발음 평가가 아닙니다.</p>
       </div>}
     </>}

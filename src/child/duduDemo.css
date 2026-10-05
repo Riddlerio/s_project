@@ -109,10 +109,10 @@
 .crossing-intro .crossing-controls button { font-size: 1.1rem; padding: .9rem 1.6rem; border-radius: 16px; }
 
 /* 진행: 횡단보도 모양 길 */
-.crossing-path { display: flex; align-items: center; justify-content: center; gap: .3rem; padding: .55rem .8rem; border-radius: 999px; background: var(--color-palette-neutral-l39); justify-self: center; max-width: 94vw; }
-.crossing-path-step { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 6px; background: var(--color-palette-neutral-l96-3); font-size: .9rem; transition: background .3s, transform .3s; }
-.crossing-path-step.done { background: var(--color-brand-leaf); }
-.crossing-path-step.here { transform: translateY(-3px); box-shadow: 0 0 0 3px var(--color-brand-gold); }
+.crossing-path { display: flex; align-items: center; justify-content: center; gap: .28rem; padding: .45rem .75rem; border-radius: 16px; background: var(--color-palette-neutral-l39); box-shadow: inset 0 -5px 0 var(--color-alpha-black-a20), 0 8px 16px var(--color-alpha-forest-a16); justify-self: center; max-width: 94vw; }
+.crossing-path-step { display: grid; place-items: center; width: 1.1rem; height: 2.1rem; border-radius: 5px; background: var(--color-palette-neutral-l96-3); font-size: .9rem; transition: background .3s, transform .3s, width .3s; }
+.crossing-path-step.done { background: var(--color-brand-lime); box-shadow: inset 0 0 0 2px var(--color-brand-leaf); }
+.crossing-path-step.here { width: 2rem; transform: translateY(-3px); box-shadow: 0 0 0 3px var(--color-brand-gold); }
 .crossing-path-end { color: var(--color-surface-white); font-size: .78rem; font-weight: 900; padding: 0 .3rem; }
 .crossing-path-end.goal { background: var(--color-brand-forest); border-radius: 999px; padding: .2rem .6rem; }
 
@@ -224,7 +224,8 @@
   .pop-burst.perfect .pop-label { font-size: 1.35rem; }
   .crossing-caption.arrive { font-size: 1.2rem; padding: .7rem 1.1rem; }
   .crossing-path { gap: .22rem; padding: .5rem .6rem; }
-  .crossing-path-step { width: 1.2rem; height: 1.2rem; font-size: .75rem; }
+  .crossing-path-step { width: .9rem; height: 1.75rem; font-size: .75rem; }
+  .crossing-path-step.here { width: 1.6rem; }
   .crossing-path-end { white-space: nowrap; font-size: .7rem; padding: 0 .15rem; }
   .crossing-beats { bottom: 10px; gap: .3rem; }
   .crossing-intro-art span { font-size: 1.05rem; }
@@ -256,3 +257,8 @@
 .crossing-top-main { flex: 1 1 auto; }
 .crossing-screen.dudu-sky .crossing-top button.crossing-pause { flex: none; display: grid; place-items: center; width: 58px; height: 58px; min-height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
 .crossing-pause svg { width: 26px; height: 26px; }
+
+/* 마무리 축하 글자는 두두 얼굴을 가리지 않게 머리 위에 둔다(2026-10-06). */
+.dudu-hub-dudu .pop-burst { top: 3%; }
+.dudu-hub-dudu .pop-label { left: 0; top: -12px; transform: translateX(-50%); transform-origin: center; animation-name: pop-label-center; }
+@media (max-width: 760px) { .dudu-sky .voice-credit { padding: .2rem .7rem; font-size: .66rem; line-height: 1.35; } }
