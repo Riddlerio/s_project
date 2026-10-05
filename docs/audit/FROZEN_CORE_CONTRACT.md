@@ -150,3 +150,25 @@ npm.cmd audit
 - 그대로인 것: `<Hoya3D action className>`, 17개 동작, 대체 화면·`data-hoya-fallback`, `ACTION_TEXT`, 정지 규칙.
 
 **회귀(2026-10-05):** `npm test` 264개(36파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과. 헤드리스 Edge 시간 순서 검사에서 듣기 열림 61번 모두 차임이 0.49~0.51초 앞섰다. 듣는 중 차임과 신호 밖 제출은 0건이었다. 실제 마이크·아이폰·스피커는 미실행(리허설 때).
+
+## 10. 치료사 박자 설정 변경 기록 (2026-10-05, Codex 작성·Claude 인수)
+
+**승인:** 사용자가 분담안을 승인했다(2026-10-05). 내용은 아동별 박자 설정 API, 새 모듈·새 표, 기존 표에는 열을 추가하지 않음, 감사 기록 `GAME_SETTINGS_UPDATE`이다. Codex가 작성했으나 세션이 꺼져 커밋하지 못했고, 사용자 결정에 따라 Claude가 그대로 옮겨 커밋했다.
+
+**`backend/app/db.py`·`models.py`(FREEZE_WITH_EXCEPTIONS)**
+- 두 파일은 바꾸지 않았다.
+- 새 모듈 `backend/app/game_settings/`에 새 표 `child_game_settings`를 더했다(허용 예외 '새 표 추가'). 시작 박자는 76~100이며 CHECK 제약으로 막는다.
+
+**소유권·CSRF(FREEZE_RECOMMENDED)**
+- 새 경로 `GET/PUT /api/therapist/children/{child_id}/game-settings`는 `require_therapist`와 `owned_child`를 거친다.
+- 값이 바뀔 때만 감사 기록을 남긴다.
+
+**게임 시작·상태**
+- 건너기 시작 때 그 아동의 설정을 `runtime_state.rhythm`에 스냅숏으로 남긴다.
+- 진행 응답에는 `rhythm`이 있을 때만 넣는다. 지난 회기는 현재 설정으로 채우지 않는다.
+
+**치료사 근거 보기**
+- 관찰 응답에 `automaticEvidence`(건너기만), 회기 응답에 `crossingSummary`를 더했다. 기존 필드는 그대로다.
+- 판정 상수는 평가 모듈 값을 읽기만 한다. 저장된 자동 결과와 치료사 결정은 바꾸지 않는다.
+
+**회귀(2026-10-05):** typecheck·build 통과, `npm test` 286개(40파일) 통과. 백엔드 결과는 커밋 메시지에 적는다. 실제 기기는 미실행이다.

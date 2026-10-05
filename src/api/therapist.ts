@@ -33,3 +33,19 @@ export const childConversationInsights = (childId: string) =>
   api<ConversationInsightsData>(`/children/${childId}/conversation-insights`)
 export const gameChildConversationInsights = (sessionId: string) =>
   api<ConversationInsightsData>(`/sessions/${sessionId}/conversation-insights`)
+
+/** 박자 설정은 다음 게임 시작에 적용되며 지난 회기 값은 바뀌지 않는다. */
+export interface DaeguCrossingGameSettings {
+  startBpm: number
+  allowFaster: boolean
+  updatedAt: string | null
+  updatedBy: string | null
+}
+export interface ChildGameSettings { daeguCrossing: DaeguCrossingGameSettings }
+export type DaeguCrossingSettingsInput = Pick<DaeguCrossingGameSettings, 'startBpm' | 'allowFaster'>
+export const childGameSettings = (childId: string) =>
+  api<ChildGameSettings>(`/therapist/children/${childId}/game-settings`)
+export const saveChildGameSettings = (childId: string, settings: DaeguCrossingSettingsInput) =>
+  api<ChildGameSettings>(`/therapist/children/${childId}/game-settings`, {
+    method: 'PUT', body: JSON.stringify({ daeguCrossing: { startBpm: settings.startBpm, allowFaster: settings.allowFaster } }),
+  })

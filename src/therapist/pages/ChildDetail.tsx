@@ -13,6 +13,7 @@ import ProgressPanel from '../workspace/ProgressPanel'
 import type { LegacyRecommendation, RuleRow, SessionRow } from '../workspace/ProgressPanel'
 import SummaryPanel from '../workspace/SummaryPanel'
 import SkillGrantPanel from '../SkillGrantPanel'
+import GameSettingsPanel from '../GameSettingsPanel'
 
 export const WORKSPACE_TABS = [
   { id: 'summary', label: '요약' }, { id: 'goal', label: '치료 목표' },
@@ -67,7 +68,7 @@ export default function ChildDetail() {
     {error && <p role="alert">{error}</p>}
     {context && data && <>
       {tab === 'summary' && <SummaryPanel context={context} playCode={data.child.play_code} />}
-      {tab === 'goal' && <GoalPanel goal={data.currentGoal} history={data.goalHistory} onSave={values => attempt(() => saveGoal(id, values, token))} />}
+      {tab === 'goal' && <><GoalPanel goal={data.currentGoal} history={data.goalHistory} onSave={values => attempt(() => saveGoal(id, values, token))} /><GameSettingsPanel childId={id} /></>}
       {tab === 'next' && <><NextSessionPanel key={id} childId={id} plans={plans} onChanged={async () => { await reload() }} /><SkillGrantPanel key={`skill-${id}`} childId={id} /></>}
       {tab === 'progress' && <ProgressPanel childId={id} context={context} trends={metrics} sessions={data.sessions} plans={plans}
         recommendations={recs} rules={data.activeRules}

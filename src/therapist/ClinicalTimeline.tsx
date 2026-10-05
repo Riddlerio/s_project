@@ -3,9 +3,10 @@ import { api } from '../api/client'
 import { sessionInsights } from '../api/therapist'
 import { verificationText } from './clinicalLabels'
 import { CUE_NAMES, FLAG_LABELS, INDEPENDENCE_LABELS, insightRate, JUDGMENT_METHODS, MEASUREMENT_SOURCE_LABELS, PROVENANCE_LABELS, QUALITY_LABELS, RESULT_LABELS, SOURCE_LABELS } from './insights'
-import type { InsightObservation, Provenance, SessionInsights } from './insights'
+import type { CrossingSummary, InsightObservation, Provenance, SessionInsights } from './insights'
 import { ACTIVITY_LABELS, LEVEL_LABELS, POSITION_LABELS } from './planning'
 import SessionNote from './SessionNote'
+import './crossingTherapist.css'
 
 export function EvidenceSymbol({ kind }: { kind: Provenance }) {
   return <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" data-provenance={kind}>
@@ -32,6 +33,23 @@ export function RoundTimeline({ rows, selectedId, onSelect }: { rows: InsightObs
   </div>
 }
 
+export function CrossingSessionSummary({ summary }: { summary: CrossingSummary }) {
+  return <section className="crossing-summary" aria-label="대구대 건너기 회기 요약">
+    <h3>대구대 건너기 회기 요약</h3>
+    <dl className="crossing-summary-metrics">
+      <div><dt>시도 수</dt><dd>{summary.attemptN}회</dd></div>
+      <div><dt>자동 추정 ‘성공’</dt><dd>{summary.autoSuccessN}회</dd></div>
+      <div><dt>판단 보류</dt><dd>{summary.deferredN}회</dd></div>
+      <div><dt>치료사 확인</dt><dd>{summary.confirmedN} / {summary.reviewTotalN}</dd></div>
+    </dl>
+    <p className="small">판단 보류는 불확실·무발화 기록이며 실패가 아닙니다. 시도 수에는 보류된 기록도 포함합니다.</p>
+    <p>{summary.rhythm
+      ? `이 회기의 시작 박자: ${summary.rhythm.startBpm} BPM · 잘하면 조금씩 빨라지기: ${summary.rhythm.allowFaster ? '켜짐' : '꺼짐'}`
+      : '이 회기의 박자 설정: 기록 없음. 현재 설정으로 대신 표시하지 않습니다.'}</p>
+    <p className="small">자동 추정은 음향 신호의 근사입니다. 아래 시도를 선택해 근거와 음질을 살피고, 직접 관찰한 발음과 다르면 교정하거나 판단을 보류해 주세요. 게임의 박자 효과는 임상 근거가 아닙니다.</p>
+  </section>
+}
+
 export function ObservationEvidence({ row }: { row: InsightObservation }) {
   return <>
     <h3>{ACTIVITY_LABELS[row.activity as keyof typeof ACTIVITY_LABELS] || row.activity} · {row.targetText} · {row.roundIndex}라운드 · 시도 {row.attemptNumber}</h3>
@@ -41,6 +59,12 @@ export function ObservationEvidence({ row }: { row: InsightObservation }) {
     <p>단서 {CUE_NAMES[row.cue] || row.cue} · 독립성 {INDEPENDENCE_LABELS[row.independence] || row.independence} · 측정 지속시간 {row.durationMs === null ? '자료 없음' : `${row.durationMs}ms`}</p>
     <p>자동 추정: {RESULT_LABELS[row.aiResult] || row.aiResult} · 현재 검토 결과: {RESULT_LABELS[row.result] || row.result}</p>
     <p>판정 방식: {JUDGMENT_METHODS[row.activity] || '규칙 기반 근사'}. 정확한 발음 판정이 아니며 치료사 확인이 필요합니다.</p>
+    {row.activity === 'daegu_crossing' && <section className="crossing-automatic-evidence" aria-label="자동 추정 근거">
+      <h4>자동 추정 근거</h4>
+      {row.automaticEvidence?.length ? <ul>{row.automaticEvidence.map((evidence, index) => <li key={`${index}-${evidence}`}>{evidence}</li>)}</ul>
+        : <p>이 시도에 저장된 근거 설명이 없습니다.</p>}
+      <p className="small">이 근거만으로 발음의 정오를 확정할 수 없습니다. 녹음 환경과 실제 발음을 함께 확인해 주세요.</p>
+    </section>}
     <p>음질 {QUALITY_LABELS[row.audioQuality] || row.audioQuality} · 음향 출처 {MEASUREMENT_SOURCE_LABELS[row.measurementSource] || row.measurementSource}</p>
     <div className="quality-flags">{row.qualityFlags.map(flag => <span key={flag}>{FLAG_LABELS[flag] || flag}</span>)}</div>
     <p className={row.included ? '' : 'notice'}>{row.included ? '확인된 성공률 분모에 포함' : `성공률 분모 제외: ${row.excludedReasons.map(reason => FLAG_LABELS[reason] || reason).join(' · ')}. 제외는 실패가 아닙니다.`}</p>
@@ -79,6 +103,7 @@ export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
     {!data && !error && <p role="status">관찰을 불러오는 중입니다.</p>}
     {data && <>
       <p><strong>{SOURCE_LABELS[data.source]} 회기</strong> · 관찰 {data.summary.observedN}건 · 평가 가능 {data.summary.evaluableN}건 · 분모 제외 {data.summary.excludedN}건</p>
+      {data.crossingSummary && <CrossingSessionSummary summary={data.crossingSummary} />}
       <RoundTimeline rows={data.observations} selectedId={selectedId} onSelect={setSelectedId} />
       {data.observations.length === 0 && <p>관찰 자료가 없습니다.</p>}
       {row && <article className="card selected-observation" id="selected-observation">

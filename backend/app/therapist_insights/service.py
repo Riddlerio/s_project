@@ -6,6 +6,7 @@ from sqlalchemy import select
 from ..models import ClinicalObservation, TrainingSession
 from ..pronunciation.audio_quality import assess_audio_quality
 from ..therapist_planning.evidence import filter_verified, latest_decisions, normalize_level
+from .crossing_evidence import automatic_evidence, crossing_summary
 
 LIMITATIONS = [
     "아동 음성 인식과 브라우저 음향 요약에는 오인식·기기·환경의 영향이 있습니다. 임상 진단이 아닙니다.",
@@ -45,7 +46,7 @@ def observation_view(row, decision, session, child):
     confirmed = bool(verified)
     state = {"confirm": "CONFIRMED", "correct": "CORRECTED", "reject": "REJECTED"}.get(
         decision.action if decision else "", "PENDING")
-    return {
+    view = {
         "id": row.id, "sessionId": session.id, "roundIndex": row.round_index, "attemptNumber": row.attempt_number,
         "targetText": (row.evidence or {}).get("targetText") or "발화", "targetPhoneme": row.target_phoneme,
         "wordPosition": row.word_position, "level": normalize_level(row.generalization_level), "activity": row.activity,
@@ -59,6 +60,9 @@ def observation_view(row, decision, session, child):
         "acoustic": {key: acoustic[key] for key in ACOUSTIC_KEYS
                      if type(acoustic.get(key)) in (int, float) and isfinite(acoustic[key])},
     }
+    if row.activity == "daegu_crossing":
+        view["automaticEvidence"] = automatic_evidence(row, source)
+    return view
 
 
 def stats(rows):
@@ -125,5 +129,8 @@ def session_insights(db, child, session):
             "불확실·무발화·음질 문제는 실패로 세지 않음. 임상 진단이나 치료 효과의 증명이 아님.")
     if source != "REAL":
         note += " 실제 임상 비교에 사용하지 않는 연습 자료."
-    return {"sessionId": session.id, "source": source, "observations": rows, "rounds": rounds,
-            "summary": total, "note": note, "limitations": LIMITATIONS}
+    response = {"sessionId": session.id, "source": source, "observations": rows, "rounds": rounds,
+                "summary": total, "note": note, "limitations": LIMITATIONS}
+    if (session.runtime_state or {}).get("activityGame") == "daegu_crossing":
+        response["crossingSummary"] = crossing_summary(rows, session)
+    return response

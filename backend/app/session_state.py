@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, ValidationError, field_validator, model_validator
 
 from .games.rounds import GAME_ROUNDS
+from .game_settings.schemas import DaeguCrossingRhythm
 
 
 INVALID_STATE = "세션 상태를 확인할 수 없습니다"
@@ -81,6 +82,8 @@ class ActivityState(_State):
 
 
 class CrossingState(ActivityState):
+    # 이전 회기는 박자 기록이 없을 수 있다. 현재 아동 설정으로 과거 기록을 채우지 않는다.
+    rhythm: DaeguCrossingRhythm | None = None
     itemIndexInRound: StrictInt = Field(ge=1, le=2)
     stripeIndex: StrictInt = Field(ge=1, le=10)
     itemAttemptsUsed: StrictInt = Field(ge=0, le=3)
