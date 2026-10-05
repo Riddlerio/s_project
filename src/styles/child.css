@@ -5,7 +5,7 @@
 .child-brand span { font-family: inherit; font-size: 1rem; color: var(--ink); letter-spacing: -.05em; }
 .child-header-status { display: inline-flex; align-items: center; gap: .5rem; font-size: .81rem; font-weight: 800; color: var(--muted); }
 .child-header-status span { width: 8px; height: 8px; border-radius: 50%; background: var(--color-palette-green-l50); }
-.header-back { background: transparent; color: var(--ink); padding: .35rem 0; font-size: .9rem; }
+.header-back { background: transparent; color: var(--ink); padding: .35rem 0; font-size: .9rem; min-height: 44px; }
 .header-back:hover:not(:disabled) { color: var(--forest); background: transparent; box-shadow: none; }
 .primary-action, .secondary-action { min-height: 52px; display: inline-flex; align-items: center; justify-content: space-between; gap: 2rem; }
 .secondary-action { border: 1px solid var(--color-palette-green-l78); background: transparent; color: var(--forest); }
@@ -30,7 +30,7 @@
 .home-shortcuts button:first-child { padding-left: 0; }
 .home-shortcuts button:last-child { border: 0; padding-left: 1.5rem; }
 .home-shortcuts button:hover:not(:disabled) { background: transparent; color: var(--forest); box-shadow: none; }
-.home-shortcuts button span:first-child { color: var(--color-palette-neutral-l52); font-size: .75rem; }
+.home-shortcuts button span:first-child { color: var(--color-text-muted); font-size: .75rem; }
 
 .entry-screen.child-screen { max-width: none; margin: 0; padding: 0; text-align: left; }
 .entry-layout { min-height: calc(100vh - 82px); display: grid; grid-template-columns: 1fr minmax(330px, 460px); gap: clamp(2rem, 6vw, 6rem); align-items: center; }
@@ -52,7 +52,7 @@
 .map-intro h1 { font-size: clamp(2.8rem, 4.2vw, 5rem); margin: .55rem 0; font-weight: 900; }
 .map-intro p:last-child { color: var(--muted); margin: 0; }
 .map-level { min-width: 152px; display: flex; flex-direction: column; gap: .35rem; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
-.map-level small { color: var(--color-palette-neutral-l48); font-size: .66rem; font-weight: 900; letter-spacing: .14em; }
+.map-level small { color: var(--color-text-muted); font-size: .66rem; font-weight: 900; letter-spacing: .14em; }
 .map-level strong { font-size: 1.85rem; letter-spacing: -.06em; }
 .map-level span { font-size: .8rem; color: var(--muted); }
 .map-options { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--color-surface-paper); }
@@ -60,7 +60,7 @@
 .map-options strong { font-size: .87rem; }
 .map-options > div span { font-size: .8rem; color: var(--muted); }
 .map-options fieldset { padding: 0; margin: 0; border: 0; display: flex; gap: .45rem; }
-.map-options label { display: inline-flex; align-items: center; gap: .15rem; border: 1px solid transparent; border-radius: 100px; padding: .45rem .7rem; font-size: .78rem; font-weight: 800; cursor: pointer; }
+.map-options label { display: inline-flex; align-items: center; gap: .15rem; min-height: 44px; border: 1px solid transparent; border-radius: 100px; padding: .45rem .7rem; font-size: .78rem; font-weight: 800; cursor: pointer; }
 .map-options label.selected { border-color: var(--color-palette-green-l75); background: var(--color-palette-neutral-l93); color: var(--forest); }
 .map-options input { margin: 0 .2rem 0 0; }
 .assigned-journey { display: flex; align-items: center; gap: 1.3rem; flex-wrap: wrap; margin: 1.5rem 0 2.4rem; padding: 1.35rem 1.6rem; border-radius: 18px; color: var(--color-palette-neutral-l98); background: var(--color-palette-teal-l19); }
@@ -80,12 +80,12 @@
 .journey-card-2 { border-color: var(--color-palette-neutral-l84); background: var(--color-palette-neutral-l91); }
 .journey-card-3 { border-color: var(--color-palette-orange-l83); background: var(--color-palette-yellow-l90); }
 .journey-card-4 { border-color: var(--color-palette-orange-l83-2); background: var(--color-palette-orange-l91); }
-.journey-card-top { display: flex; align-items: start; justify-content: space-between; font-size: .73rem; font-weight: 900; color: var(--color-palette-green-l38); }
+.journey-card-top { display: flex; align-items: start; justify-content: space-between; font-size: .73rem; font-weight: 900; color: var(--color-palette-green-l34); }
 .journey-symbol { display: grid; place-items: center; width: 64px; height: 64px; border: 1px solid var(--color-alpha-white-a53); border-radius: 18px; background: var(--color-alpha-white-a49); color: var(--forest); font-size: 2.7rem; font-family: Georgia, serif; line-height: 1; }
 .journey-card-content { margin-top: auto; }
-.journey-card-content small { color: var(--color-palette-green-l41-2); font-size: .72rem; font-weight: 800; }
+.journey-card-content small { color: var(--color-palette-green-l34); font-size: .72rem; font-weight: 800; }
 .journey-card h3 { margin: .35rem 0 .4rem; font-size: 1.6rem; }
-.journey-card p { min-height: 2.8rem; margin: 0 0 1.2rem; color: var(--color-palette-green-l39); font-size: .86rem; }
+.journey-card p { min-height: 2.8rem; margin: 0 0 1.2rem; color: var(--color-palette-green-l34); font-size: .86rem; }
 .journey-card button { width: 100%; display: flex; justify-content: space-between; align-items: center; background: var(--color-surface-paper); color: var(--forest); }
 .journey-card button:hover:not(:disabled) { background: var(--color-palette-neutral-l95-5); color: var(--forest-deep); }
 .journey-card .small { margin: .6rem 0 0; font-size: .75rem; }
@@ -123,7 +123,7 @@
 .activity-header h1 { margin: .3rem 0 0; font-size: clamp(2.2rem, 4vw, 3.7rem); }
 .activity-header > span { padding-bottom: .4rem; color: var(--forest); font-family: Georgia, serif; font-size: 1rem; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
 .activity-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; margin: 1.3rem 0 1.7rem; }
-.activity-progress > span { display: flex; align-items: center; justify-content: space-between; gap: .4rem; min-height: 43px; border: 1px solid var(--line); border-radius: 10px; padding: .4rem .7rem; color: var(--color-palette-neutral-l53); background: var(--paper); font-size: .75rem; font-weight: 700; }
+.activity-progress > span { display: flex; align-items: center; justify-content: space-between; gap: .4rem; min-height: 43px; border: 1px solid var(--line); border-radius: 10px; padding: .4rem .7rem; color: var(--color-text-muted); background: var(--paper); font-size: .75rem; font-weight: 700; }
 .activity-progress > span.current { border-color: var(--forest); color: white; background: var(--forest); }
 .activity-progress > span.completed { border-color: var(--color-palette-green-l83-2); color: var(--forest); background: var(--color-palette-green-l91); }
 .activity-progress small { font-size: .8rem; font-weight: 900; }

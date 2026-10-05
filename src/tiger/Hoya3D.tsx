@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { Component, useState, type ReactNode } from 'react'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { DuduCharacter } from './DuduCharacter'
+import { useReducedMotion } from '../shared/useReducedMotion'
 
 // 두두는 모델 파일(GLB)이 있으면 그것을, 없거나 불러오지 못하면 절차형 3D 시제품(DuduModel)을 쓴다(DuduCharacter).
 
@@ -46,6 +47,8 @@ export class HoyaErrorBoundary extends Component<{ fallback: ReactNode; children
 export function Hoya3D({ action = 'IDLE', className = '' }: { action?: HoyaAction; className?: string }) {
   const [supported] = useState(() => canUseWebGL())
   const [lost, setLost] = useState(false)
+  // 움직임 줄이기: 대구대 건너기·빛의 마법처럼 두두를 동작마다 한 자세로 멈춰 보여 준다(2026-10-05 Phase 4 점검).
+  const reduced = useReducedMotion()
   if (!supported || lost) return <HoyaFallback action={action} />
   return <div className={className} role="img" aria-label={`3D 두두: ${action}`} style={{ width: '100%', height: '100%', minHeight: 280 }}>
     <HoyaErrorBoundary fallback={<HoyaFallback action={action} />}>
@@ -57,7 +60,7 @@ export function Hoya3D({ action = 'IDLE', className = '' }: { action?: HoyaActio
         <hemisphereLight args={['#ffffff', '#cfe3d6', 1.35]} />
         <directionalLight position={[3, 5, 6]} intensity={1.7} />
         <directionalLight position={[-4, 2, 3]} intensity={0.45} />
-        <DuduCharacter action={action} />
+        <DuduCharacter action={action} animate={!reduced} />
       </Canvas>
     </HoyaErrorBoundary>
   </div>
