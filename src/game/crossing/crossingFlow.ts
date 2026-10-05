@@ -58,15 +58,31 @@ export class CrossingProgress {
 }
 
 /**
- * 미리보기용 음향 근사 판정(ONSET_FRICATION): 소리 시작의 마찰 구간과 그 뒤 유성 구간이 기준 이상이면 성공.
- * 기준값은 사용자 실제 마이크 측정 뒤 서버 heuristic으로 정한다. 정확한 발음 평가가 아니다.
+ * 음향 근사 판정(ONSET_FRICATION): 소리 시작의 마찰 구간과 그 뒤 유성 구간(모음)이 기준 이상이면 성공. 정확한 발음 평가가 아니다.
+ * 기준값(2026-10-05 사용자 실측 31개, docs/handoff/MIC_MEASUREMENT_2026-10-05.md):
+ * - 시작 마찰 70ms 이상(20ms 프레임 4개). 바르게 낸 '사'는 79~80ms였다. 60ms(3프레임)는 'ㅊ·ㅈ'처럼 짧은 마찰도 통과시킬 수 있어 올렸다.
+ * - 마찰 뒤 모음 80ms 이상. 바람 소리만 길게 낸 것('스~~')은 '사'가 아니다.
+ * - 소리가 잡음보다 15dB 이상 크지 않으면 판단하지 않는다(불확실). 작게 말한 것을 틀렸다고 하지 않기 위해서다.
+ * 서버 판정도 같은 값을 쓴다(Codex, HEURISTIC_REGISTER). 혀 위치 차이(치간음 등)는 이 근사로 구분할 수 없어 치료사가 확인한다.
  */
-export const ONSET_RULE = { onsetFricationMs: 60, voicedAfterMs: 80, minDurationMs: 120 }
+export const ONSET_RULE = { onsetFricationMs: 70, voicedAfterMs: 80, minDurationMs: 120, minSnrDb: 15 }
+/** 판정 이유. success·retry·uncertain을 정하고, '다시'일 때 두두가 줄 단서를 고른다. */
+export type OnsetReason = 'ok' | 'no_frication' | 'short_frication' | 'no_vowel' | 'quiet' | 'too_short' | 'no_speech'
+export function onsetReason(acoustic: Partial<Acoustic>, rule = ONSET_RULE): OnsetReason {
+  if (!acoustic.activeMs) return 'no_speech'
+  if ((acoustic.durationMs ?? 0) < rule.minDurationMs) return 'too_short'
+  if (acoustic.noiseFloorDb !== undefined && acoustic.meanRmsDb !== undefined && acoustic.meanRmsDb - acoustic.noiseFloorDb < rule.minSnrDb) return 'quiet'
+  const onset = acoustic.onsetFricationMs ?? 0
+  if (onset === 0) return 'no_frication'
+  if (onset < rule.onsetFricationMs) return 'short_frication'
+  return (acoustic.voicedAfterFricationMs ?? 0) >= rule.voicedAfterMs ? 'ok' : 'no_vowel'
+}
 export function judgeOnset(acoustic: Partial<Acoustic>, rule = ONSET_RULE): CrossingResult {
   if (acoustic.source === 'keyboard') return (acoustic.durationMs ?? 0) >= 250 ? 'success' : 'no_speech'
-  if (!acoustic.activeMs) return 'no_speech'
-  if ((acoustic.durationMs ?? 0) < rule.minDurationMs) return 'uncertain'
-  return (acoustic.onsetFricationMs ?? 0) >= rule.onsetFricationMs && (acoustic.voicedAfterFricationMs ?? 0) >= rule.voicedAfterMs ? 'success' : 'retry'
+  const reason = onsetReason(acoustic, rule)
+  if (reason === 'ok') return 'success'
+  if (reason === 'no_speech') return 'no_speech'
+  return reason === 'quiet' || reason === 'too_short' ? 'uncertain' : 'retry'
 }
 
 /** 서버 응답의 사건 목록을 결과로 바꾼다(기존 활동 API 사건 이름). */
@@ -104,6 +120,12 @@ const PRAISE = ['정말 잘했어!', '좋아!', '멋져!', '최고야!']
 export const praiseLine = (count: number) => PRAISE[count % PRAISE.length]
 /** 다시: 실패라고 하지 않고 소리 단서를 하나 준다(/ㅅ/: 바람 소리). */
 export const RETRY_LINE = "바람 소리 '스~'를 먼저 내 볼까?"
+/** 무엇이 달랐는지에 맞춘 단서 하나(수행에 대한 피드백). 이유를 모르면 기본 단서. */
+export function retryLine(reason: OnsetReason | null, text: string): string {
+  if (reason === 'short_frication') return `바람 소리를 조금 더 길게! 스~ ${text}!`
+  if (reason === 'no_vowel') return `바람 소리 좋아! 이번엔 끝까지 이어서, ${text}!`
+  return RETRY_LINE
+}
 export const listenAgainLine = (text: string) => `두두가 다시 들려줄게. ${text}!`
 export const MISS_LINE = '앗, 지나가 버렸네! 한 번 더 온다!'
 export const modelLine = (text: string) => `두두 따라 해 봐. ${text}!`

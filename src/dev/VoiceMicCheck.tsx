@@ -4,6 +4,7 @@ import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { availableVoices, DUDU_PITCH, pickDuduVoice, readDuduVoiceSetting, saveDuduVoiceSetting } from '../speech/duduVoice'
 import { OnsetPipeline } from '../game/crossing/onsetPipeline'
+import { judgeOnset, ONSET_RULE, onsetReason, type OnsetReason } from '../game/crossing/crossingFlow'
 
 /*
  * 개발 서버 전용 점검 화면(/voice-mic-check.html). 배포 빌드에 들어가지 않는다.
@@ -11,9 +12,16 @@ import { OnsetPipeline } from '../game/crossing/onsetPipeline'
  * 결과는 판정 기준을 정하기 위한 측정이며 발음 평가가 아니다. 음성은 저장하지 않고 숫자 요약만 화면에 남는다.
  */
 const LINES = ['안녕~ 만나서 반가워! 나는 두두야.', '정말 잘했어!', "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?", '오늘 나랑 얘기해 줘서 고마워. 다음에 또 만나!']
-const TAGS = ['사', '다', '스~', '기타'] as const
-// 음향 근사: 소리 시작에 마찰 구간이 있으면 '사·스' 쪽으로 본다. 기준값은 이 측정으로 정한다.
-const ONSET_FRICATION_MIN_MS = 60
+// 바르게 낸 소리는 '맞음'이 나와야 하고, 일부러 틀리게 낸 소리(흔한 /ㅅ/ 오류: 파열음화·파찰음화·생략)는 '맞음'이 나오면 안 된다.
+const CORRECT_TAGS = ['사', '스'] as const
+const WRONG_TAGS = ['다', '타', '차', '자', '아'] as const
+const REFERENCE_TAGS = ['스~', '기타'] as const
+const expectation = (tag: string) => (CORRECT_TAGS as readonly string[]).includes(tag) ? 'correct' : (WRONG_TAGS as readonly string[]).includes(tag) ? 'wrong' : 'reference'
+// 대구대 건너기와 같은 판정(crossingFlow.judgeOnset)과 이유를 그대로 보여 준다.
+const REASON_TEXT: Record<OnsetReason, string> = {
+  ok: '맞음: 바람 소리 + 모음', no_frication: '다시: 바람 소리 없음(다·아 쪽)', short_frication: '다시: 바람 소리 짧음(차·자 쪽)',
+  no_vowel: '다시: 바람 소리만(모음 없음)', quiet: '판단 안 함: 너무 작음', too_short: '판단 안 함: 너무 짧음', no_speech: '말 없음',
+}
 // 시작 마찰은 대구대 건너기와 같은 경로로 잰다: 발화 감지(잡음+12dB) 전에 지나간 조용한 /ㅅ/를 앞부분에서 되살린다.
 
 type Row = { id: number; at: string; tag: string; acoustic: Acoustic; preRollMs: number }
@@ -113,20 +121,31 @@ function MicPanel() {
     setBeat({ beats: beats.length, hits: offsetsMs.length, offsetsMs })
   }
 
-  const results = { userAgent: navigator.userAgent, secure: window.isSecureContext, noiseFloorDb: noise, rows: rows.map(row => ({ tag: row.tag, preRollMs: row.preRollMs, ...pick(row.acoustic) })), beat }
+  const judged = rows.map(row => ({ row, result: judgeOnset(row.acoustic), reason: onsetReason(row.acoustic), expected: expectation(row.tag) }))
+  const mismatch = (entry: (typeof judged)[number]) => entry.expected === 'correct' ? entry.result !== 'success' : entry.expected === 'wrong' && entry.result === 'success'
+  const results = { userAgent: navigator.userAgent, secure: window.isSecureContext, noiseFloorDb: noise, rule: ONSET_RULE,
+    rows: judged.map(({ row, result, reason, expected }) => ({ tag: row.tag, expected, result, reason, preRollMs: row.preRollMs, ...pick(row.acoustic) })), beat }
+  const tags = [...new Set(judged.map(entry => entry.row.tag))]
   return <section style={card}>
-    <h2>2. 마이크 · '사'와 '다'</h2>
-    <p style={muted}>아래에서 말할 소리를 고르고 그 소리를 한 번 말한 뒤 1초 쉬어 주세요. '사' 5번, '다' 5번, '스~' 3번이면 충분합니다. 이어폰을 쓰거나 스피커 소리를 줄여 주세요.</p>
+    <h2>2. 마이크 · 바른 소리와 틀린 소리</h2>
+    <p style={muted}>아래에서 말할 소리를 고르고 그 소리를 한 번 말한 뒤 1초 쉬어 주세요. 바른 소리('사')와 일부러 틀린 소리('다'·'타'·'차'·'자'·'아')를 각각 5번씩 말하면, 게임 판정이 둘을 구분하는지 볼 수 있습니다. 이어폰을 쓰거나 스피커 소리를 줄여 주세요.</p>
     <p>{running ? <button onClick={stop}>마이크 끄기</button> : <button style={primary} onClick={() => void start()}>마이크 켜기</button>} <span>{status}</span></p>
     <div style={{ height: 14, background: '#e5ebe7', borderRadius: 7, overflow: 'hidden', maxWidth: 420 }}><div style={{ width: `${Math.max(0, Math.min(100, (level + 80) * 1.4))}%`, height: '100%', background: '#1f6b57' }} /></div>
     <p style={muted}>소리 크기 {level.toFixed(0)} dB · 잡음 기준 {noise === null ? '측정 중' : `${noise.toFixed(0)} dB`}</p>
-    <p>지금 말할 소리: {TAGS.map(value => <label key={value} style={{ marginRight: 10 }}><input type="radio" checked={tag === value} onChange={() => setTag(value)} /> {value}</label>)}</p>
+    <p>바르게: {CORRECT_TAGS.map(value => <TagRadio key={value} value={value} tag={tag} setTag={setTag} />)}
+      <span style={{ marginLeft: 8 }}>일부러 틀리게: {WRONG_TAGS.map(value => <TagRadio key={value} value={value} tag={tag} setTag={setTag} />)}</span>
+      <span style={{ marginLeft: 8 }}>참고: {REFERENCE_TAGS.map(value => <TagRadio key={value} value={value} tag={tag} setTag={setTag} />)}</span></p>
+    <p style={muted}>게임 기준: 시작 바람 소리 {ONSET_RULE.onsetFricationMs}ms 이상 + 그 뒤 모음 {ONSET_RULE.voicedAfterMs}ms 이상이면 맞음. 잡음보다 {ONSET_RULE.minSnrDb}dB 이상 크지 않으면 판단하지 않습니다.</p>
+    {tags.length > 0 && <p>{tags.map(value => {
+      const group = judged.filter(entry => entry.row.tag === value)
+      return <span key={value} style={{ marginRight: 14 }}><b>{value}</b> 맞음 {group.filter(entry => entry.result === 'success').length}/{group.length}</span>
+    })}{judged.some(mismatch) && <span style={warn}> · 기대와 다른 판정 {judged.filter(mismatch).length}개(노란 줄)</span>}</p>}
     <table style={{ borderCollapse: 'collapse', fontSize: 13 }}>
-      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '되살린 앞부분', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '근사 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
-      <tbody>{rows.map(row => {
+      <thead><tr>{['#', '말한 소리', '길이', '시작 마찰', '되살린 앞부분', '마찰 뒤 유성', '전체 마찰', '소리-잡음', '게임 판정'].map(head => <th key={head} style={cell}>{head}</th>)}</tr></thead>
+      <tbody>{judged.map(entry => {
+        const { row, reason } = entry
         const a = row.acoustic
-        const fric = a.onsetFricationMs ?? 0
-        return <tr key={row.id}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(fric)}</td><td style={cell}>{ms(row.preRollMs)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={cell}>{fric >= ONSET_FRICATION_MIN_MS ? '마찰 시작 있음(사·스 쪽)' : '마찰 없음(다 쪽)'}</td></tr>
+        return <tr key={row.id} style={mismatch(entry) ? { background: '#fff3c4' } : undefined}><td style={cell}>{row.id}</td><td style={cell}>{row.tag}</td><td style={cell}>{ms(a.durationMs)}</td><td style={cell}>{ms(a.onsetFricationMs)}</td><td style={cell}>{ms(row.preRollMs)}</td><td style={cell}>{ms(a.voicedAfterFricationMs)}</td><td style={cell}>{ms(a.fricationMs)}</td><td style={cell}>{a.noiseFloorDb === undefined ? '-' : `${(a.meanRmsDb - a.noiseFloorDb).toFixed(0)}dB`}</td><td style={cell}>{REASON_TEXT[reason]}</td></tr>
       })}</tbody>
     </table>
     <h2 style={{ marginTop: 20 }}>3. 박자에 맞춰 말하기</h2>
@@ -142,6 +161,10 @@ function MicPanel() {
 }
 
 const ms = (value?: number) => `${Math.round(value ?? 0)}ms`
+
+function TagRadio({ value, tag, setTag }: { value: string; tag: string; setTag: (value: string) => void }) {
+  return <label style={{ marginRight: 8 }}><input type="radio" checked={tag === value} onChange={() => setTag(value)} /> {value}</label>
+}
 
 function pick(a: Acoustic) {
   return { durationMs: a.durationMs, onsetFricationMs: a.onsetFricationMs, voicedAfterFricationMs: a.voicedAfterFricationMs, fricationMs: a.fricationMs,

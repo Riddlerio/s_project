@@ -19,6 +19,11 @@ export const CROSSING_START_MARGIN_DB = 9
 // 절대 하한도 함께 낮춘다(공용 -50dB). 조용한 방(잡음 -60dB)에서는 하한이 9dB 기준보다 높아 조용한 /ㅅ/를 막았다.
 export const CROSSING_MIN_START_DB = -56
 const HISTORY_MS = 700
+/**
+ * 사용자 실측(2026-10-05): 길게 낸 '스~'(마찰 1.4~1.9초)인데 시작 마찰이 0으로 나온 경우가 있었다. 마찰 직전의 숨·입술 소리
+ * 한두 프레임이 시작 구간을 닫았기 때문이다. 이 게임에서만 앞부분 40ms, 마찰 도중 20ms 꺼짐을 봐준다.
+ */
+export const ONSET_TOLERANCE = { leadInMs: 40, dipMs: 20 }
 
 /** 감지 시작 직전의 프레임 중 다시 넣을 것: 감지 대기 구간 전부 + 그 앞의 연속 마찰(한 프레임 끊김 허용). */
 export function preRollFrames(history: readonly VadFrame[], candidateStartMs: number, noiseFloorDb: number, maxMs = PRE_ROLL_MAX_MS): VadFrame[] {
@@ -44,7 +49,7 @@ export class OnsetPipeline {
 
   constructor(endHoldMs = 500) {
     this.vad = new VadStateMachine({ ...DEFAULT_VAD, endHoldMs, startMarginDb: CROSSING_START_MARGIN_DB, minStartDbFloor: CROSSING_MIN_START_DB })
-    this.tracker = new SustainTracker('any_sound', -60)
+    this.tracker = new SustainTracker('any_sound', -60, ONSET_TOLERANCE)
   }
 
   get calibrated(): boolean { return this.calibrationStart !== null && this.calibration.length === 0 }

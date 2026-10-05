@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { ARRIVAL_STRIPE, CrossingScene } from '../game/crossing/CrossingScene'
 import {
-  listenAgainLine, MISS_LINE, modelLine, nextPace, praiseLine, RETRY_LINE, ROUND_TITLES, START_PACE, STRIPES,
+  listenAgainLine, MISS_LINE, modelLine, nextPace, onsetReason, praiseLine, retryLine, ROUND_TITLES, START_PACE, STRIPES,
   type CrossingItem, type CrossingResult, type Pace, type PaceEvent,
 } from '../game/crossing/crossingFlow'
 import { previewJudge, serverJudge, type CrossingJudge, type CrossingTurn } from '../game/crossing/crossingJudge'
@@ -183,14 +183,15 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     try {
       const sent: Acoustic = acoustic ?? { durationMs: 0, voicedMs: 0, activeMs: 0, meanRmsDb: -60, peakRmsDb: -60, meanHfRatio: 0, onsetLatencyMs: 0, source: modeRef.current === 'demo' ? 'keyboard' : 'microphone' }
       const turn = await provider.submit(item, { transcript: null, acoustic: sent })
-      if (mounted.current) react(turn, acoustic === null)
+      if (mounted.current) react(turn, acoustic)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '저장 연결을 확인해 주세요')
     } finally { busy.current = false }
   }
 
-  function react(turn: CrossingTurn, missed: boolean) {
+  function react(turn: CrossingTurn, acoustic: Acoustic | null) {
     const item = current.current!
+    const missed = acoustic === null
     const event: PaceEvent = missed ? 'miss' : turn.result
     history.current.push(event)
     pace.current = nextPace(pace.current, history.current)
@@ -213,7 +214,8 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     }
     if (missed) { later(proceed, 1800); return }
     const result: CrossingResult = turn.result
-    if (result === 'retry') say(RETRY_LINE, proceed, 'ENCOURAGE')
+    // 결과는 서버 판정을 따르고, 단서 문구만 같은 음향 요약으로 고른다(기준이 다르면 기본 단서).
+    if (result === 'retry') say(retryLine(acoustic.source === 'keyboard' ? null : onsetReason(acoustic), item.text), proceed, 'ENCOURAGE')
     else say(listenAgainLine(item.text), proceed)
   }
 
