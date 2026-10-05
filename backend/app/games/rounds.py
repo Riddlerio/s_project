@@ -35,6 +35,13 @@ def _round(game, index, title, prompt, focus, task, level, elicitation, prompt_t
 
 
 GAME_ROUNDS = {
+    "daegu_crossing": (
+        _round("daegu_crossing", 1, "두두 따라 건너기", "두두를 따라 말하고 건너자!", "모델에 따른 /ㅅ/ 산출 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 2, "혼자 건너기", "이번에는 혼자 말해 볼까?", "독립 산출 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "PROMPTED_PRODUCTION", "VISUAL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 3, "모음 바꿔 건너기", "다른 소리로 한 줄씩 건너자!", "모음 환경 전이 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "PROMPTED_PRODUCTION", "VISUAL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 4, "낱말 건너기", "그림의 이름을 말해 줘!", "낱말 수준 산출 · 음향 근사", "TARGET_PRODUCTION", "WORD", "SELF_GENERATED", "PICTURE_PROMPT", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 5, "정문까지", "정문까지 한 줄씩 가 보자!", "음절·낱말 혼합 · 음향 근사", "TARGET_PRODUCTION", "WORD", "PROMPTED_PRODUCTION", "PICTURE_PROMPT", 3, "ONSET_FRICATION"),
+    ),
     "magic_beam": (
         _round("magic_beam", 1, "마법 깨우기", "두두를 따라 스— 하고 말해줘!", "모델 후 /ㅅ/ 지속 산출", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "FRICATION", 1000),
         _round("magic_beam", 2, "빔 쏘기", "혼자 힘으로 빔을 쏴 볼까?", "독립 지속 산출", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 3, "FRICATION", 1500),

@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..games.rounds import GAME_ROUNDS, public_round
+from ..games import crossing
 from ..models import (ActivityLease, AuditEvent, Child, CraftEvent, EpisodeProgress,
                       RoundMaterialReward, SkillGrant, Therapist, TrainingSession, now)
 from ..security import hash_token
@@ -138,6 +139,15 @@ def activity_payload(db, session):
     game = state["activityGame"]
     child = db.get(Child, session.child_id)
     complete = bool(state.get("roundsComplete"))
+    if game == crossing.GAME:
+        return {"sessionId": session.id, "game": game, "mode": session.mode,
+                "heroName": child.hero_name,
+                "rounds": [crossing.child_round(definition) for definition in GAME_ROUNDS[game]],
+                "currentRound": None if complete else crossing.child_round(crossing.definition_for_item(state)),
+                "firstItem": None if complete else state["currentItem"],
+                "nextAttemptIndex": state["roundAttempt"],
+                "completedRounds": list(range(1, 6 if complete else state["roundIndex"])),
+                **crossing.cursor(state)}
     return {"sessionId": session.id, "game": game, "mode": session.mode,
             "heroName": child.hero_name,
             "rounds": [public_round(definition) for definition in GAME_ROUNDS[game]],

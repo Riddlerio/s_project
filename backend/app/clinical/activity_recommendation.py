@@ -41,7 +41,7 @@ def propose_activity(db, child_id: str) -> dict | None:
     sustained = [row.evidence.get("acoustic", {}).get("bestRunMs") for row, _ in sound]
     sustained = [value for value in sustained if type(value) in (int, float)]
     if len(sustained) >= 2 and sum(sustained) / len(sustained) < 1500:
-        game = "magic_beam"
+        game = "sky_climb"
         reason = f"치료사 확인 SOUND 관찰 {len(sound)}건의 보고된 연속 발성 길이를 추가 관찰할 필요가 있습니다."
     elif len(word) >= 2 and sum(result == "success" for _, result in word) * 2 <= len(word):
         game = "monster_adventure"

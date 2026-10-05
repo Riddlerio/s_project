@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, ValidationError, field_validator, model_validator
 
 from .games.rounds import GAME_ROUNDS
 
@@ -31,7 +31,7 @@ class LegacyItem(_State):
 
 
 class ActivityItem(LegacyItem):
-    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
+    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest", "daegu_crossing"]
 
 
 class RoundSnapshot(_State):
@@ -50,7 +50,7 @@ class RoundRewardSnapshot(_State):
 
 
 class ActivityState(_State):
-    activityGame: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
+    activityGame: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest", "daegu_crossing"]
     roundIndex: StrictInt = Field(ge=1, le=5)
     stageIndex: StrictInt = Field(ge=0, le=4)
     roundAttempt: StrictInt = Field(ge=1)
@@ -80,11 +80,31 @@ class ActivityState(_State):
         return value
 
 
+class CrossingState(ActivityState):
+    itemIndexInRound: StrictInt = Field(ge=1, le=4)
+    itemAttemptsUsed: StrictInt = Field(ge=0, le=3)
+    modelCue: StrictBool
+
+    @model_validator(mode="after")
+    def consistent_cursor(self):
+        if self.stageIndex != self.roundIndex - 1:
+            raise ValueError("라운드와 구간이 일치하지 않습니다")
+        if self.roundsComplete and (self.roundIndex != 5 or self.itemIndexInRound != 4):
+            raise ValueError("완료 위치가 올바르지 않습니다")
+        return self
+
+
+class CrossingSummary(_State):
+    totalAttempts: StrictInt = Field(ge=0)
+    durationSec: StrictInt = Field(ge=0)
+    sessionComplete: Literal[True]
+
+
 class CompletionState(_State):
     """완료 처리에서 읽는 값. 기존 모험·5라운드 세션 모두 해당한다."""
     xp: StrictInt = Field(default=0, ge=0)
     stageIndex: StrictInt = Field(default=0, ge=0)
-    activityGame: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"] | None = None
+    activityGame: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest", "daegu_crossing"] | None = None
 
 
 class CompletedSummary(_State):
@@ -111,7 +131,7 @@ def activity_state(session) -> dict:
     """V2 5라운드 API가 쓸 수 있는 상태만 돌려준다. 기존 모험 세션이나 손상된 상태는 409다."""
     if not is_activity(session):
         raise HTTPException(409, "5라운드 게임 세션이 아닙니다")
-    _validated(ActivityState, session.runtime_state)
+    _validated(CrossingState if session.runtime_state.get("activityGame") == "daegu_crossing" else ActivityState, session.runtime_state)
     state = dict(session.runtime_state)
     if state["activityGame"] not in GAME_ROUNDS or state["currentItem"]["game"] != state["activityGame"]:
         raise HTTPException(409, INVALID_STATE)
@@ -121,7 +141,7 @@ def activity_state(session) -> dict:
 def completion_state(session) -> dict:
     """완료 API가 쓸 수 있는 상태. 이미 완료된 세션은 저장된 요약의 형식도 확인한다."""
     if session.status == "completed":
-        _validated(CompletedSummary, session.summary_json)
+        _validated(CrossingSummary if isinstance(session.runtime_state, dict) and session.runtime_state.get("activityGame") == "daegu_crossing" else CompletedSummary, session.summary_json)
     _validated(CompletionState, session.runtime_state)
     return dict(session.runtime_state)
 

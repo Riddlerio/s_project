@@ -95,8 +95,8 @@ def test_demo_provider_reacts_first_and_passes_validator():
             assert output.strategy == strategy
             validate_output(output, strategy, item.target_lexicon)
     reply = DemoProvider().reply_sync(context())
-    assert reply.text == "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?"
-    assert DemoProvider().reply_sync(context(transcript="오늘 축구했어.")).text == "축구했구나! 같이 뛴 선수가 있었어?"
+    assert reply.text == "학교 다녀왔구나! 사과가 좋아, 수박이 좋아?"
+    assert DemoProvider().reply_sync(context(transcript="오늘 축구했어.")).text == "축구했구나! 사과가 좋아, 수박이 좋아?"
     # 불확실한 인식 문장은 믿지 않고 일반적인 반응을 한다.
     assert DemoProvider().reply_sync(context(evidence="UNCERTAIN", transcript="축구")).text.startswith("그랬구나!")
 
@@ -323,7 +323,7 @@ def test_prompt_injection_cannot_disclose_prompt_or_override_strategy(api):
     assert response.status_code == 200, response.text
     body = response.json()
     assert system_prompt()[:30] not in body["text"]
-    assert set(body) == {"status", "turnIndex", "clientRequestId", "text", "nextTurnIndex", "sessionComplete"}
+    assert set(body) == {"status", "turnIndex", "clientRequestId", "text", "nextTurnIndex", "sessionComplete", "nextActivity"}
     # 제공자에게는 서버가 정한 전략이 갔고, 제공자가 바꾸려 한 전략(SIMPLIFY)은 저장되지 않는다.
     # 주입 문장에도 "시스템"의 /ㅅ/이 있으므로 서버 근거는 목표 관찰이다.
     assert provider.calls[0].strategy == "CONTINUE_OR_EXPAND"
@@ -372,11 +372,14 @@ def test_demo_chat_flow(api):
     client, sessions = api
     headers = student_auth(client)
     started = _start(client, headers)
-    assert started["openingText"] == OPENING == "안녕! 나는 두두야. 오늘 뭐 하고 놀았어?"
+    with sessions() as db:
+        nickname = db.scalar(select(Child.hero_name).where(Child.play_code == "HERO01"))
+    assert started["openingText"] == f"안녕~ 만나서 반가워! {nickname}야. 나는 두두야."
     assert started["status"] == "active" and started["nextTurnIndex"] == 1
     first = _turn(client, headers, started["sessionId"], 1, "학교 갔어.")
     assert first.status_code == 200, first.text
-    assert first.json()["text"] == "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?"
+    assert first.json()["text"] == "학교 다녀왔구나! 사과가 좋아, 수박이 좋아?"
+    assert first.json()["nextActivity"] is None
     second = _turn(client, headers, started["sessionId"], 2, "미술 수업 했어.")
     assert second.status_code == 200 and "틀렸" not in second.json()["text"] and "잘못" not in second.json()["text"]
     assert _turn(client, headers, started["sessionId"], 3, None).json()["text"]

@@ -33,7 +33,7 @@ class GoalInput(ApiModel):
 
 
 class StartActivityInput(ApiModel):
-    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
+    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest", "daegu_crossing"]
     mode: Literal["real", "demo"] = "demo"
 
 

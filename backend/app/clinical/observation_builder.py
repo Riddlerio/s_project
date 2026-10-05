@@ -20,7 +20,11 @@ def build_observation(session, utterance, goal, analysis, acoustic: dict, state:
         audio_quality=quality, ai_result=analysis.result, ai_confidence=confidence,
         possible_error_pattern=analysis.pattern_tags,
         evidence={"acoustic": acoustic, "targetText": utterance.item_text, "targetStatus": analysis.target_status,
-                  "clinicalFocus": round_def.get("clinicalFocus"), "elicitationType": round_def.get("elicitationType")},
+                  "clinicalFocus": round_def.get("clinicalFocus"), "elicitationType": round_def.get("elicitationType"),
+                  **({"itemSource": "TRAINING_BANK", "itemIndexInRound": state["itemIndexInRound"],
+                      "stripeIndex": (round_index - 1) * 4 + state["itemIndexInRound"],
+                      "assessmentMethod": "ONSET_FRICATION_ACOUSTIC_APPROXIMATION"}
+                     if utterance.game == "daegu_crossing" else {})},
         provenance={"acoustic": "CLIENT_REPORTED", "target": "SYSTEM_MEASURED",
                     "aiResult": "AI_ESTIMATED", "cue": "SYSTEM_MEASURED"},
     )
