@@ -122,3 +122,31 @@ npm.cmd audit
 **main 병합 예외(사용자 결정, 2026-10-05):** 6절의 수동 검증(실제 마이크·아이폰·실제 LLM) 전에 'CI 통과, 실제 마이크 미확인'으로 표시해 main에 병합한다. 수동 검증은 리허설에서 하고, 결과와 수정은 다음 PR로 올린다.
 
 **회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 [OK](리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.
+
+## 9. Phase 4 변경 기록 (2026-10-05, 아동 화면 '네 차례'·접근성)
+
+**승인:** 사용자가 Phase 4 ①('네 차례' 신호 통일)·②(접근성·저사양 점검)를 승인했다(2026-10-05). 조건은 "마이크 경로는 건드리지 않고, 차임은 마이크가 열리기 전에만"이다. 자세한 내용은 [Phase 4 기록](../handoff/PHASE4_CHILD_SCREENS_2026-10-05.md)에 있다.
+
+**`hoyaChatController.ts`(HIGH_RISK_TO_TOUCH)**
+- 선택 의존성 `beforeListen(open)`을 추가했다. 두두 답이 끝난 뒤 듣기(LISTENING)로 가기 전에 화면이 신호를 내고 `open`을 부른다.
+- 그동안 상태는 `RESPONSE_SPEAKING`이라 발화를 받지 않는다.
+- 대화를 끝내는 답 뒤에는 부르지 않는다. 신호 중에 끝내기·정리되면 열지 않는다.
+- 넘기지 않으면 기존과 같다. 기존 테스트 25개는 그대로 통과했고 4개를 추가했다.
+
+**`src/child/**`(음성 로직, HIGH_RISK_TO_TOUCH)**
+- `DaeguCrossing.tsx`: 듣기(`listening`)를 차임이 다 들린 뒤에 켠다.
+- `ActivitySession.tsx`:
+  - 캡처 시작 때 대기 플래그 `modelPending`의 처음 값을 항상 `true`로 했다(전에는 따라 말하기의 첫 시범 때만 `true`).
+  - 차례 효과(전의 시범 효과를 넓힘)가 시범 → 차임 → 열기 순서로 이 플래그를 푼다.
+  - 제출이 끝나면 다시 막고, 다음 신호가 연다.
+  - 프레임 콜백(캡처 → 파이프라인 → 인식기 → 제출)의 코드와 순서, `CALIBRATION_MS`는 바꾸지 않았다.
+- Space 처리기: 입력 칸에서 누른 Space는 띄어쓰기로 둔다. Space·pointer 처리기 자체는 유지했다.
+- DEMO 누르고 말하기는 '네 차례!' 뒤에만 받는다.
+- 측정 기준이 하나 바뀌었다. 게임 4종의 `onsetLatencyMs`는 듣기가 열린 때부터 잰다(`DECISIONS_PENDING.md` 2026-10-05).
+
+**`src/tiger/**`(SAFE_WITH_INTERFACE_CONSTRAINTS)**
+- 귀 쫑긋(`duduPerk.ts`)을 더했다. GLB는 머리 뼈 크기, 절차형은 귀 크기를 바꾼다.
+- `Hoya3D`가 움직임 줄이기 설정이면 `DuduCharacter`에 `animate={false}`를 넘긴다.
+- 그대로인 것: `<Hoya3D action className>`, 17개 동작, 대체 화면·`data-hoya-fallback`, `ACTION_TEXT`, 정지 규칙.
+
+**회귀(2026-10-05):** `npm test` 264개(36파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과. 헤드리스 Edge 시간 순서 검사에서 듣기 열림 61번 모두 차임이 0.49~0.51초 앞섰다. 듣는 중 차임과 신호 밖 제출은 0건이었다. 실제 마이크·아이폰·스피커는 미실행(리허설 때).
