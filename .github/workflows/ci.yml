@@ -50,6 +50,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install -r requirements.txt
+      # test-temp는 무시 목록에 있어 새로 받은 저장소에는 없다. pytest 임시 폴더와 smoke DB가 쓴다.
+      - run: New-Item -ItemType Directory -Force test-temp | Out-Null
       - run: python -m pytest -q -p no:cacheprovider --basetemp test-temp/ci
       - name: DEMO API smoke
         env:
