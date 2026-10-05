@@ -115,7 +115,7 @@ def _finish(db: Session, session: HoyaChatSession, turn: HoyaChatTurn, reply: Ho
     # 시간·근거를 다시 계산해도 재시도 응답이 달라지지 않도록, 문구와 최초 전환 턴을 같은 transaction에 저장한다.
     text = TRANSITION_TEXT if transition else reply.text
     changed = db.execute(update(HoyaChatTurn).where(HoyaChatTurn.id == turn.id, HoyaChatTurn.status == "PROCESSING").values(
-        status="COMPLETED", hoya_text=text, strategy=reply.strategy, target_words=reply.target_words,
+        status="COMPLETED", hoya_text=text, strategy=reply.strategy, target_words=[] if transition else reply.target_words,
         provider=reply.provider, model_name=reply.model, fallback_reason=reply.fallback_reason,
         session_complete=final or session.status != "active", updated_at=finished)).rowcount
     if changed:

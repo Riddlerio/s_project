@@ -7,10 +7,12 @@ export interface DaeguCrossingRound {
   childTitle: string
   childPrompt: string
 }
-/** 응답 후 표시할 항목. 완료 시 5/4/20, 남은 시도 0, 시범 false. */
+/** 응답 후 표시할 항목. 완료 시 5/2/10, 남은 시도 0, 시범 false. */
 export interface DaeguCrossingProgress {
   roundIndex: number
+  /** 1~2 */
   itemIndexInRound: number
+  /** 1~10 */
   stripeIndex: number
   triesLeft: number
   modelCue: boolean
@@ -23,17 +25,22 @@ export interface DaeguCrossingItem {
   game: 'daegu_crossing'
   pictureKey: string
 }
-export interface DaeguCrossingStart extends DaeguCrossingProgress {
+export interface DaeguCrossingSnapshot extends DaeguCrossingProgress {
   sessionId: string
   game: 'daegu_crossing'
   mode: 'real' | 'demo'
   heroName: string
   rounds: DaeguCrossingRound[]
-  currentRound: DaeguCrossingRound
-  firstItem: DaeguCrossingItem
+  currentRound: DaeguCrossingRound | null
+  firstItem: DaeguCrossingItem | null
   nextAttemptIndex: number
   completedRounds?: number[]
   leaseToken?: string
+}
+export interface DaeguCrossingStart extends DaeguCrossingSnapshot {
+  sessionComplete: false
+  currentRound: DaeguCrossingRound
+  firstItem: DaeguCrossingItem
 }
 export type DaeguCrossingResult = 'success' | 'retry' | 'uncertain' | 'no_speech'
 export interface DaeguCrossingResponse extends DaeguCrossingProgress {
@@ -48,10 +55,10 @@ export const startDaeguCrossing = (mode: 'real' | 'demo') =>
   api<DaeguCrossingStart>('/activities', { method: 'POST', body: JSON.stringify({ game: 'daegu_crossing', mode }) })
 
 export const getDaeguCrossing = (sessionId: string) =>
-  api<DaeguCrossingStart>(`/activities/${sessionId}`)
+  api<DaeguCrossingSnapshot>(`/activities/${sessionId}`)
 
 export const sendDaeguCrossingUtterance = (
-  session: DaeguCrossingStart, item: DaeguCrossingItem, roundIndex: number, attemptIndex: number,
+  session: Pick<DaeguCrossingSnapshot, 'sessionId' | 'mode' | 'leaseToken'>, item: DaeguCrossingItem, roundIndex: number, attemptIndex: number,
   transcript: string | null, acoustic: Acoustic,
 ) => api<DaeguCrossingResponse>(`/activities/${session.sessionId}/utterances`, {
   method: 'POST',

@@ -100,6 +100,7 @@ def test_provision_keeps_original_seed_and_uses_existing_demo_access_gate(api, m
         goal = db.scalar(select(TrainingGoal).where(TrainingGoal.child_id == child.id))
         assert child.child_code == CHILD_CODE and child.hero_name == "두두친구" and child.is_seed
         assert (goal.target_phoneme, goal.level, goal.preferred_cue) == ("ㅅ", "syllable", "auditory_model")
+        assert goal.repetition_target == 10
         own = db.scalars(select(Account).where(Account.username.in_([THERAPIST_USERNAME, PLAY_CODE]))).all()
         assert len(own) == 2 and all(is_demo_account(db, account) for account in own)
         assert all(verify_password(DEMO_PASSWORD, account.password_salt, account.password_hash) for account in own)
@@ -115,7 +116,7 @@ def test_provision_keeps_original_seed_and_uses_existing_demo_access_gate(api, m
         again = provision_demo_child(db, demo_enabled=True)
         db.commit()
         assert again == identity and db.get(TrainingGoal, goal.id).level == "word"
-    for username, endpoint in [(THERAPIST_USERNAME, "/api/children"), (PLAY_CODE, "/api/play/profile")]:
+    for username, endpoint in [(THERAPIST_USERNAME, "/api/children"), (PLAY_CODE, f"/api/play/children/{PLAY_CODE}/profile")]:
         monkeypatch.setattr(api_module.settings, "seed_demo_data", True)
         assert client.post("/api/auth/login", json={"username": username, "password": DEMO_PASSWORD}).status_code == 200
         monkeypatch.setattr(api_module.settings, "seed_demo_data", False)
@@ -279,4 +280,61 @@ def test_phoneme_fallback_does_not_propose_hidden_game(hint):
     proposal = propose_plan(goal, metrics, hint)
     assert proposal["form"]["startLevel"] == "phoneme"
     assert proposal["form"]["steps"][1]["activity"] == "sky_climb"
+
+
+
+@pytest.mark.parametrize("damage", ["clinical_state", "other_therapist"])
+def test_reset_never_deletes_clinical_or_other_therapist_verification(demo_db, damage):
+    engine, identity = demo_db
+    with Session(engine) as db, db.begin():
+        _sid, oid = game_record(db, identity["childId"], TODAY)
+        db.flush()
+        if damage == "clinical_state":
+            db.get(ClinicalObservation, oid).verification_state = "CONFIRMED"
+        else:
+            other = Therapist(username="different", display_name="다른 치료사", password_hash="test", password_salt="test")
+            db.add(other)
+            db.flush()
+            db.scalar(select(ClinicalVerification).where(ClinicalVerification.observation_id == oid)).therapist_id = other.id
+        db.flush()
+        before = row_counts(db)
+    with pytest.raises(DemoSafetyError):
+        reset_today(engine, demo_enabled=True, current_time=TODAY)
+    with Session(engine) as db:
+        assert row_counts(db) == before
+        assert db.scalar(select(ClinicalVerification).where(ClinicalVerification.observation_id == oid)) is not None
+
+
+def test_reset_refuses_cross_child_observation(demo_db):
+    engine, identity = demo_db
+    with Session(engine) as db, db.begin():
+        _sid, oid = game_record(db, identity["childId"], TODAY)
+        other = Child(child_code="OTHER", hero_name="다른 아동", therapist_id=identity["therapistId"],
+                      play_code="OTHER", is_seed=True)
+        db.add(other)
+        db.flush()
+        db.get(ClinicalObservation, oid).child_id = other.id
+        db.flush()
+        before = row_counts(db)
+    with pytest.raises(DemoSafetyError, match="다른 아동"):
+        reset_today(engine, demo_enabled=True, current_time=TODAY)
+    with Session(engine) as db:
+        assert row_counts(db) == before
+
+
+def test_nonlocal_memory_and_naive_time_are_refused(demo_db):
+    from app.demo_seed import local_database_path
+    for path in ("postgresql://server/db", "//server/shared/test.db", "local.txt"):
+        with pytest.raises(DemoSafetyError):
+            local_database_path(path)
+    engine = make_engine("sqlite://")
+    try:
+        with Session(engine) as db:
+            with pytest.raises(DemoSafetyError, match="SQLite"):
+                provision_demo_child(db, demo_enabled=True)
+    finally:
+        engine.dispose()
+    file_engine, _identity = demo_db
+    with pytest.raises(DemoSafetyError, match="시간대"):
+        reset_today(file_engine, demo_enabled=True, current_time=TODAY.replace(tzinfo=None))
 

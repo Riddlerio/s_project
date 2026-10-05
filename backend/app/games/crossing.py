@@ -1,4 +1,4 @@
-"""대구대 건너기의 20줄 진행. 게임 이동과 음향 근사 관찰을 분리한다."""
+"""대구대 건너기의 10줄 진행. 게임 이동과 음향 근사 관찰을 분리한다."""
 import secrets
 from dataclasses import replace
 
@@ -8,7 +8,7 @@ from ..training.content import items
 from .rounds import GAME_ROUNDS, public_round
 
 GAME = "daegu_crossing"
-ITEMS_PER_ROUND = 4
+ITEMS_PER_ROUND = 2
 MAX_TRIES = 3
 MAX_NEUTRAL_STREAK = 3
 
@@ -20,18 +20,23 @@ def build_stages(goal):
     excluded = set(goal.excluded_words or ())
     syllables = [row for row in items("ㅅ", "syllable") if row["displayText"] not in excluded]
     words = [row for row in items("ㅅ", "word") if row["displayText"] not in excluded]
-    preferred_words = {text: index for index, text in enumerate(("사과", "수박", "소리", "시소"))}
-    words.sort(key=lambda row: preferred_words.get(row["displayText"], 4))
     if not words or (goal.level == "syllable" and not syllables):
         raise HTTPException(422, "목표의 제외 낱말 설정에서 사용할 연습 항목이 없습니다")
-    base = words if goal.level == "word" else syllables
-    repeated = next((row for row in base if row["displayText"] == goal.target_sound), base[0])
-    varied = [base[index % len(base)] for index in range(ITEMS_PER_ROUND)]
-    secrets.SystemRandom().shuffle(varied)
-    word_set = [words[index % len(words)] for index in range(ITEMS_PER_ROUND)]
-    # 낱말 목표에서는 마지막 혼합 구간도 목표 단계 아래로 낮추지 않는다.
-    mixed = word_set if goal.level == "word" else [syllables[0], syllables[1 % len(syllables)], *word_set[:2]]
-    rows = [[repeated] * ITEMS_PER_ROUND, [repeated] * ITEMS_PER_ROUND, varied, word_set, mixed]
+
+    def choose(bank, text):
+        # 제외 항목은 다시 넣지 않고 같은 단계의 기존 항목으로 대체한다.
+        return next((row for row in bank if row["displayText"] == text), bank[0])
+
+    if goal.level == "word":
+        # 낱말 목표에서는 마지막 혼합 구간도 목표 단계 아래로 낮추지 않는다.
+        texts = (("사과", "사과"), ("사과", "사과"), ("소리", "시소"),
+                 ("사과", "수박"), ("수박", "시소"))
+        rows = [[choose(words, text) for text in pair] for pair in texts]
+    else:
+        rows = [[choose(syllables, text) for text in pair]
+                for pair in (("사", "사"), ("사", "사"), ("소", "시"))]
+        rows.extend([[choose(words, "사과"), choose(words, "수박")],
+                     [choose(syllables, "수"), choose(words, "시소")]])
     stages = []
     for definition, selected in zip(GAME_ROUNDS[GAME], rows):
         stage_items = [{**row, "itemId": secrets.token_hex(8), "game": GAME} for row in selected]
@@ -66,7 +71,7 @@ def child_round(definition):
 def cursor(state):
     complete = bool(state.get("roundsComplete"))
     return {"roundIndex": state["roundIndex"], "itemIndexInRound": state["itemIndexInRound"],
-            "stripeIndex": (state["roundIndex"] - 1) * ITEMS_PER_ROUND + state["itemIndexInRound"],
+            "stripeIndex": state["stripeIndex"],
             "triesLeft": 0 if complete else MAX_TRIES - state["itemAttemptsUsed"],
             "modelCue": False if complete else state["modelCue"], "sessionComplete": complete}
 
@@ -106,6 +111,7 @@ def advance(state, result, stages, at):
         drafts.append({"type": "ROUND_START", "payload": child_round(GAME_ROUNDS[GAME][state["roundIndex"] - 1])})
     else:
         state["itemIndexInRound"] += 1
+    state["stripeIndex"] = (state["roundIndex"] - 1) * ITEMS_PER_ROUND + state["itemIndexInRound"]
     state.update(currentItem=stages[state["stageIndex"]]["items"][state["itemIndexInRound"] - 1],
                  itemAttemptsUsed=0, roundAttempt=1, listenAgainCount=0)
     update_cue(state, model=state["roundIndex"] == 1)

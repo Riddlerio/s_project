@@ -2,6 +2,8 @@
 
 사용자가 2026-10-05에 승인한 [5일 데모 설계안](DEMO_FLOW_PLAN_2026-10-05.md)을 Claude와 나눠서 만든다. Codex는 **서버 전부와 치료사 화면**, Claude는 **아이 화면·두두·게임 장면·목소리**를 맡는다. 먼저 설계안 전체를 읽는다.
 
+> 사양 갱신(2026-10-05): 사용자 추가 지시가 기존 설계보다 우선한다. 대구대 건너기는 **5라운드 × 2줄, 총 10줄**이다. 타이밍 효과와 화면의 도착 걷기는 서버 판정·관찰에 저장하지 않는다.
+
 ## 1. 시작 상태와 작업 위치
 
 - `claude/dudu-followup` = `9d61afd`. Codex PR #10(`dd54f5c`)을 빨리감기로 병합했다. 병합본에서 백엔드 pytest 324개, 프런트 176개, typecheck·build를 확인했다.
@@ -40,30 +42,30 @@
 ### B. 새 게임 `daegu_crossing` 서버
 
 1. **게임 목록:** 활동 API의 게임 목록(`schemas.py` `StartActivityInput`, `session_state.py`의 `ActivityState`·`ActivityItem`)에 `daegu_crossing`을 더한다. 기존 4게임의 동작과 저장된 과거 상태는 그대로 둔다.
-2. **5라운드 × 4줄(총 20줄):**
+2. **5라운드 × 2줄(총 10줄):**
 
    | 라운드 | 항목 | 단서·독립성 | 치료 초점 |
    |---|---|---|---|
-   | 1 두두 따라 건너기 | 같은 음절 4개(예: 사×4) | DIRECT_IMITATION, AUDITORY_MODEL | 단서에 따른 목표 소리 산출 |
-   | 2 혼자 건너기 | 같은 음절 4개 | PROMPTED_PRODUCTION, VISUAL | 독립 산출 |
-   | 3 모음 바꿔 건너기 | 사·소·수·시를 섞어서 | VISUAL | 모음 환경 바꾸기(무작위 연습) |
-   | 4 낱말 건너기 | 사과·수박·소리·시소 | 그림 | 낱말 수준 |
-   | 5 정문까지 | 음절 2 + 낱말 2 | 그림 | 혼합 |
+   | 1 두두 따라 건너기 | 같은 음절 2개(사·사) | DIRECT_IMITATION, AUDITORY_MODEL | 단서에 따른 목표 소리 산출 |
+   | 2 혼자 건너기 | 같은 음절 2개(사·사) | PROMPTED_PRODUCTION, VISUAL | 독립 산출 |
+   | 3 모음 바꿔 건너기 | 소·시 | VISUAL | 모음 환경 바꾸기 |
+   | 4 낱말 건너기 | 사과·수박 | 그림 | 낱말 수준 |
+   | 5 정문까지 | 수·시소 | 그림 | 혼합 |
 
    목표 단계가 낱말이면 1~3라운드도 낱말로 한다. 항목은 기존 낱말 목록(`training/content.py`)에서 가져온다.
 3. **진행:**
    - 줄 하나마다 최대 3번 시도한다(처음 + 다시 2번).
    - `success`면 다음 줄로 간다. `retry`는 시도를 하나 쓴다. 3번을 다 쓰면 다음 줄로 넘어간다.
    - `uncertain`·`no_speech`는 시도를 쓰지 않고 같은 줄을 다시 낸다. 같은 줄에서 3번 연속이면 넘어간다.
-   - 4줄이 끝나면 라운드를 마치고, 5라운드가 끝나면 회기를 마친다.
-   - 기존 엔진은 "라운드 = 한 번 성공하면 끝"이라 줄 4개를 담을 수 있게 일반화해야 한다. 다른 게임의 결과는 바뀌면 안 된다(기존 테스트 유지).
+   - 2줄이 끝나면 라운드를 마치고, 5라운드가 끝나면 회기를 마친다.
+   - 기존 엔진은 "라운드 = 한 번 성공하면 끝"이라 줄 2개를 담을 수 있게 일반화해야 한다. 다른 게임의 결과는 바뀌면 안 된다(기존 테스트 유지).
 4. **판정 규칙 `ONSET_FRICATION`(새 heuristic):**
    - 소리 시작의 마찰 구간(`onsetFricationMs`)이 기준 이상이고, 그 뒤 유성 구간(`voicedAfterFricationMs`)이 기준 이상이면 `success`다.
    - 기존 음질 게이트와 무발화·불확실 처리를 그대로 쓴다.
    - 시작값은 각각 60ms·80ms로 둔다(임시). 사용자의 실제 마이크 측정값(Claude가 D1~D2에 전달)으로 조정하고 `HEURISTIC_REGISTER.md`에 적는다.
    - 화면·문서에 '음향 근사'로 표시한다. 정확한 발음 판정이라고 쓰지 않는다.
 5. **응답:** 발화마다 결과(`success`/`retry`/`uncertain`/`no_speech`)와 함께 다음 필드를 더한다.
-   - 다음 항목, `roundIndex`(1~5), `itemIndexInRound`(1~4), `stripeIndex`(1~20), 남은 시도 수, `modelCue`(두두 시범 여부), `sessionComplete`
+   - 다음 항목, `roundIndex`(1~5), `itemIndexInRound`(1~2), `stripeIndex`(1~10), 남은 시도 수, `modelCue`(두두 시범 여부), `sessionComplete`
    - 필드 이름은 `src/api/**` 타입으로 먼저 정하고 이 문서 6절에 적는다. Claude는 그 타입으로 만든다.
 6. **관찰:** 발화마다 기존 관찰 생성기로 `ClinicalObservation`을 만든다(활동 `daegu_crossing`, 라운드, 단서, 단계). 치료사 타임라인·목표별 추이(PR #10)에 그대로 나와야 한다. 점프 수·칭찬은 임상 자료가 아니다.
 7. **보상 없음:** 이 게임은 재료·아이템·별을 주지 않는다. 재료 표에 넣지 않는다. 완료 요약은 시도 수 정도만 둔다.
@@ -138,8 +140,8 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 | 대화 턴 200 | 기존 `status, turnIndex, clientRequestId, text, nextTurnIndex, sessionComplete` 유지. `nextActivity: "daegu_crossing" \| null`만 추가 |
 | 대화 202 | 기존 처리 중 응답 유지. 완료한 요청 재전송은 저장한 같은 문구·전환 값을 반환 |
 | 활동 시작 | `POST /api/activities`, 요청 `{game:"daegu_crossing", mode:"real"\|"demo"}`. 응답 타입 `DaeguCrossingStart` |
-| 시작·재개 응답 | `sessionId, game, mode, heroName, rounds, currentRound, firstItem, nextAttemptIndex`와 아래 진행 필드. 재개 경로의 `leaseToken, completedRounds` 보존 |
-| 진행 필드 | `roundIndex` 1~5, `itemIndexInRound` 1~4, `stripeIndex` 1~20, `triesLeft` 0~3, `modelCue` boolean, `sessionComplete` boolean |
+| 시작·재개 응답 | `sessionId, game, mode, heroName, rounds, currentRound, firstItem, nextAttemptIndex`와 아래 진행 필드. 재개 타입은 `DaeguCrossingSnapshot`. 완료 상태에서는 `firstItem/currentRound=null`. 재개 경로의 `leaseToken, completedRounds` 보존 |
+| 진행 필드 | `roundIndex` 1~5, `itemIndexInRound` 1~2, `stripeIndex` 1~10, `triesLeft` 0~3, `modelCue` boolean, `sessionComplete` boolean |
 | 발화 요청 | 기존 `POST /api/activities/{sessionId}/utterances`. `roundIndex, itemId, attemptIndex, transcript, acoustic, recognizer, attack:"basic"`. lease가 있으면 `X-Activity-Lease` 헤더 |
 | 발화 응답 | 타입 `DaeguCrossingResponse`: `result: "success"\|"retry"\|"uncertain"\|"no_speech"`, `events, nextItem, nextAttemptIndex, currentRound`와 진행 필드 |
 | 항목 | 타입 `DaeguCrossingItem`: `itemId, displayText, level, game:"daegu_crossing", pictureKey` |
@@ -148,7 +150,7 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 - 진행 번호·남은 시도·시범 여부는 **응답 후 표시할 다음 항목** 기준이다. `result`는 방금 제출한 항목의 음향 근사 결과다.
 - 최초 값은 1/1/1, `triesLeft=3`, `nextAttemptIndex=1`이다. 새 항목에서는 시도 번호와 남은 시도를 초기화한다.
 - 같은 항목에서 `nextAttemptIndex`는 수락한 제출마다 증가한다. `uncertain/no_speech`의 제출 번호도 증가하지만 `triesLeft`는 줄지 않는다. 서버가 반환한 번호를 그대로 다음 요청에 사용한다.
-- 완료 시 번호는 5/4/20에 머무르고 `nextItem=null, currentRound=null, triesLeft=0, modelCue=false, sessionComplete=true`다.
+- 완료 시 번호는 5/2/10에 머무르고 `nextItem=null, currentRound=null, triesLeft=0, modelCue=false, sessionComplete=true`다.
 - 음질 보류·무발화는 평가 시도를 소모하지 않는다. 같은 줄에서 연속 세 번이면 중립적으로 다음 줄로 이동한다.
 - 점수·정확도·판정 근거는 새 아동 응답에 넣지 않는다. 관찰은 기존 치료사 API에서만 검토한다.
 - 대화 전환은 목표 관찰 시도 10회 이상+서버 시간 120초 이상, 또는 300초 이상이다. 연속 무발화 3회에는 쉬운 질문을 먼저 하고, 그 다음에도 무발화면 전환한다.
@@ -158,3 +160,5 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 
 - 2026-10-05 사용자: “앞으로 작업 다 승인할테니까 승인 절차 하자라고 하기전까지 알아서 진행해 대신 승인에 관한 로그 짧게 남겨놔”.
 - 적용: 데모 서버·치료사 범위 및 대화 동결 계약의 추가 필드/전환 변경을 별도 재확인 없이 구현·검사·기능 브랜치 PR까지 진행한다. 변경 파일·계약 영향·회귀 결과는 PR에 기록한다. 명시된 파일 분담, 새 의존성/외부 서비스 금지, main push·병합 금지는 유지한다.
+
+- 2026-10-05 추가 승인: 총 20줄 계획을 10줄로 교체. 서버 60/80ms는 측정 전 임시값을 유지하며 “사는 대체로 감지, 스는 가끔 놓침”은 사용자 정성 피드백으로만 기록한다. 클라이언트의 +9dB·시작 전 구간 복원·타이밍 효과·3D 자산은 Claude 담당이다.

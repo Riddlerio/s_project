@@ -81,7 +81,8 @@ class ActivityState(_State):
 
 
 class CrossingState(ActivityState):
-    itemIndexInRound: StrictInt = Field(ge=1, le=4)
+    itemIndexInRound: StrictInt = Field(ge=1, le=2)
+    stripeIndex: StrictInt = Field(ge=1, le=10)
     itemAttemptsUsed: StrictInt = Field(ge=0, le=3)
     modelCue: StrictBool
 
@@ -89,7 +90,9 @@ class CrossingState(ActivityState):
     def consistent_cursor(self):
         if self.stageIndex != self.roundIndex - 1:
             raise ValueError("라운드와 구간이 일치하지 않습니다")
-        if self.roundsComplete and (self.roundIndex != 5 or self.itemIndexInRound != 4):
+        if self.stripeIndex != (self.roundIndex - 1) * 2 + self.itemIndexInRound:
+            raise ValueError("줄 위치가 라운드와 일치하지 않습니다")
+        if self.roundsComplete and (self.roundIndex != 5 or self.itemIndexInRound != 2):
             raise ValueError("완료 위치가 올바르지 않습니다")
         return self
 
@@ -143,6 +146,8 @@ def completion_state(session) -> dict:
     if session.status == "completed":
         _validated(CrossingSummary if isinstance(session.runtime_state, dict) and session.runtime_state.get("activityGame") == "daegu_crossing" else CompletedSummary, session.summary_json)
     _validated(CompletionState, session.runtime_state)
+    if session.runtime_state.get("activityGame") == "daegu_crossing":
+        return activity_state(session)
     return dict(session.runtime_state)
 
 

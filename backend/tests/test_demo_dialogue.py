@@ -60,6 +60,8 @@ def test_tenth_observed_turn_needs_two_minutes_and_only_adds_next_activity(api, 
     with sessions() as db:
         rows = db.scalars(select(HoyaChatTurn).where(HoyaChatTurn.session_id == session_id)).all()
         assert sum(row.speech_evidence == "TARGET_OBSERVED" for row in rows) == 10
+        # 전환 문구에서 실제로 제시하지 않은 목표 낱말은 내부 제공자 메타데이터에도 남기지 않는다.
+        assert next(row for row in rows if row.turn_index == 11).target_words == []
         assert db.get(HoyaChatSession, session_id).summary_json["nextActivityFromTurnIndex"] == 11
     # 과거 요청은 시간이 지나고 전환이 시작되어도 처음 결과 그대로 돌려준다.
     _clock(api, monkeypatch, session_id, 600)
@@ -205,3 +207,56 @@ def test_no_speech_policy_is_not_a_failure_or_unallowed_cue():
     policy = HoyaConversationPolicy()
     assert policy.decide("NO_SPEECH", ["NO_SPEECH"] * 2, None) == "SIMPLIFY"
     assert policy.decide("NO_SPEECH", ["NO_SPEECH"] * 2 + ["UNCERTAIN"], None) == "WAIT_OR_SIMPLIFY"
+
+
+@pytest.mark.parametrize("mode,claimed_source,expected", [
+    ("real", "keyboard", "UNCERTAIN"),
+    ("demo", "microphone", "TARGET_OBSERVED"),
+])
+def test_chat_evidence_uses_server_mode_not_client_claimed_source(api, mode, claimed_source, expected):
+    client, sessions = api
+    headers = student_auth(client)
+    session_id = _start(client, headers, mode=mode)["sessionId"]
+    response = _turn(client, headers, session_id, 1, "사과", acoustic={
+        **GOOD_MIC, "source": claimed_source, "meanRmsDb": -70,
+    })
+    assert response.status_code == 200 and response.json()["nextActivity"] is None
+    with sessions() as db:
+        row = db.scalar(select(HoyaChatTurn).where(HoyaChatTurn.session_id == session_id))
+        assert row.speech_evidence == expected
+
+
+def test_late_provider_response_cannot_overwrite_stale_transition(api, monkeypatch):
+    import asyncio
+    from test_hoya_chat_reliability import _async_client, _async_login
+
+    client, sessions = api
+    session_id = _start(client, student_auth(client))["sessionId"]
+    with sessions() as db:
+        started = db.get(HoyaChatSession, session_id).started_at
+    clock = [started]
+    monkeypatch.setattr(hoya_api, "now", lambda: clock[0])
+
+    async def scenario():
+        provider = CountingProvider(gate=asyncio.Event())
+        api_module.app.dependency_overrides[dialogue_service] = lambda: HoyaDialogueService(provider)
+        async with _async_client() as http:
+            headers = await _async_login(http)
+            body = {"turnIndex": 1, "transcript": "학교", "clientRequestId": rid()}
+            url = f"/api/hoya/chat/sessions/{session_id}/turns"
+            original = asyncio.create_task(http.post(url, headers=headers, json=body))
+            await asyncio.wait_for(provider.started.wait(), 5)
+            clock[0] = started + timedelta(seconds=300)
+            recovered = await http.post(url, headers=headers, json=body)
+            assert recovered.status_code == 200 and recovered.json()["nextActivity"] == "daegu_crossing"
+            assert recovered.json()["text"] == TRANSITION_TEXT
+            provider.gate.set()
+            late = await original
+            assert late.status_code == 200 and late.json() == recovered.json()
+            assert provider.calls == 1
+
+    asyncio.run(scenario())
+    with sessions() as db:
+        turn = db.scalar(select(HoyaChatTurn).where(HoyaChatTurn.session_id == session_id))
+        assert turn.provider == "DEMO_FALLBACK" and turn.fallback_reason == "STALE_PROCESSING"
+        assert db.get(HoyaChatSession, session_id).summary_json["nextActivityFromTurnIndex"] == 1

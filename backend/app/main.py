@@ -496,7 +496,7 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
              "currentItem": first, "totalAttempts": 0, "xp": 0, "stageIndex": 0,
              "roundDefinition": {**public_round(definitions[0], 2), "independence": "MODELED" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"}}
     if body.game == crossing.GAME:
-        state.update(itemIndexInRound=1, itemAttemptsUsed=0, modelCue=True)
+        state.update(itemIndexInRound=1, stripeIndex=1, itemAttemptsUsed=0, modelCue=True)
         crossing.update_cue(state, model=True)
     state["magicBeamRound"] = adventure_service.round_magic_beam(db, state, child.id)
     session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,

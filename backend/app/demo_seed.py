@@ -27,9 +27,11 @@ class DemoSafetyError(ValueError):
 
 def local_database_path(value: str | Path) -> Path:
     raw = str(value)
-    path = Path(raw).expanduser().resolve()
-    if raw.startswith(("//", "\\\\")) or path.drive.startswith("\\\\") or "://" in raw:
+    if raw.startswith(("//", "\\\\")) or "://" in raw:
         raise DemoSafetyError("네트워크·DB URL 대신 로컬 SQLite 파일 경로를 지정하세요.")
+    path = Path(raw).expanduser().resolve()
+    if path.drive.startswith("\\\\") or any(":" in part for part in path.parts[1:]):
+        raise DemoSafetyError("네트워크 경로·대체 스트림은 허용하지 않습니다.")
     if path.suffix.lower() not in {".db", ".sqlite", ".sqlite3"}:
         raise DemoSafetyError("로컬 SQLite 파일 확장자(.db, .sqlite, .sqlite3)가 필요합니다.")
     return path
@@ -41,7 +43,8 @@ def _require_demo(db: Session, demo_enabled: bool) -> None:
     bind = db.get_bind()
     if bind.dialect.name != "sqlite" or not bind.url.database or bind.url.database == ":memory:" or bind.url.query:
         raise DemoSafetyError("명시적으로 지정한 로컬 SQLite 파일 DB만 허용합니다.")
-    local_database_path(bind.url.database)
+    if not local_database_path(bind.url.database).is_file():
+        raise DemoSafetyError("기존 로컬 SQLite 파일이 필요합니다.")
 
 
 def _identity(db: Session) -> Child:
@@ -98,7 +101,7 @@ def provision_demo_child(db: Session, *, demo_enabled: bool) -> dict:
         Account(username=PLAY_CODE, role="STUDENT", child_id=child.id,
                 password_salt=student_salt, password_hash=hash_password(DEMO_PASSWORD, student_salt)),
         TrainingGoal(child_id=child.id, version=1, target_phoneme="ㅅ", target_sound="사", level="syllable",
-                     min_level="syllable", preferred_cue="auditory_model", repetition_target=20,
+                     min_level="syllable", preferred_cue="auditory_model", repetition_target=10,
                      source="demo_rehearsal", note="시연 전용 DEMO 목표. 실제 임상 자료가 아닙니다."),
         AuditEvent(actor_id=therapist.id, resource_id=child.id, action=PROVISION_ACTION, result=PROVISION_RESULT),
     ])
@@ -116,6 +119,14 @@ def _protect_references(db, child, session_ids, utterance_ids, observation_ids):
         or_(ClinicalObservation.session_id.in_(session_ids), ClinicalObservation.utterance_id.in_(utterance_ids)))).all()
     if any(row.session_id not in session_ids or row.utterance_id not in utterance_ids for row in observations):
         raise DemoSafetyError("관찰과 발화의 회기 소속이 일치하지 않습니다.")
+
+    if any(row.verification_state not in {"PENDING", "DEMO_PENDING", "DEMO_CONFIRMED", "DEMO_CORRECTED", "DEMO_REJECTED"}
+           for row in observations):
+        raise DemoSafetyError("임상 검증 상태의 관찰은 DEMO 초기화에서 지우지 않습니다.")
+    if db.scalar(select(ClinicalVerification.id).where(
+            ClinicalVerification.observation_id.in_(observation_ids),
+            ClinicalVerification.therapist_id != child.therapist_id).limit(1)):
+        raise DemoSafetyError("다른 치료사의 검증 기록이 있어 초기화를 거부합니다.")
     for model in (GameEvent, TrainingDecision):
         if db.scalar(select(model.id).where(model.utterance_id.in_(utterance_ids),
                                            model.session_id.not_in(session_ids)).limit(1)):
