@@ -132,6 +132,20 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 두두 음성 파일: 말의 모든 문장이 목록에 있을 때만 파일 재생(아니면 전부 브라우저 음성), 문장 사이 120ms | `src/speech/duduClips.ts`, `shared/dudu_voice_lines.json` | 목소리 일관성 | PRODUCT_HEURISTIC |
 | 입 모양 맞추기: 40ms 간격 소리 크기, 최대보다 30dB 아래는 닫힘, 0~9 단계 | `scripts/build-voice-envelopes.mjs`, `shared/dudu_voice_envelopes.json`, `src/tiger/duduFace.ts` | 말하는 입 연출(임상 무관) | PRODUCT_HEURISTIC |
 
+## 9-1. 대구대 건너기 리듬 (2026-10-05)
+
+리허설 관찰로 조정할 제품 규칙이다. 박 맞춤은 동기용 연출이고 임상 지표가 아니다.
+
+| 값 | 위치 | 용도 | 출처 |
+|---|---|---|---|
+| 카드 1장 = 4박 한 마디. 1~3박에 '똑'(90ms), 4박에 카드 착지 | `src/game/crossing/rhythm.ts`의 `bar` | 말할 때 알리기 | PRODUCT_HEURISTIC |
+| 시작 84BPM. 치료사 설정 76~100(기본 84, 빨라지기 켬) | `rhythm.ts`의 `DEFAULT_RHYTHM`·`BPM`, `backend/app/game_settings/schemas.py` | 빠르기 | PRODUCT_HEURISTIC(느리게 시작하는 원리는 DTTC·ReST, 값 자체의 근거는 없음) |
+| 최근 8번 중 7번 성공이면 +4BPM(최대 100, 빨라지기 끄면 시작값), 연속 2번 성공이 아니면 −4BPM(최소 72). 바뀌면 기록을 비움 | `rhythm.ts`의 `nextBpm` | 빠르기 맞춤 | PRODUCT_HEURISTIC |
+| 마이크 열림 = 3박 '똑' + 여운 160ms + 출력 지연(최대 400ms). 착지보다 늦지 않음 | `rhythm.ts`의 `bar` | 박 소리가 마이크에 잡히지 않게 | TECHNICAL_LIMIT |
+| 듣기 창 = 착지 + 4박(말이 시작됐으면 최대 4초) | `rhythm.ts`의 `WINDOW_BEATS` | 대답 시간 | PRODUCT_HEURISTIC |
+| '딱 맞았어!' = 착지 앞 300ms~뒤 400ms. 화면에만 보이고 저장하지 않음 | `rhythm.ts`의 `PERFECT_EARLY_MS`·`PERFECT_LATE_MS` | 동기 | PRODUCT_HEURISTIC |
+| 두두 부르기: 음성 파일을 착지 − 모음 시작('사!'는 200ms) − 40ms에 재생 | `rhythm.ts`의 `beatLeadMs` | 시범을 박에 맞춤 | PRODUCT_HEURISTIC |
+
 ## 10. 변경할 때의 규칙
 
 - 값을 바꾸면 이 표를 함께 고친다. 출처를 RESEARCH_SUPPORTED로 올리려면 근거 문서의 해당 절을 인용해야 한다.

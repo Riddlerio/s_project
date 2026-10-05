@@ -77,7 +77,7 @@ Blender 4.5.14 LTS 휴대용판을 `C:\Users\kor02\Tools\blender-4.5.14-windows-
 - `tools/inject_basecolor.mjs`로 원본 GLB의 기본색 이미지만 바꾼 뒤 `tools/build_dudu.mjs`로 웹용 GLB를 만든다(2.63MB).
 - 다시 실행: `blender -b --factory-startup --python tools/repaint_texture.py -- <원본.glb> work/repaint` → `node inject_basecolor.mjs <원본.glb> work/repaint/basecolor.png <중간.glb>` → `node build_dudu.mjs <중간.glb> <출력.glb> Running`. 확인용 영역 그림은 `work/repaint/mask.png`, 구조 요약은 `tools/analyze_texture.py`.
 
-텍스처의 22%(망토·뒷머리·귀)만 바뀌고 나머지 텍셀은 원본과 같음을 비교로 확인했다. 결과: [4방향](../../docs/handoff/dudu_2026-10-03/screenshots/claude_meshy_dudu_repainted_4views.png).
+텍스처의 22%(망토·뒷머리·귀)만 바뀌고 나머지 텍셀은 원본과 같음을 비교로 확인했다. 결과: [4방향(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/dudu_2026-10-03/screenshots/claude_meshy_dudu_repainted_4views.png).
 
 ## 2026-10-04 스카프 색 보정 (Claude)
 
@@ -101,7 +101,7 @@ Blender 4.5.14 LTS 휴대용판을 `C:\Users\kor02\Tools\blender-4.5.14-windows-
 
 ## 2026-10-04 코드로 더한 꼬리·표정·동작 보정 (Claude)
 
-모델 파일의 형태·뼈대·동작 파일은 바꾸지 않고 `src/tiger`에서 더했다. 자세한 내용과 전후 화면은 [인계 기록](../../docs/handoff/CLAUDE_DUDU_3D_POLISH_2026-10-04.md).
+모델 파일의 형태·뼈대·동작 파일은 바꾸지 않고 `src/tiger`에서 더했다. 자세한 내용과 전후 화면은 [인계 기록(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/CLAUDE_DUDU_3D_POLISH_2026-10-04.md).
 
 - 꼬리(`src/tiger/duduTail.ts`): 모델에 꼬리가 없다. 줄무늬 관을 엉덩이 뼈에 붙였다. 망토 아래쪽이 허벅지 뼈를 따라 몸에 붙어 있어 등 가운데가 아니라 왼쪽 엉덩이 옆에서 망토 앞 가장자리 밖으로 나와 위로 말린다.
 - 표정(`src/tiger/duduFace.ts`): 눈·입은 텍스처에 그려져 있고 셰이프 키가 없다. 얼굴 곡면을 따르는 덧그림(감은 눈 ‿, 웃는 눈 ∩, 벌린 입·혀)을 머리 뼈에 붙였다. 위치는 원본 GLB 얼굴 텍셀을 Blender에서 3D로 펼쳐 잰 값(눈 중심 Blender `(-0.112,-0.300,0.977)`·`(0.110,-0.300,0.978)` m, 크기 0.045×0.072 m, 입선 가운데 아래 끝 `(-0.002,-0.313,0.831)` m)을 앱 좌표로 옮겼다.
@@ -149,3 +149,16 @@ Blender 4.5.14 LTS 휴대용판을 `C:\Users\kor02\Tools\blender-4.5.14-windows-
 - 두 3D 화면 모두 화면 배율 상한이 2다(`dpr={[1, 2]}`). 고해상도 휴대폰에서도 그리는 픽셀 수가 제한된다.
 - 지금 줄일 것은 없다. 실제 휴대폰(특히 아이폰) 성능은 리허설 때 확인한다.
 - 모바일 데이터로 처음 열 때는 2.6MB를 받는다. 쓰지 않는 동작을 빼면 더 줄일 수 있지만, 다른 게임이 쓰는 동작이 있어 지금은 두었다.
+
+## 참고 그림 (`references/`)
+
+| 파일 | 사용할 부분 | 해석할 때 주의할 부분 |
+|---|---|---|
+| [원래 두두 2D 정면](references/original_dudu_2d.jpg) | 백호라는 정체성, 얼굴/줄무늬 배치, 흰 몸, 청록 스카프, 청록 겉·연두 안 망토, 원형 가슴 흉장 | 정면 한 장만 있으므로 측·후면 형상은 확정 자료가 아님 |
+| [3D 전신 목표](references/dudu_3d_target_front.png) | 큰 둥근 머리·짧고 폭신한 몸·발·꼬리, 털/천/눈 재질, 정면 비례와 중립 포즈 | 생성 이미지의 흉장 문자는 왜곡될 수 있음. 대학 공식 도안과 사용 권한을 별도 확인 |
+| [3D 표정·동작 목표](references/dudu_3d_target_poses.png) | 가까이서 보이는 눈·코·귀·입, 손바닥 젤리, 손 흔들기/한 발 들기, 망토와 꼬리의 움직임 | 두 개체가 나와도 제품 캐릭터가 둘이라는 뜻이 아님 |
+| [홈 분위기 시안](references/dudu_home_concept.png) | 큰 두두를 중심에 두는 홈 구성, 밝은 하늘/섬, 인사 포즈, 대화 진입의 환영감 | 이미지의 작은 글자·수치·버튼·개인정보·임상 지표는 요구사항이 아님. 아동 앱과 치료사 화면의 기존 정보 구조를 검토하며 적용 |
+
+**충돌 시 원래 2D 도안의 캐릭터 정체성을 먼저 지킨다.** 새 생성 이미지의 봉제 인형 같은 조형·재질·표정은 그 정체성을 3D로 높이는 시각 목표다. 사용자에게서 측면·뒷면 도안이 추가로 오면 그 자료로 보이지 않는 면을 확정한다. 현재 시제품의 평면형 얼굴이나 흉장 근사 표현을 최종 디자인 기준으로 삼지 않는다.
+
+사용자가 준 정면·측면·후면 조형 도면(`dudu_turnaround_front_side_back.jpg`)과 공식 포즈 시트(`dudu_official_sheet_poses.jpg`)도 같은 폴더에 있다(2026-10-03 추가).

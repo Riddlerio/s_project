@@ -90,8 +90,8 @@ npm.cmd audit
 ## 8. 5일 데모 변경 기록 (2026-10-05)
 
 **승인 근거**
-- 사용자가 5일 데모 흐름을 승인했다(대화 약 10번·약 5분 뒤 '대구대 건너기' 안내, `DEMO_FLOW_PLAN_2026-10-05.md`).
-- Codex 세션의 승인 로그: "승인 절차 하자라고 하기 전까지 알아서 진행"(`CODEX_DEMO_TASK_2026-10-05.md` 7절).
+- 사용자가 5일 데모 흐름을 승인했다(대화 약 10번·약 5분 뒤 '대구대 건너기' 안내, [DEMO_FLOW_PLAN 원문](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/DEMO_FLOW_PLAN_2026-10-05.md)).
+- Codex 세션의 승인 로그: "승인 절차 하자라고 하기 전까지 알아서 진행"([CODEX_DEMO_TASK 원문](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/CODEX_DEMO_TASK_2026-10-05.md) 7절).
 - Codex가 토큰을 다 써서 사용자 요청으로 Claude가 서버·치료사 작업을 이어받았다.
 
 **`backend/app/hoya/**`**
@@ -125,7 +125,7 @@ npm.cmd audit
 
 ## 9. Phase 4 변경 기록 (2026-10-05, 아동 화면 '네 차례'·접근성)
 
-**승인:** 사용자가 Phase 4 ①('네 차례' 신호 통일)·②(접근성·저사양 점검)를 승인했다(2026-10-05). 조건은 "마이크 경로는 건드리지 않고, 차임은 마이크가 열리기 전에만"이다. 자세한 내용은 [Phase 4 기록](../handoff/PHASE4_CHILD_SCREENS_2026-10-05.md)에 있다.
+**승인:** 사용자가 Phase 4 ①('네 차례' 신호 통일)·②(접근성·저사양 점검)를 승인했다(2026-10-05). 조건은 "마이크 경로는 건드리지 않고, 차임은 마이크가 열리기 전에만"이다. 자세한 내용은 [Phase 4 기록(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/PHASE4_CHILD_SCREENS_2026-10-05.md)에 있다.
 
 **`hoyaChatController.ts`(HIGH_RISK_TO_TOUCH)**
 - 선택 의존성 `beforeListen(open)`을 추가했다. 두두 답이 끝난 뒤 듣기(LISTENING)로 가기 전에 화면이 신호를 내고 `open`을 부른다.

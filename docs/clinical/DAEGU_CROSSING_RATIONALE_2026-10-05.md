@@ -89,3 +89,13 @@
   - 두두 시범 횟수
   - 판정 기준값
 - 이 값들을 바꾸려면 서버 게임 구성(`backend/app/games/crossing.py`)과 계약을 함께 바꿔야 한다.
+
+## 7. 설계 근거 보충 (데모 흐름 조사, 2026-10-04~05)
+
+4절의 리듬·속도 근거와 함께 쓴 나머지 근거다. 데모 흐름 설계안 6절에서 옮겼다.
+
+| 주제 | 내용 |
+|---|---|
+| 피드백·연습 | 운동학습 원리상 습득 초기에는 피드백을 자주 주고, 무작위·다양한 연습이 유지에 유리하다([Maas 2008](https://experts.arizona.edu/en/publications/principles-of-motor-learning-in-treatment-of-motor-speech-disorde/)). |
+| 리듬 세상 설계 | 미니게임 하나에 규칙 하나, 연습 단계, 소리 단서 우선, 템포·노트 수만으로 난이도를 올리지 않음, 웃기고 부드러운 실패 연출, 3번 실패 시 넘어가기([사장이 묻는다](https://iwataasks.nintendo.com/interviews/wii/rhythmheavenfever/0/0/)). |
+| 기능 어휘 | 고빈도 낱말로 치료하면 일반화가 컸다([Morrisette & Gierut 2002](https://pubs.asha.org/doi/10.1044/persp1.SIG1.57)). 핵심 어휘 접근은 비일관적 말소리장애에서 효과적이었다([Crosbie 2005](https://onlinelibrary.wiley.com/doi/abs/10.1080/13682820500126049)). |
