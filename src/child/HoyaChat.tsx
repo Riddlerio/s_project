@@ -18,6 +18,8 @@ import { GameCard } from './GameCard'
 
 /** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
 export const CROSSING_PATH = '/play/crossing'
+/** '대구대 건너기' 카드 그림(Meshy 이미지 생성, Nano Banana Pro, 2026-10-05. docs/ASSET_LICENSES.md). */
+const CROSSING_CARD_ART = '/assets/art/crossing_card.webp'
 // 인사할 때 먼저 점프하고 나서 말한다.
 const GREETING_JUMP_MS = 1300
 
@@ -235,7 +237,7 @@ export default function HoyaChat() {
         {error && <p role="alert">{error}</p>}
         {session && <nav className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
           {gameOpen && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐!</span>}
-          <GameCard title="대구대 건너기" badge="리듬게임" open={gameOpen} onClick={goCrossing}
+          <GameCard title="대구대 건너기" badge="리듬게임" image={CROSSING_CARD_ART} open={gameOpen} onClick={goCrossing}
             subtitle="박자에 맞춰 말하며 횡단보도를 건너 대구대까지!" lockedText="두두랑 이야기를 조금 더 하면 열려요" />
           {!gameOpen && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
         </nav>}

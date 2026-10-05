@@ -22,8 +22,32 @@ const GATE_X = (STRIPES + 1.4) * STRIPE_PITCH
 /** 두두가 서는 x: 0은 출발 인도, k는 k번째 흰 줄. */
 export const stripeX = (stripe: number) => stripe * STRIPE_PITCH
 
+/** 동글동글한 나무(겹친 잎 덩어리 셋 + 짧은 줄기). 생성 그림(카드·배경)의 나무 모양과 맞춘다. */
+const LEAF = ['#5fb65a', '#6fc766', '#4ea452', '#7ccf6a']
+function RoundTree({ x, z, size, tone }: { x: number; z: number; size: number; tone: number }) {
+  const leaf = (k: number) => LEAF[(tone + k) % LEAF.length]
+  return <group position={[x, 0, z]} scale={size}>
+    <mesh position={[0, 0.42, 0]}><cylinderGeometry args={[0.1, 0.15, 0.84, 10]} /><meshStandardMaterial color="#8a6243" roughness={0.9} /></mesh>
+    <mesh position={[0, 1.22, 0]}><sphereGeometry args={[0.6, 22, 16]} /><meshStandardMaterial color={leaf(0)} roughness={0.7} /></mesh>
+    <mesh position={[-0.4, 0.98, 0.1]}><sphereGeometry args={[0.42, 18, 14]} /><meshStandardMaterial color={leaf(1)} roughness={0.7} /></mesh>
+    <mesh position={[0.38, 1.02, -0.06]}><sphereGeometry args={[0.45, 18, 14]} /><meshStandardMaterial color={leaf(2)} roughness={0.7} /></mesh>
+    <mesh position={[0.08, 1.62, 0.12]}><sphereGeometry args={[0.32, 16, 12]} /><meshStandardMaterial color={leaf(3)} roughness={0.7} /></mesh>
+  </group>
+}
+
+/** 인도 가장자리의 작은 덤불과 꽃(둥근 덩어리). */
+function Bush({ x, z, tone }: { x: number; z: number; tone: number }) {
+  return <group position={[x, 0, z]}>
+    <mesh position={[0, 0.2, 0]}><sphereGeometry args={[0.28, 14, 10]} /><meshStandardMaterial color={LEAF[tone % LEAF.length]} roughness={0.8} /></mesh>
+    <mesh position={[0.24, 0.16, 0.05]}><sphereGeometry args={[0.2, 12, 10]} /><meshStandardMaterial color={LEAF[(tone + 1) % LEAF.length]} roughness={0.8} /></mesh>
+    <mesh position={[0.06, 0.4, 0.12]}><sphereGeometry args={[0.06, 8, 6]} /><meshStandardMaterial color={tone % 2 ? '#ffd166' : '#ff9fb3'} roughness={0.5} /></mesh>
+  </group>
+}
+
 function Street({ crossed }: { crossed: number }) {
-  const trees = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ x: -3 + i * 2.6, z: -4.2 - (i % 3) * 0.7, h: 1.3 + (i % 4) * 0.25 })), [])
+  const trees = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ x: -3 + i * 2.6, z: -4.2 - (i % 3) * 0.7, size: 0.95 + (i % 4) * 0.12 })), [])
+  // 길 건너편(정문 쪽 아님) 인도 뒤 덤불: 횡단보도 양옆 잔디에 띄엄띄엄
+  const bushes = useMemo(() => Array.from({ length: 9 }, (_, i) => ({ x: -2.6 + i * 1.7, z: (i % 2 ? -2.05 : 2.05) + (i % 3) * 0.12 })), [])
   return <group>
     {/* 도로·인도·잔디 */}
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[12, -0.01, 0]}><planeGeometry args={[60, 30]} /><meshStandardMaterial color="#a9d59b" roughness={1} /></mesh>
@@ -39,11 +63,10 @@ function Street({ crossed }: { crossed: number }) {
       <mesh position={[0, 2.35, 0]}><boxGeometry args={[0.36, 0.6, 0.28]} /><meshStandardMaterial color="#2c3133" /></mesh>
       <mesh position={[0, 2.22, 0.15]}><circleGeometry args={[0.11, 20]} /><meshStandardMaterial color="#47e07a" emissive="#2fbf5d" emissiveIntensity={0.9} /></mesh>
     </group>
-    {/* 뒤쪽 나무 */}
-    {trees.map((tree, i) => <group key={i} position={[tree.x, 0, tree.z]}>
-      <mesh position={[0, 0.35, 0]}><cylinderGeometry args={[0.09, 0.12, 0.7, 8]} /><meshStandardMaterial color="#8a6a4a" /></mesh>
-      <mesh position={[0, 0.7 + tree.h / 2, 0]}><coneGeometry args={[0.55, tree.h, 10]} /><meshStandardMaterial color={i % 2 ? '#4f9d5b' : '#5fae63'} /></mesh>
-    </group>)}
+    {/* 뒤쪽 나무: 동글동글한 잎(생성 그림과 같은 모양) */}
+    {trees.map((tree, i) => <RoundTree key={i} x={tree.x} z={tree.z} size={tree.size} tone={i} />)}
+    {/* 길가 덤불과 작은 꽃 */}
+    {bushes.map((bush, i) => <Bush key={i} x={bush.x} z={bush.z} tone={i} />)}
     {/* 대구대학교 정문: 문 가운데(보 아래)가 도착 자리 앞에 오게 둔다 */}
     <DaeguGate position={[GATE_X - 0.1, 0, -2.75]} />
   </group>
@@ -149,7 +172,7 @@ export function CrossingScene({ stripe, action, animate, bob = true, arrived = f
     <HoyaErrorBoundary fallback={<HoyaFallback action={action} />}>
       <Canvas camera={{ position: [0, 1.9, 4.8], fov: 40 }} dpr={[1, 2]}
         onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); setLost(true) })}>
-        <color attach="background" args={['#cfeaf4']} />
+        {/* 하늘은 무대(.crossing-stage)의 그라데이션이 보이게 비워 둔다(화면 배경 그림과 같은 하늘색). */}
         <hemisphereLight args={['#ffffff', '#cfe3d6', 1.3]} />
         <directionalLight position={[4, 7, 6]} intensity={1.6} />
         <directionalLight position={[-5, 3, 4]} intensity={0.4} />

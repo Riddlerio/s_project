@@ -162,7 +162,9 @@
 @media (max-width: 520px) { .child-header { min-height: 70px; } .home-copy h1 { font-size: 3.2rem; } .home-character { height: 360px; min-height: 360px; } .home-actions button { width: 100%; } .home-shortcuts button { font-size: .78rem; padding-right: .4rem; } .home-shortcuts button:last-child { padding-left: .75rem; } .map-intro { flex-direction: column; padding: 2rem 0 1.3rem; } .map-level { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; } .map-level strong { font-size: 1.3rem; } .map-options fieldset { width: 100%; } .journey-grid { grid-template-columns: 1fr; } .journey-card { min-height: 270px; } .reward-stats { gap: .5rem; } .reward-sun { width: 120px; height: 120px; font-size: 3.2rem; } .monster-opponent { right: 5%; top: 39%; transform: scale(.78); } .monster-caption { top: .8rem; right: .8rem; } }
 
 /* 하늘 배경(대화·마무리·로그인·건너기 공통): 구름은 화면 폭과 관계없이 같은 모양이게 픽셀 크기로 그린다 */
+/* 그림 배경(Meshy 이미지 생성: 하늘·구름·언덕·떠 있는 대학 섬). 그림을 불러오기 전과 불러오지 못하면 아래 그라데이션 하늘이 보인다. */
 .dudu-sky { background:
+  url('/assets/art/sky_hills.webp') 68% 100% / cover no-repeat,
   radial-gradient(ellipse 120px 44px at 9% 15%, var(--color-alpha-white-a90) 0 60%, transparent 63%),
   radial-gradient(ellipse 78px 40px at 15% 11.5%, var(--color-alpha-white-a90) 0 60%, transparent 63%),
   radial-gradient(ellipse 110px 40px at 86% 12%, var(--color-alpha-white-a85) 0 60%, transparent 63%),
