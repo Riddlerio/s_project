@@ -4,6 +4,7 @@ import { getProfile } from '../api/play'
 import { demoLogin, login } from '../api/therapist'
 import { setToken } from '../therapist/auth'
 import { useDemoMode } from '../shared/useDemoMode'
+import { unlockDuduAudio } from '../speech/duduClips'
 
 export default function PlayEntry() {
   const [code, setCode] = useState('')
@@ -12,6 +13,8 @@ export default function PlayEntry() {
   const [error, setError] = useState('')
   const navigate = useNavigate()
   async function enter(demo = false) {
+    // 로그인 버튼을 누른 순간에 오디오를 깨워 두어야 iOS에서도 두두가 바로 인사한다.
+    unlockDuduAudio()
     try {
       let username = code.trim().toUpperCase()
       let result: { csrfToken: string; role: string }

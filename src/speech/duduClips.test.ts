@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { goodbyeLines } from '../child/DuduGoodbye'
 import { isName } from '../child/koreanText'
 import { listenAgainLine, MISS_LINE, modelLine, praiseLine, previewPlan, RETRY_LINE, retryLine } from '../game/crossing/crossingFlow'
@@ -47,5 +47,72 @@ describe('두두 음성 파일(VOLI 하람)', () => {
     expect(clipPlan('안녕~ 만나서 반가워! 두두친구야. 나는 두두야.')).toHaveLength(3)
     expect(clipPlan(`도착! 정말 잘했어! 역시 ${isName('두두친구')}!`)).toHaveLength(3)
     expect(clipPlan("우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?")).toHaveLength(2)
+  })
+})
+
+describe('두두 음성 재생기(오디오 하나를 다시 씀, iOS 대응)', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules() })
+
+  class FakeAudio {
+    static instances: FakeAudio[] = []
+    src = ''; muted = false; paused = true; dataset: Record<string, string> = {}
+    onplaying: (() => void) | null = null; onended: (() => void) | null = null; onerror: (() => void) | null = null
+    played: { src: string; muted: boolean }[] = []
+    rejectNext = false
+    constructor() { FakeAudio.instances.push(this) }
+    play() {
+      this.played.push({ src: this.src, muted: this.muted }); this.paused = false
+      if (this.rejectNext) { this.rejectNext = false; return Promise.reject(new Error('AbortError')) }
+      queueMicrotask(() => this.onplaying?.())
+      return Promise.resolve()
+    }
+    pause() { this.paused = true }
+  }
+  const flush = async () => { for (let i = 0; i < 5; i++) await Promise.resolve() }
+
+  async function load() {
+    FakeAudio.instances = []
+    vi.stubGlobal('window', {})
+    vi.stubGlobal('Audio', FakeAudio)
+    return import('./duduClips')
+  }
+
+  it('누름 처리기에서 무음으로 한 번 깨우고, 문장들은 같은 오디오로 차례로 재생한다', async () => {
+    const { unlockDuduAudio, browserClipPlayer } = await load()
+    unlockDuduAudio()
+    await flush()
+    const audio = FakeAudio.instances[0]
+    expect(audio.played[0]).toMatchObject({ muted: true })
+    expect(audio.dataset.unlocked).toBe('1')
+    unlockDuduAudio()
+    expect(audio.played).toHaveLength(1)
+
+    const hooks = { onStart: vi.fn(), onEnd: vi.fn(), onError: vi.fn() }
+    browserClipPlayer(0)!.play(['/a.wav', '/b.wav'], hooks)
+    await flush()
+    expect(hooks.onStart).toHaveBeenCalledOnce()
+    audio.onended?.(); await new Promise(resolve => setTimeout(resolve, 0)); await flush()
+    audio.onended?.(); await new Promise(resolve => setTimeout(resolve, 0))
+    expect(hooks.onEnd).toHaveBeenCalledOnce()
+    expect(FakeAudio.instances).toHaveLength(1)
+    expect(audio.played.slice(1).map(row => [row.src, row.muted])).toEqual([['/a.wav', false], ['/b.wav', false]])
+  })
+
+  it('다른 말로 바뀌며 끊긴 재생은 실패로 세지 않고, 진짜 재생 실패만 onError로 알린다', async () => {
+    const { browserClipPlayer } = await load()
+    const player = browserClipPlayer(0)!
+    const first = { onStart: vi.fn(), onEnd: vi.fn(), onError: vi.fn() }
+    const audio = (player.play(['/a.wav'], first), FakeAudio.instances[0])
+    audio.rejectNext = true
+    const handle = player.play(['/b.wav'], first)
+    handle.stop()
+    await flush()
+    expect(first.onError).not.toHaveBeenCalled()
+    expect(audio.paused).toBe(true)
+    const broken = { onStart: vi.fn(), onEnd: vi.fn(), onError: vi.fn() }
+    audio.rejectNext = true
+    player.play(['/c.wav'], broken)
+    await flush()
+    expect(broken.onError).toHaveBeenCalledOnce()
   })
 })

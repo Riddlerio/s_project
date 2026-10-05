@@ -9,6 +9,7 @@ import { MicUtterancePipeline } from '../speech/micUtterance'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
 import { KoreanTts } from '../speech/koreanTts'
+import { unlockDuduAudio } from '../speech/duduClips'
 import './duduDemo.css'
 import { VoiceCredit } from './demoFx'
 
@@ -110,6 +111,7 @@ export default function HoyaChat() {
   }
 
   async function begin(mode: 'real' | 'demo') {
+    unlockDuduAudio()
     if (preparing || session) return
     const tts = voice.current
     if (!tts) return
@@ -174,11 +176,14 @@ export default function HoyaChat() {
   }, [autostart])
 
   function goCrossing() {
+    unlockDuduAudio()
     finish()
     navigate(CROSSING_PATH, { state: { from: 'chat' } })
   }
 
   const listening = chatState === 'LISTENING'
+  // 두두가 권했거나 대화를 끝냈으면 아래 '대구대 건너기'가 열린다.
+  const gameOpen = suggested || chatState === 'ENDED'
   const statusKind = chatState === 'LISTENING' ? 'listening' : chatState === 'RESPONSE_SPEAKING' ? 'speaking' : STATUS[chatState] ? 'thinking' : ''
   return <main className="child-screen game-screen dudu-chat">
     <h1>두두와 대화하기</h1>
@@ -198,16 +203,17 @@ export default function HoyaChat() {
       <p className="small">DEMO 대화입니다. 글자로 입력한 말이며 실제 음성 자료가 아닙니다.</p>
     </div>}
     {session && chatState !== 'ENDED' && <button onClick={finish}>대화 끝내기</button>}
-    {chatState === 'ENDED' && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
-    {!session && <button className="quiet" onClick={() => navigate('/play/home')}>돌아가기</button>}
+    {/* 시연 흐름(로그인 → 대화 → 건너기 → 마무리)으로 들어왔으면 집(지도·아이템)으로 나가지 않는다(사용자 결정: 데모에 아이템 없음). */}
+    {chatState === 'ENDED' && !autostart && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
+    {!session && <button className="quiet" onClick={() => navigate(autostart ? '/play' : '/play/home')}>{autostart ? '처음으로' : '돌아가기'}</button>}
     {error && <p role="alert">{error}</p>}
-    {session && <nav className={`dudu-next-game${suggested ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
-      {suggested && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐! ↓</span>}
-      <button className="dudu-next-button" onClick={goCrossing} disabled={!suggested}>
+    {session && <nav className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">
+      {gameOpen && <span className="dudu-next-hint" aria-hidden="true">여기를 눌러 봐! ↓</span>}
+      <button className="dudu-next-button" onClick={goCrossing} disabled={!gameOpen}>
         <span className="dudu-next-icon" aria-hidden="true">🚸</span>
-        <span><strong>대구대 건너기</strong><small>{suggested ? '두두랑 횡단보도를 건너 대구대까지!' : '대화를 조금 더 하면 열려요'}</small></span>
+        <span><strong>대구대 건너기</strong><small>{gameOpen ? '두두랑 횡단보도를 건너 대구대까지!' : '대화를 조금 더 하면 열려요'}</small></span>
       </button>
-      {!suggested && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
+      {!gameOpen && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
     </nav>}
     <VoiceCredit />
   </main>

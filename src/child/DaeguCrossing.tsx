@@ -13,6 +13,7 @@ import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { KoreanTts } from '../speech/koreanTts'
+import { unlockDuduAudio } from '../speech/duduClips'
 import { playFx, PopBurst, VoiceCredit, type PopKind } from './demoFx'
 import { isName } from './koreanText'
 import './duduDemo.css'
@@ -102,6 +103,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   }
 
   async function begin(selected: 'real' | 'demo') {
+    unlockDuduAudio()
     setError(''); setMode(selected); modeRef.current = selected
     const provider = preview ? previewJudge() : serverJudge(selected)
     judge.current = provider

@@ -35,26 +35,58 @@ export interface ClipPlayer {
   play(urls: readonly string[], hooks: ClipHooks): { stop(): void }
 }
 
+// 모든 두두 음성을 오디오 하나로 재생한다. iOS Safari는 사용자가 누르는 순간에 재생한 적 있는 요소만 이후에도 재생을 허락한다.
+let sharedAudio: HTMLAudioElement | null = null
+const audioElement = () => (sharedAudio ??= new Audio())
+
+/** 아주 짧은 무음 WAV(8kHz 8bit, 0.05초). 오디오를 깨울 때만 쓴다. */
+function silentWavUrl(): string {
+  const samples = 400, bytes = new Uint8Array(44 + samples), view = new DataView(bytes.buffer)
+  const text = (at: number, value: string) => [...value].forEach((char, i) => view.setUint8(at + i, char.charCodeAt(0)))
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples, true); text(8, 'WAVE'); text(12, 'fmt ')
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, 8000, true)
+  view.setUint32(28, 8000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true); text(36, 'data'); view.setUint32(40, samples, true)
+  bytes.fill(128, 44)
+  return URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
+}
+
+/**
+ * 사용자가 누르는 처리기(로그인·시작 버튼) 안에서 부른다. 무음을 한 번 재생해 두면 iOS에서도 이후 두두 음성 파일이 나온다.
+ * 다른 브라우저에는 영향이 없다. 이미 소리를 내는 중이면 건드리지 않는다.
+ */
+export function unlockDuduAudio(): void {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined' || typeof URL.createObjectURL !== 'function') return
+  const audio = audioElement()
+  if (audio.dataset.unlocked || !audio.paused) return
+  audio.muted = true
+  audio.src = silentWavUrl()
+  audio.play().then(() => { audio.pause(); audio.dataset.unlocked = '1' }).catch(() => undefined).finally(() => { audio.muted = false })
+}
+
 /** 브라우저 재생기: 파일을 차례로 재생한다. 첫 소리가 나올 때 onStart, 마지막이 끝나면 onEnd, 실패하면 onError. */
 export function browserClipPlayer(gapMs = CLIP_GAP_MS): ClipPlayer | null {
   if (typeof window === 'undefined' || typeof Audio === 'undefined') return null
   return {
     plan: text => clipPlan(text),
     play(urls, hooks) {
+      const audio = audioElement()
       let index = 0, stopped = false, started = false
-      let audio: HTMLAudioElement | null = null
       let gap: ReturnType<typeof setTimeout> | undefined
+      const detach = () => { audio.onplaying = null; audio.onended = null; audio.onerror = null }
+      const fail = () => { if (!stopped) { stopped = true; detach(); hooks.onError() } }
       const next = () => {
         if (stopped) return
-        if (index >= urls.length) { hooks.onEnd(); return }
-        audio = new Audio(urls[index++])
+        if (index >= urls.length) { detach(); hooks.onEnd(); return }
+        audio.muted = false
+        audio.src = urls[index++]
         audio.onplaying = () => { if (!started && !stopped) { started = true; hooks.onStart() } }
         audio.onended = () => { gap = setTimeout(next, index < urls.length ? gapMs : 0) }
-        audio.onerror = () => { if (!stopped) { stopped = true; hooks.onError() } }
-        audio.play().catch(() => { if (!stopped) { stopped = true; hooks.onError() } })
+        audio.onerror = fail
+        // 다른 말로 바뀌며 끊긴 재생(AbortError)은 이미 stopped라 실패로 세지 않는다.
+        audio.play().catch(fail)
       }
       next()
-      return { stop() { stopped = true; clearTimeout(gap); if (audio) { audio.onplaying = audio.onended = audio.onerror = null; audio.pause() } } }
+      return { stop() { stopped = true; clearTimeout(gap); detach(); audio.pause() } }
     },
   }
 }
