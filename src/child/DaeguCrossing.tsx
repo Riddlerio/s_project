@@ -402,7 +402,11 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     </header>
 
     {phase === 'intro' && <section className="crossing-intro">
-      <div className="crossing-intro-art" aria-hidden="true"><span>🚦 초록불! 박자 타고 대구대까지 10칸</span></div>
+      {/* 시작 전 박자 미리보기: '똑·똑·똑' 다음 넷째 박에 말한다(84BPM으로 차례로 켜짐, 움직임 줄이기면 멈춤). */}
+      <div className="crossing-intro-art" aria-hidden="true">
+        <span>🚦 박자 타고 대구대까지 10칸</span>
+        <div className="crossing-intro-beats">{['똑', '똑', '똑', '사!'].map((text, n) => <i key={n} className={n === 3 ? 'say' : ''} style={{ ['--n' as string]: n }}>{text}</i>)}</div>
+      </div>
       <h2>두두랑 박자에 맞춰 횡단보도를 건너요</h2>
       <ol>
         <li><b>1</b>두두가 '똑·똑·똑' 박자를 세면, 넷째 박에 카드가 두두 머리 위 동그라미에 쏙 들어와요.</li>

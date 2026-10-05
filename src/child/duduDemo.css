@@ -43,9 +43,13 @@
 
 /* 시작 안내 */
 .crossing-intro { display: grid; gap: 1rem; justify-items: center; text-align: center; padding: 0 0 1.4rem; background: var(--color-surface-white); border-radius: 30px; overflow: hidden; box-shadow: 0 18px 40px var(--color-alpha-forest-a18); }
-.crossing-intro-art { width: 100%; height: 150px; display: grid; place-items: center; background: repeating-linear-gradient(90deg, var(--color-palette-neutral-l39) 0 34px, var(--color-palette-neutral-l96-3) 34px 62px); }
+.crossing-intro-art { width: 100%; height: 178px; display: grid; place-content: center; justify-items: center; gap: .7rem; background: repeating-linear-gradient(90deg, var(--color-palette-neutral-l39) 0 34px, var(--color-palette-neutral-l96-3) 34px 62px); }
 .crossing-intro-art span { padding: .5rem 1.1rem; border-radius: 16px; background: var(--color-brand-forest); color: var(--color-surface-white); font-weight: 900; font-size: 1.3rem; box-shadow: 0 8px 18px var(--color-alpha-black-a40); }
 .crossing-intro h2 { margin: .2rem 1rem 0; font-size: clamp(1.3rem, 3vw, 1.8rem); }
+.crossing-intro-beats { display: flex; gap: .45rem; }
+.crossing-intro-beats i { display: grid; place-items: center; min-width: 54px; height: 38px; padding: 0 .6rem; border-radius: 999px; background: var(--color-surface-white); color: var(--forest); font-style: normal; font-weight: 900; font-size: 1.05rem; box-shadow: 0 6px 14px var(--color-alpha-black-a20); animation: intro-beat 2857ms linear infinite; animation-delay: calc(var(--n) * 714ms); }
+.crossing-intro-beats i.say { min-width: 64px; border: 3px solid var(--color-brand-gold); }
+@keyframes intro-beat { 0%, 22% { background: var(--color-brand-gold); color: var(--forest-deep); transform: scale(1.12); } 23%, 100% { background: var(--color-surface-white); transform: none; } }
 .crossing-intro ol { list-style: none; margin: 0; padding: 0 1rem; display: grid; gap: .55rem; text-align: left; }
 .crossing-intro li { display: flex; align-items: center; gap: .7rem; font-size: 1.05rem; }
 .crossing-intro li b { display: grid; place-items: center; flex: 0 0 2rem; height: 2rem; border-radius: 50%; background: var(--lime); color: var(--forest-deep); }
@@ -141,7 +145,7 @@
 .voice-credit { margin: 1.2rem auto .4rem; text-align: center; color: var(--muted); font-size: .72rem; opacity: .85; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dudu-picture-cues figure { animation: none; }
+  .dudu-picture-cues figure, .crossing-intro-beats i { animation: none; }
   .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint, .crossing-ring.open, .crossing-ring.tick, .crossing-card.landed, .crossing-countdown, .pop-burst *, .pop-label { animation: none !important; }
   .crossing-beats i { transition: none; }
   .crossing-beats i.on { transform: none; }
@@ -167,6 +171,8 @@
   .crossing-path-step { width: 1.2rem; height: 1.2rem; font-size: .75rem; }
   .crossing-path-end { white-space: nowrap; font-size: .7rem; padding: 0 .15rem; }
   .crossing-beats { bottom: 10px; gap: .3rem; }
+  .crossing-intro-art span { font-size: 1.05rem; }
+  .crossing-intro-beats i { min-width: 46px; height: 34px; font-size: .95rem; }
   .crossing-beats i { min-width: 44px; height: 30px; padding: 0 .45rem; font-size: .8rem; }
   .crossing-beats i.say { min-width: 54px; }
 }
