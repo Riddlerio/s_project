@@ -31,6 +31,9 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | centroid < 2000Hz이면 유성음 | `src/speech/fricativeDetector.ts` | 전이 판정 | UNKNOWN |
 | 가청 +6dB, 에너지 평활 0.75/0.25, 30dB 척도, 구간 최대 30개 | `src/speech/sustainTracker.ts` | 지속·에너지 | UNKNOWN |
 | ASR 종료 timeout 3000ms, 대체 후보 5개 | `src/speech/webSpeechRecognizer.ts` | 인식 | TECHNICAL_LIMIT |
+| '네 차례' 차임 뒤 듣기: 차임 끝 290ms + 조용히 160ms = 450ms, 기기 출력 지연(`outputLatency`)만큼 더, 최대 1000ms | `src/child/demoFx.tsx`의 `TURN_CUE_MS`·`turnCueWait` | 차임이 마이크에 들어가 아이 말로 잡히지 않게 듣기를 늦춤(2026-10-05 Phase 4) | TECHNICAL_LIMIT(헤드리스 시간 측정. 실제 스피커·방 울림은 리허설에서 확인) |
+| 귀 쫑긋 380ms, 머리 세로 +15%(절차형 모델은 귀 +32%) | `src/tiger/duduPerk.ts` | '네 차례' 연출(임상 무관) | PRODUCT_HEURISTIC |
+| 게임 4종 반응 시간(`onsetLatencyMs`)은 듣기가 열린 때('네 차례!')부터 | `src/child/ActivitySession.tsx` | 측정 요약(판정·지표에 쓰지 않음) | PRODUCT_HEURISTIC |
 
 ## 2. 음질·음향(백엔드, 일부는 TS에 중복)
 

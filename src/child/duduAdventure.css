@@ -9,7 +9,7 @@
 .dudu-stars { color: #bd8413; font-size: 1.4rem; letter-spacing: 3px; white-space: nowrap; }
 .dudu-attack-choice { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 .dudu-attack-choice label { padding: 9px 13px; border: 1px solid #ccd6be; border-radius: 14px; background: #fffdf3; }
-.dudu-save-exit { margin-left: auto; }
+.dudu-save-exit { margin-left: auto; min-height: 44px; }
 .dudu-pantry,.dudu-resume-list,.dudu-resume-confirm { border: 1px solid #d5dfc5; border-radius: 20px; padding: 22px; margin: 22px 0; background: #fffdf2; }
 .dudu-pantry h2,.dudu-resume-list h2,.dudu-resume-confirm h2 { margin-top: 0; }
 .dudu-pantry-counts { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }

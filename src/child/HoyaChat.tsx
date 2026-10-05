@@ -11,7 +11,8 @@ import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
 import { KoreanTts } from '../speech/koreanTts'
 import { unlockDuduAudio } from '../speech/duduClips'
 import './duduDemo.css'
-import { VoiceCredit } from './demoFx'
+import { playTurnChime, unlockFx, VoiceCredit } from './demoFx'
+import { TurnCue } from './turnCue'
 
 /** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
 export const CROSSING_PATH = '/play/crossing'
@@ -44,6 +45,7 @@ export default function HoyaChat() {
   const recognizerRef = useRef<WebSpeechRecognizer | null>(null)
   const recognizing = useRef(false)
   const microphoneToken = useRef(0)
+  const cueTimer = useRef<number | undefined>(undefined)
   const mounted = useRef(false)
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function HoyaChat() {
     voice.current = tts
     return () => {
       mounted.current = false
+      window.clearTimeout(cueTimer.current)
       controller.current?.dispose()
       stopMicrophone()
       tts.dispose()
@@ -111,7 +114,7 @@ export default function HoyaChat() {
   }
 
   async function begin(mode: 'real' | 'demo') {
-    unlockDuduAudio()
+    unlockDuduAudio(); unlockFx()
     if (preparing || session) return
     const tts = voice.current
     if (!tts) return
@@ -127,6 +130,12 @@ export default function HoyaChat() {
         onState: setChatState, onAction: setAction, onText: setHoyaText,
         onComplete: () => { void completeHoyaChat(started.sessionId).catch(() => undefined); stopMicrophone() },
         onNextActivity: activity => { if (activity === 'daegu_crossing') setSuggested(true) },
+        // '네 차례': 두두 귀 쫑긋 + 차임이 다 들린 뒤에 듣기를 연다(차임이 마이크에 들어가지 않게).
+        beforeListen: open => {
+          if (!mounted.current || voice.current !== tts) return
+          setAction('LISTENING')
+          cueTimer.current = window.setTimeout(open, playTurnChime())
+        },
       })
       // 인사: 먼저 점프하고(웃는 얼굴) 이어서 입을 움직이며 말한다.
       const greet = () => {
@@ -176,7 +185,7 @@ export default function HoyaChat() {
   }, [autostart])
 
   function goCrossing() {
-    unlockDuduAudio()
+    unlockDuduAudio(); unlockFx()
     finish()
     navigate(CROSSING_PATH, { state: { from: 'chat' } })
   }
@@ -187,7 +196,7 @@ export default function HoyaChat() {
   const statusKind = chatState === 'LISTENING' ? 'listening' : chatState === 'RESPONSE_SPEAKING' ? 'speaking' : STATUS[chatState] ? 'thinking' : ''
   return <main className="child-screen game-screen dudu-chat">
     <h1>두두와 대화하기</h1>
-    <div className="dudu-chat-stage"><Hoya3D action={action} /></div>
+    <div className="dudu-chat-stage"><Hoya3D action={action} /><TurnCue on={listening} /></div>
     <p className="speech-bubble dudu-bubble" aria-live="polite">{hoyaText || '\u00a0'}</p>
     <p className={`dudu-status ${statusKind}`} aria-live="polite">{STATUS[chatState]}</p>
     {!session && <div>

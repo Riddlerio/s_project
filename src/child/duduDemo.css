@@ -2,7 +2,7 @@
 /* 5일 데모 흐름(대화 → 대구대 건너기 → 마무리) 전용 스타일. 깜박임은 초당 3회 미만, 움직임 줄이기를 따른다. */
 
 .dudu-next-game { display: grid; justify-items: center; gap: .4rem; width: 100%; margin-top: .8rem; padding: 0 0 1.2rem; }
-.dudu-next-button { display: flex; align-items: center; gap: .9rem; min-width: min(420px, 92vw); padding: .9rem 1.4rem; border-radius: 22px; background: var(--color-surface-white); color: var(--ink); border: 2px solid var(--line); text-align: left; }
+.dudu-next-button { display: flex; align-items: center; gap: .9rem; min-width: min(420px, 100%); padding: .9rem 1.4rem; border-radius: 22px; background: var(--color-surface-white); color: var(--ink); border: 2px solid var(--line); text-align: left; }
 .dudu-next-button strong { display: block; font-size: 1.2rem; }
 .dudu-next-button small { display: block; color: var(--muted); font-size: .85rem; font-weight: 600; }
 .dudu-next-button:disabled { opacity: .55; cursor: default; }
@@ -10,7 +10,7 @@
 .dudu-next-game.suggested .dudu-next-button { background: var(--forest); color: var(--color-surface-white); border-color: var(--lime); box-shadow: 0 0 0 4px var(--color-alpha-lime-a40), 0 10px 26px var(--color-alpha-forest-a25); animation: dudu-next-glow 1.6s ease-in-out infinite; }
 .dudu-next-game.suggested .dudu-next-button small { color: var(--color-palette-green-l89-2); }
 .dudu-next-hint { font-weight: 900; color: var(--forest); animation: dudu-next-bob 1.2s ease-in-out infinite; }
-.dudu-skip { font-size: .78rem !important; padding: .3rem .6rem; }
+.dudu-skip { font-size: .78rem !important; padding: .3rem .8rem; min-height: 44px; }
 @keyframes dudu-next-glow { 50% { box-shadow: 0 0 0 8px var(--color-alpha-lime-a20), 0 10px 26px var(--color-alpha-forest-a25); } }
 @keyframes dudu-next-bob { 50% { transform: translateY(4px); } }
 
@@ -35,7 +35,9 @@
 @keyframes praise-spark { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; transform: scale(1.25) rotate(30deg); } 100% { opacity: 0; transform: translateY(-18px) scale(.6) rotate(90deg); } }
 .crossing-caption::before { content: ''; position: absolute; left: 50%; top: -10px; width: 20px; height: 20px; margin-left: -10px; background: var(--color-surface-white); transform: rotate(45deg); border-radius: 4px; }
 .crossing-controls { display: flex; justify-content: center; align-items: center; gap: .7rem; flex-wrap: wrap; }
-.crossing-controls .small { flex-basis: 100%; text-align: center; color: var(--muted); }
+.crossing-controls > .small { flex-basis: 100%; text-align: center; color: var(--muted); }
+/* 버튼 안 단축키 안내(Space)는 초록 버튼 위에서도 읽히게 밝게 */
+.crossing-controls button .small { color: var(--color-brand-lime); }
 .crossing-controls button.pressed { transform: scale(.96); background: var(--forest-deep); box-shadow: inset 0 4px 10px var(--color-alpha-black-a20); }
 .crossing-badge { font-size: .78rem; color: var(--muted); }
 

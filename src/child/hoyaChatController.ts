@@ -51,6 +51,12 @@ export interface ChatDeps {
   onComplete?(): void
   /** 두두가 게임을 권하는 말을 시작할 때 부른다. 화면은 아래 게임 버튼을 빛낸다. */
   onNextActivity?(activity: string): void
+  /**
+   * 다시 듣기 직전에 화면이 '네 차례' 신호(두두 귀 쫑긋·짧은 차임)를 내고, 끝나면 open을 부른다(2026-10-05 Phase 4).
+   * 그동안 상태는 RESPONSE_SPEAKING이라 마이크 소리(차임 포함)를 아동 발화로 받지 않는다. 없으면 바로 듣는다.
+   * 대화를 끝내는 답 뒤에는 부르지 않는다. 신호 중에 끝내기·정리되면 open을 불러도 듣지 않는다.
+   */
+  beforeListen?(open: () => void): void
   newRequestId?(): string
   fillerDelayMs?: number
   timers?: Timers
@@ -268,8 +274,12 @@ export class HoyaChatController {
   }
 
   private listen() {
-    this.setState('LISTENING')
-    this.action('LISTENING')
+    const open = () => { this.setState('LISTENING'); this.action('LISTENING') }
+    if (!this.deps.beforeListen) { open(); return }
+    const speech = this.speechToken, turn = this.turnToken
+    this.deps.beforeListen(() => {
+      if (speech === this.speechToken && turn === this.turnToken && this.current === 'RESPONSE_SPEAKING') open()
+    })
   }
 
   private setState(state: HoyaChatState) {

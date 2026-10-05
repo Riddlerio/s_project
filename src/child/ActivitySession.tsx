@@ -15,6 +15,8 @@ import { MicUtterancePipeline } from '../speech/micUtterance'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { KoreanTts } from '../speech/koreanTts'
+import { playTurnChime, unlockFx } from './demoFx'
+import { TurnCue } from './turnCue'
 
 const gameNames: Record<GameKind, string> = { magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍', daegu_crossing: '대구대 건너기' }
 
@@ -52,6 +54,10 @@ export default function ActivitySession() {
   const [fx, setFx] = useState<SceneFx | null>(null)
   const fxCount = useRef(0)
   const [captureReadyKey, setCaptureReadyKey] = useState<string | null>(null)
+  // '네 차례' 신호가 끝나 듣기가 열린 차례(turnId). 새 항목·시도이거나 두두가 답한 뒤 다시 들을 때마다 신호를 낸다.
+  const [turnSeq, setTurnSeq] = useState(0)
+  const [turnKey, setTurnKey] = useState<string | null>(null)
+  const turnKeyRef = useRef<string | null>(null)
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = !session || session.mode !== 'real' || supportsRealMode(session.game, capabilities)
   const began = useRef<number | null>(null)
@@ -70,6 +76,9 @@ export default function ActivitySession() {
   if (!controller.current) controller.current = new HoyaActionController(setAction)
   const signal = controller.current
   const captureKey = `${session?.sessionId}:${round?.index}:${item?.itemId}:${attempt}`
+  const turnId = `${captureKey}#${turnSeq}`
+  const turnIdRef = useRef(turnId)
+  turnIdRef.current = turnId
   const modelKey = `${session?.sessionId}:${round?.index}:${item?.itemId}`
 
   function applyMagicBeam(available: boolean | undefined) {
@@ -185,17 +194,39 @@ export default function ActivitySession() {
     return () => { active = false }
   }, [ready, session, suspended])
   useEffect(() => { if (item) { setDemoSpeech(item.displayText); promptShownAt.current = performance.now() } }, [item?.itemId])
+  // '네 차례'(2026-10-05 Phase 4): (따라 말하기면 두두가 먼저 들려준 뒤) 두두 귀 쫑긋 + 차임 → 차임이 다 들리면 듣기를 연다.
+  // 실제 음성은 주변 소리 보정이 끝난 뒤 시작하고, 열릴 때까지 modelPending으로 마이크 소리를 받지 않는다(차임이 들어가지 않게).
+  // 같은 항목을 다시 들을 때(다시 듣기·무발화 뒤)도 같은 신호를 낸다. 반응 시간(onsetLatency)은 듣기가 열린 때부터 잰다.
   useEffect(() => {
-    if (!ready || suspended || session?.sessionComplete || !round || !item || round.elicitationType !== 'DIRECT_IMITATION') return
+    if (!ready || suspended || session?.sessionComplete || !round || !item) return
     if (session?.mode === 'real' && captureReadyKey !== captureKey) return
-    if (lastModeledItem.current === modelKey) { modelPending.current = false; return }
-    modelPending.current = true
-    const speech = voice.current?.speak(item.displayText, {
-      onStart: () => signal.command('TALKING'),
-      onEnd: () => { lastModeledItem.current = modelKey; modelPending.current = false; signal.command('LISTENING') },
-    }, { rate: 0.8 })
-    return () => speech?.cancel()
-  }, [ready, suspended, session?.sessionComplete, round?.index, item?.itemId, captureReadyKey])
+    const key = turnId
+    let cancelled = false
+    let timer: number | undefined
+    const open = () => {
+      if (cancelled) return
+      // 신호 전에 들어온 소리 조각은 버리고 듣기를 연다.
+      pipelineRef.current?.resetUtterance()
+      modelPending.current = false
+      promptShownAt.current = performance.now()
+      turnKeyRef.current = key; setTurnKey(key)
+    }
+    const cue = () => {
+      if (cancelled) return
+      modelPending.current = true
+      signal.command('LISTENING')
+      timer = window.setTimeout(open, playTurnChime())
+    }
+    let speech: { cancel(): void } | undefined
+    if (round.elicitationType === 'DIRECT_IMITATION' && lastModeledItem.current !== modelKey) {
+      modelPending.current = true
+      speech = voice.current?.speak(item.displayText, {
+        onStart: () => signal.command('TALKING'),
+        onEnd: () => { lastModeledItem.current = modelKey; cue() },
+      }, { rate: 0.8 })
+    } else cue()
+    return () => { cancelled = true; speech?.cancel(); window.clearTimeout(timer) }
+  }, [ready, suspended, session?.sessionComplete, round?.index, item?.itemId, attempt, captureReadyKey, turnSeq])
 
   async function submit(acoustic: Acoustic, transcript: string | null) {
     if (!ready || suspendedRef.current || !session || !round || !item || submitting.current || modelSpeaking.current || !mounted.current) return
@@ -262,7 +293,12 @@ export default function ActivitySession() {
         } else stopFor(cause, '연결을 확인해 주세요')
       }
     }
-    finally { submitting.current = false; began.current = null; if (mounted.current) setBusy(false) }
+    finally {
+      // 다음 차례는 '네 차례' 신호가 연다(같은 항목을 다시 들을 때도). 그때까지 마이크 소리를 받지 않는다.
+      modelPending.current = true
+      submitting.current = false; began.current = null
+      if (mounted.current) { setBusy(false); setTurnSeq(value => value + 1) }
+    }
   }
 
   useEffect(() => {
@@ -273,7 +309,8 @@ export default function ActivitySession() {
     pipelineRef.current = pipeline
     const recognizer = new WebSpeechRecognizer()
     setCaptureReadyKey(null)
-    modelPending.current = round.elicitationType === 'DIRECT_IMITATION' && lastModeledItem.current !== modelKey
+    // 보정 뒤에도 '네 차례' 신호(따라 말하기의 두두 시범·차임)가 끝날 때까지 듣지 않는다. 위의 차례 효과가 연다.
+    modelPending.current = true
     let disposed = false
     let recognizing = false
     let awaitingRecognition = false
@@ -328,7 +365,10 @@ export default function ActivitySession() {
   }, [ready, suspended, item?.itemId, round?.index, round?.endHoldMs, attempt, session?.mode, session?.sessionComplete, realSupported])
 
   function begin() {
+    unlockFx()
     if (!ready || suspendedRef.current || !session || sessionRef.current?.sessionComplete || busy || submitting.current || modelSpeaking.current || began.current !== null) return
+    // '네 차례!'가 뜨기 전에는 누르고 말하기를 받지 않는다(실제 음성과 같은 차례).
+    if (turnKeyRef.current !== turnIdRef.current) return
     began.current = performance.now()
     onsetLatency.current = Math.min(60000, Math.max(0, began.current - promptShownAt.current))
     signal.dispatch(session.game, { type: 'VOICE_START' })
@@ -349,31 +389,35 @@ export default function ActivitySession() {
   }
   useEffect(() => {
     if (session?.mode !== 'demo') return
-    const down = (event: KeyboardEvent) => { if (event.code === 'Space') { event.preventDefault(); if (!event.repeat) begin() } }
-    const up = (event: KeyboardEvent) => { if (event.code === 'Space') { event.preventDefault(); end() } }
+    // 글자를 입력하는 칸(두두와 소풍의 '두두에게 들려줄 말')에서는 Space가 띄어쓰기다.
+    const typing = (event: KeyboardEvent) => event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))
+    const down = (event: KeyboardEvent) => { if (event.code === 'Space' && !typing(event)) { event.preventDefault(); if (!event.repeat) begin() } }
+    const up = (event: KeyboardEvent) => { if (event.code === 'Space' && !typing(event)) { event.preventDefault(); end() } }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
   }, [session?.mode, round?.index, item?.itemId, busy, ready])
 
   if (ready && session?.sessionComplete) return <main className="child-screen game-screen"><p>다섯 라운드를 마쳤어! 완료를 저장하고 있어요.</p>{error && <><p role="alert">{error}</p><button disabled={busy} onClick={() => void continueHere()}>완료 저장 다시 시도</button></>}</main>
   if (!ready || !session || !round || !item) return <main className="child-screen game-screen"><p>{error ? '모험을 열기 전에 확인해 주세요.' : '모험을 다시 불러오는 중…'}</p>{error && <><p role="alert">{error}</p><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button><button className="quiet" onClick={() => navigate('/play/map')}>모험 지도로</button></>}</main>
+  // 아이가 말할 차례: 신호가 끝났고, 두두가 말하거나 결과를 기다리는 중이 아니다.
+  const turnOpen = turnKey === turnId && !busy && !speaking && !suspended
   return <main className={`child-screen game-screen activity-game activity-${session.game}`}><div className="activity-shell">
     <header className="activity-header"><div><p className="eyebrow">ADVENTURE · {session.mode === 'demo' ? 'DEMO 연습' : '실제 음성'}</p><h1>{gameNames[session.game]}</h1></div><span>ROUND {round.index} / {session.rounds.length}</span><button className="quiet dudu-save-exit" disabled={busy} onClick={() => void saveAndExit()}>저장하고 집으로</button></header>
     <div className="activity-progress" aria-label="다섯 라운드">{session.rounds.map(value => <span key={value.id} className={completed.includes(value.index) ? 'completed' : value.index === round.index ? 'current' : ''} aria-current={value.index === round.index ? 'step' : undefined}><small>{String(value.index).padStart(2, '0')}</small><span>{completed.includes(value.index) ? '완료' : value.index === round.index ? '진행 중' : '다음'}</span></span>)}</div>
-    <section className="activity-stage"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} fx={fx} roundIndex={round.index} targetMs={round.targetMs} paused={suspended || !ready} readBeamInput={() => {
+    <section className="activity-stage"><div className="turn-anchor"><ActivityScene game={session.game} action={action} magicBeam={attack === 'magic_beam'} fx={fx} roundIndex={round.index} targetMs={round.targetMs} paused={suspended || !ready} readBeamInput={() => {
       if (suspendedRef.current || modelSpeaking.current || submitting.current) return { active: false, durationMs: 0 }
       if (session.mode === 'demo') return { active: began.current !== null, durationMs: began.current === null ? 0 : performance.now() - began.current }
       const pipeline = pipelineRef.current
       return { active: pipeline?.vad.state === 'voice' || pipeline?.vad.state === 'maybe_silence', durationMs: pipeline?.tracker.fricationMs ?? 0 }
-    }} />
+    }} /><TurnCue on={turnOpen} /></div>
       <div className="activity-instruction"><p className="eyebrow">TODAY'S MOMENT</p><h2>{round.childTitle.replace(/호야|루미/g, '두두')}</h2><p>{round.childPrompt.replace(/호야|루미/g, '두두')}</p><div className="activity-target"><span>이번에 말할 것</span><strong>{item.displayText}</strong></div><p className="activity-message" aria-live="polite">{message.replace(/호야|루미/g, '두두')}</p>
         {feedback && <RoundFeedback key={fx?.id} {...feedback} />}
         {session.game === 'monster_adventure' && <AttackChoice value={attack} magicBeam={magicBeamGranted} disabled={busy || speaking} onChange={setAttack} />}
         <div className="activity-controls">
           {suspended && <div role="status"><p>모험을 잠시 멈췄어요. 연결을 확인한 뒤 계속해요.</p><button disabled={busy} onClick={() => void continueHere()}>다시 계속하기</button>
             {needsTakeover && <><p>이 기기에서 이어받으면 이전 기기는 더 이상 제출할 수 없어요.</p><button disabled={busy} onClick={() => void continueHere(true)}>이 기기에서 이어받기</button></>}</div>}
-          {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
-          {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
+          {session.mode === 'demo' && session.game === 'conversation_quest' && <div className="activity-demo-dialogue"><label>두두에게 들려줄 말<input value={demoSpeech} onChange={event => setDemoSpeech(event.target.value)} maxLength={50} /></label>{round.index === 1 && <div><button disabled={busy || speaking || !turnOpen} onClick={() => { begin(); window.setTimeout(() => end(item.displayText), 350) }}>{item.displayText} 고르기</button><button disabled={busy || speaking || !turnOpen} onClick={() => { begin(); window.setTimeout(() => end('바나나'), 350) }}>바나나 고르기</button></div>}</div>}
+          {session.mode === 'demo' && <button className="activity-hold" disabled={busy || speaking || suspended || (!turnOpen && began.current === null)} onPointerDown={begin} onPointerUp={() => end()} onPointerLeave={() => end()}>누르고 말하기 <span>Space</span></button>}
           {speaking && <p className="small" aria-live="polite">두두가 말한 뒤 네 차례가 와요.</p>}
           {session.mode === 'real' && captureReadyKey !== captureKey && <p role="status">주변 소리를 확인할게. 잠깐 조용히 기다려줘!</p>}
           {!realSupported && <p role="alert" className="notice">{missingText(session.game, capabilities)}</p>}

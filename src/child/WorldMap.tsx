@@ -7,6 +7,7 @@ import type { GameKind } from '../control/speechGameSignal'
 import type { SessionMode } from '../shared/levels'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import './duduAdventure.css'
+import { unlockFx } from './demoFx'
 
 type Profile = Awaited<ReturnType<typeof getProfile>>
 const games: { id: GameKind; chapter: string; title: string; lead: string; prompt: string; symbol: string }[] = [
@@ -37,6 +38,8 @@ export default function WorldMap() {
     return () => { active = false }
   }, [])
   async function enterGame(game: GameKind) {
+    // 누를 때 효과음 오디오를 깨운다('네 차례' 차임·성공 효과음, iOS).
+    unlockFx()
     if (busy) return
     setBusy(true)
     try { const started = await startActivity(game, mode); if (!mounted.current) return; sessionStorage.setItem('speechHero.activity', JSON.stringify(started)); navigate(`/play/activity/${started.sessionId}`) }
@@ -44,6 +47,7 @@ export default function WorldMap() {
     finally { setBusy(false) }
   }
   async function takeOver() {
+    unlockFx()
     if (!takingOver || busy) return
     setBusy(true); setError('')
     try { const live = await claimActivity(takingOver.sessionId, true); if (!mounted.current) return; sessionStorage.setItem('speechHero.activity', JSON.stringify(live)); navigate(`/play/activity/${live.sessionId}`) }
