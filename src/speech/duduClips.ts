@@ -5,6 +5,7 @@
  * 목록은 shared/dudu_voice_lines.json에 있고, 백엔드 테스트가 DEMO 대화 대본의 모든 문장이 목록에 있는지 확인한다.
  */
 import DUDU_VOICE_LINES from '../../shared/dudu_voice_lines.json'
+import DUDU_VOICE_ENVELOPES from '../../shared/dudu_voice_envelopes.json'
 
 export const VOICE_CREDIT = '이 콘텐츠는 VOLI의 AI보이스를 활용하여 제작되었습니다. https://voli.ai'
 export const DUDU_CLIP_BASE = '/assets/voice/dudu/'
@@ -33,6 +34,30 @@ export interface ClipHooks { onStart(): void; onEnd(): void; onError(): void }
 export interface ClipPlayer {
   plan(text: string): string[] | null
   play(urls: readonly string[], hooks: ClipHooks): { stop(): void }
+}
+
+// ---------- 입 모양 맞추기 ----------
+// 파일마다 40ms 간격 소리 크기(0~9 글자, scripts/build-voice-envelopes.mjs로 만듦). 재생 위치의 값으로 두두의 입을 연다.
+const ENVELOPES = DUDU_VOICE_ENVELOPES.clips as Record<string, string>
+const ENVELOPE_STEP_SEC = DUDU_VOICE_ENVELOPES.stepMs / 1000
+let speaking: { id: string; gap: boolean } | null = null
+const clipId = (url: string) => url.slice(url.lastIndexOf('/') + 1).replace(/\.wav$/, '')
+
+/** 두두 음성 파일 하나의 시각(초)별 소리 크기 0~1. 범위 밖이면 0. */
+export function envelopeLevel(id: string, timeSec: number): number {
+  const values = ENVELOPES[id]
+  const index = Math.floor(timeSec / ENVELOPE_STEP_SEC)
+  return values && index >= 0 && index < values.length ? Number(values[index]) / 9 : 0
+}
+
+/**
+ * 지금 두두가 음성 파일로 말하는 소리 크기(0~1). 문장 사이 쉼에서는 0이다.
+ * 파일로 말하지 않을 때(브라우저 음성·말하지 않음)는 null이고, 그때 입은 기존처럼 일정하게 여닫는다.
+ */
+export function speakingLevel(): number | null {
+  if (!speaking) return null
+  if (speaking.gap || !sharedAudio || sharedAudio.paused) return 0
+  return envelopeLevel(speaking.id, sharedAudio.currentTime)
 }
 
 // 모든 두두 음성을 오디오 하나로 재생한다. iOS Safari는 사용자가 누르는 순간에 재생한 적 있는 요소만 이후에도 재생을 허락한다.
@@ -72,15 +97,18 @@ export function browserClipPlayer(gapMs = CLIP_GAP_MS): ClipPlayer | null {
       const audio = audioElement()
       let index = 0, stopped = false, started = false
       let gap: ReturnType<typeof setTimeout> | undefined
-      const detach = () => { audio.onplaying = null; audio.onended = null; audio.onerror = null }
+      const mine = { id: '', gap: false }
+      const release = () => { if (speaking === mine) speaking = null }
+      const detach = () => { audio.onplaying = null; audio.onended = null; audio.onerror = null; release() }
       const fail = () => { if (!stopped) { stopped = true; detach(); hooks.onError() } }
       const next = () => {
         if (stopped) return
         if (index >= urls.length) { detach(); hooks.onEnd(); return }
         audio.muted = false
+        mine.id = clipId(urls[index]); mine.gap = false; speaking = mine
         audio.src = urls[index++]
         audio.onplaying = () => { if (!started && !stopped) { started = true; hooks.onStart() } }
-        audio.onended = () => { gap = setTimeout(next, index < urls.length ? gapMs : 0) }
+        audio.onended = () => { mine.gap = true; gap = setTimeout(next, index < urls.length ? gapMs : 0) }
         audio.onerror = fail
         // 다른 말로 바뀌며 끊긴 재생(AbortError)은 이미 stopped라 실패로 세지 않는다.
         audio.play().catch(fail)

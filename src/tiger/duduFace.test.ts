@@ -25,6 +25,15 @@ describe('두두 표정', () => {
     expect(faceState('TALKING', 1.3, false).mouth).toBe(0)
   })
 
+  it('두두 음성 파일로 말하면 입이 소리 크기를 따르고, 문장 사이 쉼에서는 닫힌다', () => {
+    expect(faceState('TALKING', 0.4, true, 0.9).mouth).toBeCloseTo(0.9)
+    expect(faceState('TALKING', 0.4, true, 0).mouth).toBe(0)
+    expect(faceState('THINKING', 0.4, true, 0.5).mouth).toBeCloseTo(0.5)
+    expect(faceState('ENCOURAGE', 0.4, true, 0).mouth).toBeCloseTo(0.3)
+    expect(faceState('CHEER', 0.4, true, 0).mouth).toBe(0.8)
+    expect(faceState('TALKING', 0.4, false, 0.9).mouth).toBe(0)
+  })
+
   it('말하기는 입을 여닫고, 신나는 동작은 웃는 입, 환호는 웃는 눈이다', () => {
     const mouths = [0.1, 0.3, 0.5, 0.7, 0.9].map(t => faceState('TALKING', t, true).mouth)
     expect(Math.max(...mouths) - Math.min(...mouths)).toBeGreaterThan(0.2)

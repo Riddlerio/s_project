@@ -7,6 +7,7 @@ import {
 } from 'three'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { emblemTexture } from './duduEmblem'
+import { speakingLevel } from '../speech/duduClips'
 
 /*
  * 두두 절차형 3D 시제품. 원래 정면 도안(정체성 기준)과 2026-10-03에 받은 정면·측면·후면 조형 도면을
@@ -326,6 +327,9 @@ export function DuduModel({ action, animate = true }: { action: HoyaAction; anim
     const t = animate ? clock.elapsedTime : 0
     const d = Math.min(delta, 0.05)
     const target = poseFor(action, t)
+    // 두두 음성 파일로 말하는 중이면 입을 소리 크기에 맞춘다(GLB 얼굴과 같은 규칙, 환호는 그대로).
+    const level = animate ? speakingLevel() : null
+    if (level !== null && action !== 'CHEER') target.mouth = level
     const p = pose.current
     for (const key of Object.keys(target) as (keyof Pose)[]) p[key] = animate ? MathUtils.damp(p[key], target[key], key === 'mouth' ? 14 : 9, d) : target[key]
     if (root.current) {

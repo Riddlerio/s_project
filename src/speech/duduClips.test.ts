@@ -3,6 +3,7 @@ import { goodbyeLines } from '../child/DuduGoodbye'
 import { isName } from '../child/koreanText'
 import { listenAgainLine, MISS_LINE, modelLine, praiseLine, previewPlan, RETRY_LINE, retryLine } from '../game/crossing/crossingFlow'
 import { clipPlan, DUDU_CLIPS, splitSentences } from './duduClips'
+import ENVELOPES from '../../shared/dudu_voice_envelopes.json'
 
 describe('두두 음성 파일(VOLI 하람)', () => {
   it('문장은 마침표·느낌표·물음표에서 나누고, 따옴표·물결·쉼표는 문장 안에 둔다', () => {
@@ -15,6 +16,12 @@ describe('두두 음성 파일(VOLI 하람)', () => {
     expect(clipPlan('두두 따라 해 봐. 사!')).toEqual(['/assets/voice/dudu/c_model.wav', '/assets/voice/dudu/w_sa.wav'])
     expect(clipPlan('두두 따라 해 봐. 바다!')).toBeNull()
     expect(clipPlan('')).toBeNull()
+  })
+
+  it('모든 음성 파일에 입 모양 값이 있다(scripts/build-voice-envelopes.mjs)', () => {
+    const clips = ENVELOPES.clips as Record<string, string>
+    expect(Object.keys(clips).sort()).toEqual(DUDU_CLIPS.map(([, id]) => id).sort())
+    for (const [, id] of DUDU_CLIPS) expect(clips[id], id).toMatch(/^[0-9]+$/)
   })
 
   it('목록의 파일이 모두 있고 16kHz 모노 WAV다', async () => {
@@ -96,6 +103,24 @@ describe('두두 음성 재생기(오디오 하나를 다시 씀, iOS 대응)', 
     expect(hooks.onEnd).toHaveBeenCalledOnce()
     expect(FakeAudio.instances).toHaveLength(1)
     expect(audio.played.slice(1).map(row => [row.src, row.muted])).toEqual([['/a.wav', false], ['/b.wav', false]])
+  })
+
+  it('재생 위치의 소리 크기로 입 모양 값을 알려 주고, 쉼에는 0, 다 말하면 null이다', async () => {
+    const { browserClipPlayer, envelopeLevel, speakingLevel } = await load()
+    expect(speakingLevel()).toBeNull()
+    const hooks = { onStart: vi.fn(), onEnd: vi.fn(), onError: vi.fn() }
+    browserClipPlayer(0)!.play(['/assets/voice/dudu/w_sa.wav', '/assets/voice/dudu/p_good.wav'], hooks)
+    const audio = FakeAudio.instances[0] as FakeAudio & { currentTime: number }
+    audio.currentTime = 0.3
+    expect(speakingLevel()).toBe(envelopeLevel('w_sa', 0.3))
+    expect(envelopeLevel('w_sa', 0.3)).toBeGreaterThan(0.5)  // '사'의 모음 부분
+    expect(envelopeLevel('w_sa', 0)).toBe(0)                  // 시작 전 무음
+    audio.onended?.()
+    expect(speakingLevel()).toBe(0)                            // 문장 사이 쉼
+    await new Promise(resolve => setTimeout(resolve, 0)); await flush()
+    audio.onended?.(); await new Promise(resolve => setTimeout(resolve, 0))
+    expect(hooks.onEnd).toHaveBeenCalledOnce()
+    expect(speakingLevel()).toBeNull()
   })
 
   it('다른 말로 바뀌며 끊긴 재생은 실패로 세지 않고, 진짜 재생 실패만 onError로 알린다', async () => {

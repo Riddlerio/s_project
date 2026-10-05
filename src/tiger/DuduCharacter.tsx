@@ -7,6 +7,7 @@ import type { HoyaAction } from '../control/speechGameSignal'
 import { DuduModel } from './DuduModel'
 import { DUDU_GLB_URL, ONE_SHOT, pickClip } from './duduClips'
 import { attachDuduFace, faceState, type FaceState } from './duduFace'
+import { speakingLevel } from '../speech/duduClips'
 import { createGrounding, limitRootDrift, softenClip } from './duduMotion'
 import { attachDuduTail, swayDuduTail } from './duduTail'
 
@@ -88,7 +89,7 @@ function GlbDudu({ data, action, animate, expression }: Props & { data: Loaded; 
     if (!animate) return
     mixer.update(Math.min(delta, 0.05))
     ground?.apply()
-    face?.update(expression ?? faceState(action, clock.elapsedTime, true))
+    face?.update(expression ?? faceState(action, clock.elapsedTime, true, speakingLevel()))
     if (tail && action !== 'LISTENING') swayDuduTail(tail, clock.elapsedTime, LIVELY.has(action))
   })
   return <primitive object={scene} />

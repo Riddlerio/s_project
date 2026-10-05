@@ -127,6 +127,7 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 시작 문구 "안녕~ 만나서 반가워! {별명}아/야. 나는 두두야."(받침에 따라 아/야), 전환 문구 "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?" | `hoya/providers/demo_provider.py`의 `opening_text`, `hoya/transitions.py`의 `TRANSITION_TEXT` | 대본 | PRODUCT_HEURISTIC |
 | DEMO 유도 대본: 선택 질문·빈칸 채우기·먼저 들려주고 권하기·바르게 다시 들려주기를 돌려 쓴다(음절 단계는 먼저 들려주기를 더 자주) | `hoya/providers/demo_provider.py` | /ㅅ/ 낱말 유도 | PRODUCT_HEURISTIC |
 | 두두 음성 파일: 말의 모든 문장이 목록에 있을 때만 파일 재생(아니면 전부 브라우저 음성), 문장 사이 120ms | `src/speech/duduClips.ts`, `shared/dudu_voice_lines.json` | 목소리 일관성 | PRODUCT_HEURISTIC |
+| 입 모양 맞추기: 40ms 간격 소리 크기, 최대보다 30dB 아래는 닫힘, 0~9 단계 | `scripts/build-voice-envelopes.mjs`, `shared/dudu_voice_envelopes.json`, `src/tiger/duduFace.ts` | 말하는 입 연출(임상 무관) | PRODUCT_HEURISTIC |
 
 ## 10. 변경할 때의 규칙
 

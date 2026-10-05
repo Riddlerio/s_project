@@ -31,11 +31,17 @@ const BLINK_CYCLE = BLINK_GAPS.reduce((sum, gap) => sum + gap, 0)
 const BLINK_SEC = 0.13
 const SMILE: ReadonlySet<HoyaAction> = new Set<HoyaAction>(['WAVE', 'CHEER', 'ENCOURAGE'])
 
-/** 동작·시간별 표정. 정지 장면(moving=false)에서는 깜박임과 말하기 입 움직임을 멈춘다. */
-export function faceState(action: HoyaAction, time: number, moving: boolean): FaceState {
-  const mouth = SMILE.has(action) ? 0.8
-    : action === 'TALKING' && moving ? 0.3 + 0.7 * Math.abs(Math.sin(time * 7.5)) * (0.65 + 0.35 * Math.sin(time * 2.3))
-      : 0
+/**
+ * 동작·시간별 표정. 정지 장면(moving=false)에서는 깜박임과 말하기 입 움직임을 멈춘다.
+ * speech: 두두 음성 파일로 말하는 중이면 그 소리 크기(0~1, 문장 사이 쉼은 0). 입이 소리를 따라 열린다(환호의 웃는 입은 그대로).
+ * null이면(브라우저 음성·말하지 않음) 말하기 입은 일정하게 여닫는다.
+ */
+export function faceState(action: HoyaAction, time: number, moving: boolean, speech: number | null = null): FaceState {
+  const synced = moving && speech !== null && action !== 'CHEER'
+  const mouth = synced ? (SMILE.has(action) ? Math.max(0.3, speech) : speech)
+    : SMILE.has(action) ? 0.8
+      : action === 'TALKING' && moving ? 0.3 + 0.7 * Math.abs(Math.sin(time * 7.5)) * (0.65 + 0.35 * Math.sin(time * 2.3))
+        : 0
   if (action === 'CHEER') return { eyes: 'happy', mouth }
   if (!moving) return { eyes: 'open', mouth }
   let t = ((time % BLINK_CYCLE) + BLINK_CYCLE) % BLINK_CYCLE

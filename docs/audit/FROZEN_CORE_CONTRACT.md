@@ -115,7 +115,7 @@ npm.cmd audit
 **`src/speech/**`(HIGH_RISK_TO_TOUCH, 사용자 요청: '스' 감지 개선·두두 목소리 교체)**
 - `SustainTracker`에 선택 인자 `OnsetTolerance`를 추가했다. 기본값 0이면 기존 동작이고, 대구대 건너기만 쓴다.
 - `KoreanTts`가 두두 음성 파일(VOLI '하람')을 재생한다. 말의 모든 문장이 파일로 있을 때만 재생하고, 재생에 실패하면 같은 말을 브라우저 음성으로 한다. 입력 차단·종료 유예 규칙은 같다.
-- 새 파일 `duduClips.ts`를 추가했다. 음성 파일은 오디오 하나를 다시 쓰고, 로그인·시작 버튼을 누를 때 무음으로 한 번 깨운다(`unlockDuduAudio`, iOS Safari의 자동 재생 제한 대응).
+- 새 파일 `duduClips.ts`를 추가했다. 음성 파일은 오디오 하나를 다시 쓰고, 로그인·시작 버튼을 누를 때 무음으로 한 번 깨운다(`unlockDuduAudio`, iOS Safari의 자동 재생 제한 대응). 재생 위치의 소리 크기(`speakingLevel`, 미리 계산한 값)로 두두의 입을 연다. `src/tiger`의 `faceState`에 선택 인자 `speech`를 더했고 `<Hoya3D action className>` 인터페이스는 그대로다.
 - 캡처→파이프라인→인식기→제출 순서와 `CALIBRATION_MS`는 바꾸지 않았다.
 - 테스트: `onsetPipeline.test.ts`(기본값과 봐주기 비교), `koreanTts.test.ts`, `duduClips.test.ts`, `backend/tests/test_dudu_voice_lines.py`.
 
