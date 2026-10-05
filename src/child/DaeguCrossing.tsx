@@ -25,6 +25,12 @@ import './duduDemo.css'
  */
 type Card = 'hidden' | 'away' | 'here' | 'gone' | 'cleared'
 const PRAISE_SHOW_MS = 1400
+/** 칭찬 말풍선 둘레에 한 번 반짝이는 별(위치·지연·색). 빨간색은 쓰지 않는다. */
+const PRAISE_SPARKS = [
+  { x: '-14px', y: '-12px', d: '0ms', c: '#f4b400' }, { x: '96%', y: '-16px', d: '120ms', c: '#7ac13a' },
+  { x: '102%', y: '60%', d: '220ms', c: '#ffd75e' }, { x: '-20px', y: '70%', d: '320ms', c: '#13a389' },
+  { x: '48%', y: '-22px', d: '180ms', c: '#ffffff' },
+]
 const MAX_SPEECH_MS = 4000
 // 말풍선이 동그라미에 들어온 뒤 이 안에 말을 시작하면 '딱 맞았어!'(큰 펑). 화면 연출일 뿐 판정·기록에 쓰지 않는다.
 const ON_TIME_MS = 1500
@@ -43,7 +49,13 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const [windowOpen, setWindowOpen] = useState(false)
   const [stripe, setStripe] = useState(0)
   const [action, setAction] = useState<HoyaAction>('IDLE')
-  const [caption, setCaption] = useState('')
+  const [caption, setCaptionText] = useState('')
+  // 칭찬(praise)·도착(arrive) 말풍선은 금빛으로 통통 튀고 글자가 하나씩 떠오른다(화면 연출).
+  const [captionStyle, setCaptionStyle] = useState<'normal' | 'praise' | 'arrive'>('normal')
+  const [captionKey, setCaptionKey] = useState(0)
+  const setCaption = (text: string, style: 'normal' | 'praise' | 'arrive' = 'normal') => {
+    setCaptionText(text); setCaptionStyle(style); setCaptionKey(key => key + 1)
+  }
   const [pop, setPop] = useState<{ key: number; kind: PopKind; label: string } | null>(null)
   const [countdown, setCountdown] = useState('')
   const [paused, setPaused] = useState(false)
@@ -95,8 +107,8 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     windowTimer.current = null
   }
   /** 두두가 말한다(자막 + 입 움직임). 끝나면 then을 부른다. */
-  function say(text: string, then?: () => void, speakingAction: HoyaAction = 'TALKING') {
-    setCaption(text)
+  function say(text: string, then?: () => void, speakingAction: HoyaAction = 'TALKING', style: 'normal' | 'praise' | 'arrive' = 'normal') {
+    setCaption(text, style)
     const tts = voice.current
     if (!tts) { then?.(); return }
     void tts.speak(text, { onStart: () => setAction(speakingAction) }, { rate: 0.85 }).finished.then(() => { if (mounted.current) then?.() })
@@ -211,7 +223,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       const line = praiseLine(counts.current.successes - 1)
       setPop({ key: Date.now(), kind, label: kind === 'perfect' ? '딱 맞았어!' : '펑!' }); playFx(kind)
       later(() => setPop(null), PRAISE_SHOW_MS)
-      say(kind === 'perfect' ? `딱 맞았어! ${line}` : line, () => later(proceed, 300), 'CHEER')
+      say(kind === 'perfect' ? `딱 맞았어! ${line}` : line, () => later(proceed, 300), 'CHEER', 'praise')
       return
     }
     if (missed) { later(proceed, 1800); return }
@@ -239,7 +251,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     const name = heroName.current
     void judge.current?.finish(Math.floor((Date.now() - startedAt.current) / 1000)).catch(() => undefined)
     say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(() => navigate('/play/goodbye', {
-      state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: name } }), 1200), 'CHEER')
+      state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: name } }), 1200), 'CHEER', 'arrive')
   }
 
   function togglePause() {
@@ -305,7 +317,16 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
         {pop && <PopBurst key={pop.key} kind={pop.kind} label={pop.label} still={still} />}
         {countdown && <div className="crossing-countdown" role="status">{countdown}</div>}
       </div>
-      <p className={`crossing-caption${caption ? '' : ' empty'}`} aria-live="polite">{caption || ' '}</p>
+      <p key={captionKey} className={`crossing-caption${caption ? '' : ' empty'}${captionStyle === 'normal' ? '' : ` ${captionStyle}`}`} aria-live="polite">
+        {captionStyle === 'normal' || still ? caption || ' ' : <>
+          {/* 낱말 단위로 묶어 줄이 바뀌어도 '!' 같은 한 글자만 따로 떨어지지 않게 한다. 글자 지연은 문장 전체 순서를 따른다. */}
+          {caption.split(' ').map((word, w, words) => {
+            const start = words.slice(0, w).reduce((sum, previous) => sum + [...previous].length + 1, 0)
+            return <span key={w}>{w > 0 && ' '}<span className="praise-word">{[...word].map((char, i) => <span key={i} className="praise-char" style={{ ['--i' as string]: start + i }}>{char}</span>)}</span></span>
+          })}
+          {PRAISE_SPARKS.map((spark, i) => <i key={i} className="praise-spark" aria-hidden="true" style={{ ['--x' as string]: spark.x, ['--y' as string]: spark.y, ['--d' as string]: spark.d, ['--c' as string]: spark.c }} />)}
+        </>}
+      </p>
       <div className="crossing-path" aria-label={`흰 줄 ${STRIPES}개 중 ${Math.min(stripe, STRIPES)}개 건넘`}>
         <span className="crossing-path-end start" aria-hidden="true">출발</span>
         {Array.from({ length: STRIPES }, (_, i) => <span key={i} className={`crossing-path-step${i < stripe ? ' done' : ''}${i === stripe ? ' here' : ''}`}>{i === stripe && phase === 'play' ? '🐾' : ''}</span>)}

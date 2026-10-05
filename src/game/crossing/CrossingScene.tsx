@@ -1,13 +1,15 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CanvasTexture, MathUtils, SRGBColorSpace, TextureLoader, Vector3, type Group, type Texture } from 'three'
+import { MathUtils, Vector3, type Group, type Mesh, type MeshStandardMaterial } from 'three'
 import type { HoyaAction } from '../../control/speechGameSignal'
 import { DuduCharacter } from '../../tiger/DuduCharacter'
 import { canUseWebGL, HoyaErrorBoundary, HoyaFallback } from '../../tiger/Hoya3D'
 import { STRIPES } from './crossingFlow'
+import { DaeguGate } from './DaeguGate'
 
 /*
- * '대구대 건너기' 3D 장면. 흰 줄 20개의 횡단보도(초록불)를 두두가 한 줄씩 폴짝 건너 대구대 정문까지 간다.
+ * '대구대 건너기' 3D 장면. 흰 줄 10개의 횡단보도(초록불)를 두두가 한 줄씩 폴짝 건너 대구대 정문까지 간다.
+ * 지나온 줄은 금빛으로 남고, 내려앉을 때 빛 고리와 반짝이가 한 번 퍼진다(화면 연출, 서버 결과를 따름).
  * 차는 넣지 않는다(위험 연출 없음). 카메라는 두두를 따라 옆으로 움직인다. 판정은 화면이 아니라 서버 결과를 따른다.
  */
 export const STRIPE_PITCH = 1.2
@@ -19,39 +21,7 @@ const GATE_X = (STRIPES + 1.4) * STRIPE_PITCH
 /** 두두가 서는 x: 0은 출발 인도, k는 k번째 흰 줄. */
 export const stripeX = (stripe: number) => stripe * STRIPE_PITCH
 
-function signTexture(): Texture | null {
-  if (typeof document === 'undefined') return null
-  const canvas = document.createElement('canvas')
-  canvas.width = 512; canvas.height = 128
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-  ctx.fillStyle = '#0e6255'; ctx.fillRect(0, 0, 512, 128)
-  ctx.fillStyle = '#ffffff'; ctx.font = '900 64px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif'
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText('대구대학교', 256, 68)
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  return texture
-}
-
-function Gate() {
-  const sign = useMemo(signTexture, [])
-  const [emblem, setEmblem] = useState<Texture | null>(null)
-  useEffect(() => {
-    let alive = true
-    new TextureLoader().load('/assets/crossing/daegu_emblem.jpg', texture => { texture.colorSpace = SRGBColorSpace; if (alive) setEmblem(texture) })
-    return () => { alive = false; sign?.dispose() }
-  }, [sign])
-  // 정문은 도착 인도 뒤에 카메라를 보고 서 있다(가로지르는 문은 기둥이 두두를 가려서).
-  return <group position={[GATE_X, 0, -1.9]}>
-    {[-1.7, 1.7].map(x => <mesh key={x} position={[x, 1.6, 0]}><boxGeometry args={[0.5, 3.2, 0.5]} /><meshStandardMaterial color="#e9ece6" roughness={0.8} /></mesh>)}
-    <mesh position={[0, 3.45, 0]}><boxGeometry args={[4.4, 0.95, 0.3]} /><meshStandardMaterial color="#0e6255" /></mesh>
-    {sign && <mesh position={[0.25, 3.45, 0.16]}><planeGeometry args={[3.4, 0.8]} /><meshStandardMaterial map={sign} /></mesh>}
-    {emblem && <mesh position={[-1.65, 3.45, 0.17]}><circleGeometry args={[0.4, 40]} /><meshStandardMaterial map={emblem} roughness={0.6} /></mesh>}
-  </group>
-}
-
-function Street() {
+function Street({ crossed }: { crossed: number }) {
   const trees = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ x: -3 + i * 2.6, z: -4.2 - (i % 3) * 0.7, h: 1.3 + (i % 4) * 0.25 })), [])
   return <group>
     {/* 도로·인도·잔디 */}
@@ -59,8 +29,9 @@ function Street() {
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[stripeX(STRIPES) / 2 + 0.6, 0, 0]}><planeGeometry args={[stripeX(STRIPES) + 1.2, 3.2]} /><meshStandardMaterial color="#5d6468" roughness={0.95} /></mesh>
     <mesh position={[-1.2, 0.06, 0]}><boxGeometry args={[2.6, 0.12, 3.6]} /><meshStandardMaterial color="#d9d6cf" /></mesh>
     <mesh position={[GATE_X - 0.4, 0.06, 0]}><boxGeometry args={[3.4, 0.12, 3.6]} /><meshStandardMaterial color="#d9d6cf" /></mesh>
-    {/* 흰 줄 20개 */}
-    {Array.from({ length: STRIPES }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[stripeX(i + 1), 0.012, 0]}><planeGeometry args={[0.62, 2.8]} /><meshStandardMaterial color="#f7f7f2" roughness={0.7} /></mesh>)}
+    {/* 흰 줄 10개. 두두가 지나온 줄은 은은한 금빛(지나온 길) */}
+    {Array.from({ length: STRIPES }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[stripeX(i + 1), 0.012, 0]}><planeGeometry args={[0.62, 2.8]} />
+      {i < crossed ? <meshStandardMaterial color="#ffeeb0" emissive="#ffd66b" emissiveIntensity={0.28} roughness={0.6} /> : <meshStandardMaterial color="#f7f7f2" roughness={0.7} />}</mesh>)}
     {/* 출발 쪽 초록 신호등 */}
     <group position={[-1.8, 0, -1.5]}>
       <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.06, 0.06, 2.2, 10]} /><meshStandardMaterial color="#3d4447" /></mesh>
@@ -72,7 +43,58 @@ function Street() {
       <mesh position={[0, 0.35, 0]}><cylinderGeometry args={[0.09, 0.12, 0.7, 8]} /><meshStandardMaterial color="#8a6a4a" /></mesh>
       <mesh position={[0, 0.7 + tree.h / 2, 0]}><coneGeometry args={[0.55, tree.h, 10]} /><meshStandardMaterial color={i % 2 ? '#4f9d5b' : '#5fae63'} /></mesh>
     </group>)}
-    <Gate />
+    {/* 대구대학교 정문: 문 가운데(보 아래)가 도착 자리 앞에 오게 둔다 */}
+    <DaeguGate position={[GATE_X - 0.1, 0, -2.75]} />
+  </group>
+}
+
+const RIPPLE_MS = 750
+const SPARKS = Array.from({ length: 10 }, (_, i) => ({ angle: (i / 10) * Math.PI * 2 + (i % 2) * 0.3, speed: 0.55 + (i % 3) * 0.18, rise: 0.9 + (i % 4) * 0.25 }))
+
+/** 두두가 새 줄에 내려앉는 순간: 줄 위로 퍼지는 빛 고리와 위로 흩어지는 반짝이(한 번, 움직임 줄이기에서는 없음). */
+function LandingFx({ stripe, animate }: { stripe: number; animate: boolean }) {
+  const ring = useRef<Mesh>(null)
+  const sparks = useRef<(Mesh | null)[]>([])
+  const landing = useRef<{ at: number; x: number } | null>(null)
+  const previous = useRef(stripe)
+  useEffect(() => {
+    // 앞으로 한 줄 이상 갔을 때만(출발·도착 자리는 흰 줄이 아님). 폴짝 뛰기가 끝날 즈음 시작한다.
+    if (animate && stripe > previous.current && stripe <= STRIPES) landing.current = { at: performance.now() + HOP_MS * 0.85, x: stripeX(stripe) }
+    previous.current = stripe
+  }, [stripe, animate])
+  useFrame(() => {
+    const fx = landing.current
+    const t = fx ? (performance.now() - fx.at) / RIPPLE_MS : -1
+    const visible = t >= 0 && t <= 1
+    if (ring.current) {
+      ring.current.visible = visible
+      if (visible && fx) {
+        ring.current.position.x = fx.x
+        ring.current.scale.setScalar(0.4 + t * 1.6)
+        ;(ring.current.material as MeshStandardMaterial).opacity = 0.85 * (1 - t)
+      }
+    }
+    sparks.current.forEach((spark, i) => {
+      if (!spark) return
+      spark.visible = visible
+      if (!visible || !fx) return
+      const { angle, speed, rise } = SPARKS[i]
+      spark.position.set(fx.x + Math.cos(angle) * speed * t, 0.15 + rise * t - 0.6 * t * t, 0.2 + Math.sin(angle) * speed * t * 0.6)
+      spark.scale.setScalar(0.09 * (1 - t * 0.7))
+      spark.rotation.y = t * 6
+      ;(spark.material as MeshStandardMaterial).opacity = 1 - t
+    })
+    if (t > 1) landing.current = null
+  })
+  return <group>
+    <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0.2]} visible={false}>
+      <ringGeometry args={[0.55, 0.72, 48]} />
+      <meshStandardMaterial color="#ffd23f" emissive="#ffc21a" emissiveIntensity={0.8} transparent depthWrite={false} />
+    </mesh>
+    {SPARKS.map((_, i) => <mesh key={i} ref={element => { sparks.current[i] = element }} visible={false}>
+      <octahedronGeometry args={[1, 0]} />
+      <meshStandardMaterial color={i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#ffd23f' : '#9be15d'} emissive={i % 3 === 1 ? '#ffb300' : '#ffffff'} emissiveIntensity={0.5} transparent depthWrite={false} />
+    </mesh>)}
   </group>
 }
 
@@ -84,6 +106,8 @@ function Walker({ stripe, action, animate, bob, arrived }: { stripe: number; act
   const from = useRef(stripe)
   const started = useRef(0)
   const camera = useThree(state => state.camera)
+  // 세로로 긴 화면(휴대폰)에서는 정문 전체가 들어오게 도착 카메라를 더 뒤로 뺀다.
+  const narrow = useThree(state => state.size.width < state.size.height * 0.9)
   const look = useMemo(() => new Vector3(), [])
   useEffect(() => { from.current = group.current ? group.current.position.x / STRIPE_PITCH : stripe; started.current = performance.now() }, [stripe])
   useFrame(({ clock }) => {
@@ -100,9 +124,9 @@ function Walker({ stripe, action, animate, bob, arrived }: { stripe: number; act
     const target = g.position.x
     // 두두를 화면 가운데에 두어 머리 위 말하기 동그라미와 맞춘다. 도착하면 뒤로 물러나 정문까지 보여 준다.
     camera.position.x = MathUtils.damp(camera.position.x, target, 3, 1 / 60)
-    camera.position.y = MathUtils.damp(camera.position.y, arrived ? 2.5 : 1.9, 2, 1 / 60)
-    camera.position.z = MathUtils.damp(camera.position.z, arrived ? 8.2 : 4.8, 2, 1 / 60)
-    look.set(camera.position.x, arrived ? 1.7 : 0.95, arrived ? -0.8 : 0)
+    camera.position.y = MathUtils.damp(camera.position.y, arrived ? 2.7 : 1.9, 2, 1 / 60)
+    camera.position.z = MathUtils.damp(camera.position.z, arrived ? (narrow ? 15.5 : 9.4) : 4.8, 2, 1 / 60)
+    look.set(camera.position.x - (arrived ? 0.35 : 0), arrived ? 2.05 : 0.95, arrived ? -1.0 : 0)
     camera.lookAt(look)
   })
   return <group ref={group} position={[stripeX(stripe), 0, 0.2]} rotation={[0, 0.5, 0]}>
@@ -122,7 +146,8 @@ export function CrossingScene({ stripe, action, animate, bob = true, arrived = f
         <hemisphereLight args={['#ffffff', '#cfe3d6', 1.3]} />
         <directionalLight position={[4, 7, 6]} intensity={1.6} />
         <directionalLight position={[-5, 3, 4]} intensity={0.4} />
-        <Street />
+        <Street crossed={Math.min(STRIPES, Math.floor(stripe))} />
+        <LandingFx stripe={stripe} animate={animate} />
         <Walker stripe={stripe} action={action} animate={animate} bob={bob} arrived={arrived} />
       </Canvas>
     </HoyaErrorBoundary>
