@@ -19,6 +19,8 @@ import { KoreanTts } from '../speech/koreanTts'
 import { unlockDuduAudio } from '../speech/duduClips'
 import { outputLatencyMs, playFx, PopBurst, scheduleTicks, unlockFx, VoiceCredit, type PopKind, type TickHandle } from './demoFx'
 import { TurnCue } from './turnCue'
+import { RetryTipCard } from './RetryTip'
+import { MISS_TIP, retryTip, type RetryTip } from '../game/crossing/retryTips'
 import { isName } from './koreanText'
 import { hasPicture, WordPicture } from './WordPicture'
 import './duduDemo.css'
@@ -78,6 +80,8 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     setCaptionText(text); setCaptionStyle(style); setCaptionKey(key => key + 1)
   }
   const [pop, setPop] = useState<{ key: number; kind: PopKind; label: string } | null>(null)
+  // 같은 카드를 다시 할 때 위쪽에 보이는 도움말(입 모양 그림 + 짧은 안내). 맞거나 다음 카드로 넘어가면 지운다.
+  const [tip, setTip] = useState<RetryTip | null>(null)
   const [countdown, setCountdown] = useState('')
   const [paused, setPaused] = useState(false)
   const [error, setError] = useState('')
@@ -321,7 +325,9 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       const again = !missed && (result.result === 'uncertain' || result.result === 'no_speech') && result.next.modelCue
       present(result.next, again ? LISTEN_AGAIN_LEAD : undefined)
     }
+    const sameCard = !!result.next && result.next.itemId === target.itemId
     if (result.result === 'success') {
+      setTip(null)
       counts.current.successes++
       setCard('cleared')
       const kind = timingKind(speechStartAt.current, landAt.current)
@@ -334,15 +340,17 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       say(kind === 'perfect' ? `딱 맞았어! ${line}` : line, () => later(proceed, 250), 'CHEER', 'praise')
       return
     }
-    if (missed) { later(proceed, 1800); return }
+    if (missed) { setTip(sameCard ? MISS_TIP : null); later(proceed, 1800); return }
     // 결과는 서버 판정을 따르고, 단서 문구만 같은 음향 요약으로 고른다(기준이 다르면 기본 단서).
-    if (result.result === 'retry') say(retryLine(acoustic.source === 'keyboard' ? null : onsetReason(acoustic), target.text), proceed, 'ENCOURAGE')
+    const reason = acoustic.source === 'keyboard' ? null : onsetReason(acoustic)
+    setTip(sameCard ? retryTip(reason, target.text) : null)
+    if (result.result === 'retry') say(retryLine(reason, target.text), proceed, 'ENCOURAGE')
     else proceed()
   }
 
   /** 끝: 남은 줄은 두두가 박에 맞춰 이어서 건너 정문에 도착한다(실패 연출 없음). */
   function arrive() {
-    setPhase('arrive'); setCard('hidden'); setWindowOpen(false); setTurn(null); setBeat(0)
+    setPhase('arrive'); setCard('hidden'); setWindowOpen(false); setTurn(null); setBeat(0); setTip(null)
     listening.current = false
     capture.current?.stop()
     const remaining = STRIPES - counts.current.successes
@@ -394,11 +402,16 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const beatLabel = turn === 'dudu' ? '두두' : '말해!'
   return <main className="crossing-screen dudu-sky"><div className="crossing-shell">
     <header className="crossing-top">
-      <div><p className="eyebrow">대구대 건너기{mode === 'demo' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
+      {/* 도움말이 있으면 제목 자리에 보인다(무대·버튼이 밀리지 않게). 제목은 화면 읽기용으로 남긴다. */}
+      {phase === 'play' && tip && <RetryTipCard key={`${tip.title}-${tip.body}`} tip={tip} />}
+      <div className={phase === 'play' && tip ? 'crossing-top-main sr-only' : 'crossing-top-main'}><p className="eyebrow">대구대 건너기{mode === 'demo' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
         <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : '두두랑 대구대까지!'}</h1>
         {phase === 'play' && <><span className="crossing-chip">{ROUND_TITLES[roundIndex - 1]}</span>
           <span className="crossing-chip tempo"><span aria-hidden="true">♩ {tempo}</span><span className="sr-only">빠르기 1분에 {tempo}박</span></span></>}</div>
-      {phase === 'play' && <button className="secondary-action" onClick={togglePause}>{paused ? '다시 시작' : '잠깐 쉬기'}</button>}
+      {/* 쉬기: 게임처럼 동그란 아이콘 버튼(이름은 화면 읽기용으로 그대로). 제목·도움말과 한 줄에 둔다. */}
+      {phase === 'play' && <button className="secondary-action crossing-pause" onClick={togglePause} aria-label={paused ? '다시 시작' : '잠깐 쉬기'} title={paused ? '다시 시작' : '잠깐 쉬기'}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">{paused ? <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /> : <><rect x="6.5" y="5.5" width="4" height="13" rx="1.6" fill="currentColor" /><rect x="13.5" y="5.5" width="4" height="13" rx="1.6" fill="currentColor" /></>}</svg>
+      </button>}
     </header>
 
     {phase === 'intro' && <section className="crossing-intro">
@@ -455,7 +468,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       </div>
       {phase === 'play' && mode === 'demo' && <div className="crossing-controls">
         <button className={holding ? 'pressed' : ''} disabled={!windowOpen && !holding}
-          onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small">Space</span></button>
+          onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small key-hint">Space</span></button>
         <p className="small">DEMO 입력입니다. 실제 발음 평가가 아닙니다.</p>
       </div>}
     </>}

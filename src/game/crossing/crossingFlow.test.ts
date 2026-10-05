@@ -78,7 +78,7 @@ const MEASURED: [string, number, number, number, number, number, string][] = [
   ['#14 다', 1239, 0, 0, -43.6, -67.2, 'retry'],
   ['#15 스~ 뒤 모음', 5138, 1304, 276, -33.8, -67.2, 'success'],
   ['#20 스~(작음)', 1480, 0, 0, -58.5, -67.2, 'uncertain'],
-  ['#21 스(마찰 60ms)', 360, 60, 218, -34.0, -63.5, 'retry'],
+  ['#21 스(마찰 60ms)', 360, 60, 218, -34.0, -63.5, 'success'],
   ['#22 스(마찰 80ms)', 399, 79.9, 217, -35.5, -63.5, 'success'],
   ['#23 스(마찰 40ms)', 382, 40, 238, -37.3, -63.5, 'retry'],
   ['#27 스(마찰 99ms)', 460, 98.9, 297, -37.1, -63.5, 'success'],
@@ -93,11 +93,12 @@ const MEASURED: [string, number, number, number, number, number, string][] = [
   ['2-#39 사(표시 아)', 758, 79.1, 276, -40.9, -62.8, 'success'],
   ['2-#40 사(표시 아)', 458, 98, 257, -41.1, -62.8, 'success'],
   ['2-#7 스', 579, 138.7, 355, -37.7, -62.8, 'success'],
-  // 알려진 놓침: 마찰 60ms(3프레임)인 바른 '사'는 차·자(59ms)와 길이로 가를 수 없어 지금은 '다시'다.
-  ['2-#27 사(60ms, 놓침)', 580, 60, 418, -35.5, -62.8, 'retry'],
+  // 2026-10-06: 바르게 말한 '사과'가 아이폰에서 자주 '다시'가 되어 기준을 60ms(3프레임)로 한 칸 내렸다(사용자 요청).
+  // 그래서 마찰 60ms인 바른 '사'는 이제 맞음이다. 59ms로 잰 차·자는 그대로 '다시'지만, 프레임 흔들림으로 가끔 통과할 수 있다.
+  ['2-#27 사(60ms)', 580, 60, 418, -35.5, -62.8, 'success'],
 ]
 
-describe('실측 기준(2026-10-05)', () => {
+describe('실측 기준(2026-10-05, 2026-10-06 60ms로 조정)', () => {
   it.each(MEASURED)('%s → %s', (_label, durationMs, onsetFricationMs, voicedAfterFricationMs, meanRmsDb, noiseFloorDb, expected) => {
     expect(judgeOnset({ activeMs: durationMs, durationMs, onsetFricationMs, voicedAfterFricationMs, meanRmsDb, noiseFloorDb })).toBe(expected)
   })
@@ -112,7 +113,8 @@ describe('실측 기준(2026-10-05)', () => {
     expect(onsetReason({ activeMs: 360, durationMs: 360, onsetFricationMs: 40, voicedAfterFricationMs: 200 })).toBe('short_frication')
     expect(retryLine('short_frication', '사')).toContain('길게')
     expect(retryLine('no_vowel', '사')).toContain('사')
-    expect(retryLine('no_frication', '사')).toBe(RETRY_LINE)
-    expect(retryLine(null, '사')).toBe(RETRY_LINE)
+    // 바람 소리가 없을 때도 단서 뒤에 낱말을 한 번 들려준다(2026-10-06).
+    expect(retryLine('no_frication', '사')).toBe(`${RETRY_LINE} 사!`)
+    expect(retryLine(null, '사과')).toBe(`${RETRY_LINE} 사과!`)
   })
 })

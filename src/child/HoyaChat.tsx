@@ -240,7 +240,7 @@ export default function HoyaChat() {
           <p className="small">DEMO 대화입니다. 글자로 입력한 말이며 실제 음성 자료가 아닙니다.</p>
         </div>}
         {/* 시연 흐름(로그인 → 대화 → 건너기 → 마무리)으로 들어왔으면 집(지도·아이템)으로 나가지 않는다(사용자 결정: 데모에 아이템 없음). */}
-        {chatState === 'ENDED' && !autostart && <button onClick={() => navigate('/play/home')}>두두의 집으로</button>}
+        {chatState === 'ENDED' && !autostart && <button className="secondary-action" onClick={() => navigate('/play/home')}>두두의 집으로</button>}
         {!session && <button className="quiet" onClick={() => navigate(autostart ? '/play' : '/play/home')}>{autostart ? '처음으로' : '돌아가기'}</button>}
         {error && <p role="alert">{error}</p>}
         {session && <nav ref={nextGameRef} className={`dudu-next-game${gameOpen ? ' suggested' : ''}`} aria-label="두두가 권하는 게임">

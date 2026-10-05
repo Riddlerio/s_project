@@ -7,9 +7,10 @@ from ..speech.normalization import normalize
 
 # 대구대 건너기 음향 근사 기준(2026-10-05 성인 1명 PC 마이크 실측 2회, 정답 확인 포함).
 # 근거: docs/handoff/MIC_MEASUREMENT_2026-10-05.md. 임상적으로 검증된 발음 정확도 기준이 아니다.
-# - 바른 '사' 시작 마찰 79~99ms, '차·자' 39~59ms → 70ms(20ms 프레임 4개). 60ms는 둘이 겹친다.
+# - 바른 '사' 시작 마찰 60~99ms, '차·자' 39~59ms. 2026-10-05에는 70ms(20ms 프레임 4개)였으나, 2026-10-06 사용자 아이폰 시험에서
+#   바르게 말한 '사과'가 자주 '다시'가 되어 60ms(3프레임)로 한 칸 내렸다. 3프레임짜리 짧은 '차·자'가 가끔 통과할 수 있어 치료사가 확인한다.
 # - 잡음보다 15dB 미만으로 작은 소리는 판단하지 않는다(틀림이 아니라 불확실). 화면 crossingFlow.ONSET_RULE과 같은 값.
-ONSET_FRICATION_MS = 70
+ONSET_FRICATION_MS = 60
 VOICED_AFTER_FRICATION_MS = 80
 ONSET_MIN_SNR_DB = 15
 

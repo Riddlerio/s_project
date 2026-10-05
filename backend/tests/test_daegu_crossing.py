@@ -10,9 +10,9 @@ from app.games.rounds import GAME_ROUNDS
 from app.models import Child, ClinicalObservation, GameEvent, RoundMaterialReward, TrainingGoal, TrainingSession, Utterance
 from test_api_flow import api, auth, real_child_auth, student_auth
 
-GOOD = {"durationMs": 700, "activeMs": 500, "onsetFricationMs": 70,
+GOOD = {"durationMs": 700, "activeMs": 500, "onsetFricationMs": 60,
         "voicedAfterFricationMs": 80, "noiseFloorDb": -60, "meanRmsDb": -35}
-RETRY = {**GOOD, "onsetFricationMs": 69}
+RETRY = {**GOOD, "onsetFricationMs": 59}
 QUIET = {"durationMs": 700, "activeMs": 0}
 POOR = {**GOOD, "meanRmsDb": -55}
 
@@ -40,9 +40,10 @@ def goal(**changes):
                               "target_sound": "사", "excluded_words": [], **changes})
 
 
-@pytest.mark.parametrize("onset,voiced,result", [(69, 80, "retry"), (70, 79, "retry"),
-                                               (70, 80, "success"), (71, 81, "success"),
-                                               (60, 200, "retry"), (0, 80, "retry"), (70, 0, "retry")])
+# 2026-10-06: 시작 마찰 기준을 70ms에서 60ms로 한 칸 내렸다(바르게 말한 '사과'가 아이폰에서 자주 '다시'가 됨).
+@pytest.mark.parametrize("onset,voiced,result", [(59, 80, "retry"), (60, 79, "retry"),
+                                               (60, 80, "success"), (61, 81, "success"),
+                                               (40, 200, "retry"), (0, 80, "retry"), (60, 0, "retry")])
 def test_onset_boundaries_are_inclusive(onset, voiced, result):
     analyzed = evaluate_round(GAME_ROUNDS["daegu_crossing"][0], {}, None,
                              {**GOOD, "source": "microphone", "onsetFricationMs": onset,
@@ -64,7 +65,7 @@ def test_quality_gate_and_missing_measurements_are_neutral(acoustic, result):
     assert analyzed.result == result
 
 
-# 화면 src/game/crossing/crossingFlow.test.ts의 MEASURED 표와 같은 실측값·같은 결과(2026-10-05).
+# 화면 src/game/crossing/crossingFlow.test.ts의 MEASURED 표와 같은 실측값·같은 결과(2026-10-05, 2026-10-06 60ms로 조정).
 # (이름, 길이, 시작 마찰, 마찰 뒤 유성, 평균 크기, 잡음, 결과). 2-#39·40은 표시 '아'였지만 실제로 '사'.
 MEASURED = [
     ("#2 사", 880, 80, 357, -41.8, -67.2, "success"), ("#8 사", 840, 78.8, 534, -43.3, -67.2, "success"),
@@ -74,14 +75,14 @@ MEASURED = [
     ("#11 다", 758, 0, 0, -35.5, -67.2, "retry"), ("#12 다", 440, 0, 0, -35.9, -67.2, "retry"),
     ("#13 다", 401, 0, 0, -35.0, -67.2, "retry"), ("#14 다", 1239, 0, 0, -43.6, -67.2, "retry"),
     ("#15 스~ 뒤 모음", 5138, 1304, 276, -33.8, -67.2, "success"), ("#20 스~(작음)", 1480, 0, 0, -58.5, -67.2, "uncertain"),
-    ("#21 스(마찰 60ms)", 360, 60, 218, -34.0, -63.5, "retry"), ("#22 스(마찰 80ms)", 399, 79.9, 217, -35.5, -63.5, "success"),
+    ("#21 스(마찰 60ms)", 360, 60, 218, -34.0, -63.5, "success"), ("#22 스(마찰 80ms)", 399, 79.9, 217, -35.5, -63.5, "success"),
     ("#23 스(마찰 40ms)", 382, 40, 238, -37.3, -63.5, "retry"), ("#27 스(마찰 99ms)", 460, 98.9, 297, -37.1, -63.5, "success"),
     ("#30 스~(작음)", 279, 0, 0, -51.7, -63.5, "uncertain"),
     ("2-#15 차", 519, 59.1, 355, -38.2, -62.8, "retry"), ("2-#16 차", 500, 39.2, 339, -40.0, -62.8, "retry"),
     ("2-#17 자", 519, 59, 378, -36.3, -62.8, "retry"), ("2-#18 자", 500, 39.5, 376, -38.6, -62.8, "retry"),
     ("2-#13 타", 541, 0, 0, -33.5, -62.8, "retry"), ("2-#34 아", 959, 0, 0, -32.4, -62.8, "retry"),
     ("2-#39 사(표시 아)", 758, 79.1, 276, -40.9, -62.8, "success"), ("2-#40 사(표시 아)", 458, 98, 257, -41.1, -62.8, "success"),
-    ("2-#7 스", 579, 138.7, 355, -37.7, -62.8, "success"), ("2-#27 사(60ms, 놓침)", 580, 60, 418, -35.5, -62.8, "retry"),
+    ("2-#7 스", 579, 138.7, 355, -37.7, -62.8, "success"), ("2-#27 사(60ms)", 580, 60, 418, -35.5, -62.8, "success"),
 ]
 
 

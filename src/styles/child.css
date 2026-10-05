@@ -40,7 +40,8 @@
 .entry-decoration span { max-width: 7rem; font-family: inherit; font-size: .8rem; font-weight: 800; line-height: 1.5; }
 /* 첫 화면에서 두두가 손을 흔들며 맞는다(데스크톱. 휴대폰은 로그인 칸이 먼저 보이게 숨김) */
 .entry-dudu { width: min(380px, 100%); height: 380px; margin-top: .4rem; background: radial-gradient(ellipse 40% 5% at 50% 89%, var(--color-alpha-forest-a20) 0 55%, transparent 60%), radial-gradient(ellipse 50% 10% at 50% 91%, var(--color-palette-green-l76) 0 68%, transparent 71%); }
-@media (max-width: 760px) { .entry-dudu { display: none; } }
+/* 휴대폰: 두두를 작게 세우고 로그인 카드가 발끝을 살짝 덮게 한다(게임 첫 화면처럼 두두가 맞아 준다). */
+@media (max-width: 760px) { .entry-dudu { display: block; width: 200px; height: 210px; margin: -.4rem auto -1.1rem; position: relative; z-index: 0; } .entry-form { position: relative; z-index: 1; } .entry-copy h1 { font-size: 3.2rem; } }
 .entry-form { display: flex; flex-direction: column; padding: clamp(1.6rem, 3vw, 2.5rem); border: 1px solid var(--line); border-radius: 24px; background: var(--paper); box-shadow: 0 20px 50px var(--color-alpha-green-l16-a06); }
 .entry-form h2 { margin: .4rem 0 1.6rem; font-size: 2rem; }
 .entry-form label { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; font-size: .85rem; font-weight: 800; }
@@ -163,7 +164,10 @@
 
 /* 하늘 배경(대화·마무리·로그인·건너기 공통): 구름은 화면 폭과 관계없이 같은 모양이게 픽셀 크기로 그린다 */
 /* 그림 배경(Meshy 이미지 생성: 하늘·구름·언덕·떠 있는 대학 섬). 그림을 불러오기 전과 불러오지 못하면 아래 그라데이션 하늘이 보인다. */
-.dudu-sky { background:
+/* 2026-10-06: 배경을 화면에 고정된 층(::before)으로 옮겼다. 긴 화면 아래가 끊기지 않고, background-attachment: fixed를 무시하는
+   아이폰 사파리에서도 배경이 확대되지 않는다. 화면 자체의 배경은 투명하게 두어 다른 규칙의 배경이 비치지 않게 한다. */
+.dudu-sky { position: relative; isolation: isolate; background: transparent !important; }
+.dudu-sky::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background:
   url('/assets/art/sky_hills.webp') 68% 100% / cover no-repeat,
   radial-gradient(ellipse 120px 44px at 9% 15%, var(--color-alpha-white-a90) 0 60%, transparent 63%),
   radial-gradient(ellipse 78px 40px at 15% 11.5%, var(--color-alpha-white-a90) 0 60%, transparent 63%),
@@ -172,7 +176,7 @@
   radial-gradient(ellipse 96px 30px at 58% 6%, var(--color-alpha-white-a80) 0 60%, transparent 63%),
   radial-gradient(ellipse 75% 220px at 18% calc(100% + 120px), var(--color-palette-green-l76) 0 60%, transparent 61%),
   radial-gradient(ellipse 70% 190px at 88% calc(100% + 110px), var(--color-palette-green-l85-2) 0 60%, transparent 61%),
-  linear-gradient(180deg, var(--color-palette-sky-l76) 0%, var(--color-palette-sky-l87) 38%, var(--color-palette-sky-l94) 68%, var(--color-palette-green-l90-2) 100%) !important; background-attachment: fixed !important; }
+  linear-gradient(180deg, var(--color-palette-sky-l76) 0%, var(--color-palette-sky-l87) 38%, var(--color-palette-sky-l94) 68%, var(--color-palette-green-l90-2) 100%); }
 
 /* 둥근 글꼴(나눔스퀘어라운드, OFL, public/assets/fonts/nanumsquareround/OFL.txt). 아동 화면의 제목·버튼·말풍선을 통통하고 부드럽게(2026-10-05, 동물의 숲·듀오링고 참고) */
 @font-face { font-family: 'NanumSquareRound'; src: url('/assets/fonts/nanumsquareround/NanumSquareRoundB.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
@@ -190,3 +194,8 @@
 /* 제목: 흰 테두리를 두른 스티커 글씨(배경 그림 위에서도 또렷하게) */
 .dudu-sky h1 { text-shadow: 0 2px 0 var(--color-surface-white), 2px 0 0 var(--color-surface-white), -2px 0 0 var(--color-surface-white), 0 -2px 0 var(--color-surface-white), 2px 2px 0 var(--color-surface-white), -2px 2px 0 var(--color-surface-white), 0 6px 14px var(--color-alpha-forest-a20); }
 @media (prefers-reduced-motion: reduce) { .dudu-sky button { transition: none !important; } }
+
+/* 글쇠 안내(Space)는 키보드가 있는 기기에서만 보인다. */
+@media (hover: none) and (pointer: coarse) { .key-hint { display: none; } }
+/* 아동 화면의 작은 제목은 한국어라 자간을 좁힌다(영문 대문자용 넓은 자간이 글자를 흩어 보이게 했다). */
+.dudu-sky .eyebrow { letter-spacing: .04em; }

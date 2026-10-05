@@ -103,8 +103,8 @@ def test_explanation_uses_evaluation_thresholds_and_reports_observed_absence():
     assert "바람 소리 확인" in message and "뒤 모음 확인" in message
     assert explain("retry", {**GOOD, "onsetFricationMs": 0, "voicedAfterFricationMs": 0}) == [
         "시작 바람 소리 없음.", "끝까지 모음 없음."]
-    message = " ".join(explain("retry", {**GOOD, "onsetFricationMs": 60, "voicedAfterFricationMs": 50}))
-    assert f"바람 소리 짧음(60ms, 현재 기준 {ONSET_FRICATION_MS}ms)" in message
+    message = " ".join(explain("retry", {**GOOD, "onsetFricationMs": 40, "voicedAfterFricationMs": 50}))
+    assert f"바람 소리 짧음(40ms, 현재 기준 {ONSET_FRICATION_MS}ms)" in message
     assert f"뒤 모음 짧음(50ms, 현재 기준 {VOICED_AFTER_FRICATION_MS}ms)" in message
 
 
