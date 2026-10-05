@@ -76,7 +76,7 @@ describe('치료사 홈과 작업 공간', () => {
   })
 
   it('경과 · 기록은 검토 대기 관찰과 이전 계획을 보이고 기존 추천은 고급 정보로 접는다', () => {
-    const html = render(<ProgressPanel childId="c1" context={context()} progress={null} showAdvanced
+    const html = render(<ProgressPanel childId="c1" context={context()} trends={null} showAdvanced
       sessions={[{ id: 's1', mode: 'real', isSeed: false, startedAt: '2026-09-29T00:00:00Z', status: 'completed' }]}
       plans={[plan('SUPERSEDED'), plan('APPROVED', { id: 'p2', revision: 2 })]} recommendations={[]} rules={[]} onDecide={noop} onDeactivate={noop} />)
     expect(html).toContain('관찰 3건')
@@ -89,7 +89,7 @@ describe('치료사 홈과 작업 공간', () => {
 describe('legacy 추천 출처', () => {
   const rec = (demoPractice: boolean) => ({ id: demoPractice ? 'demo' : 'real', observation: '관찰', suggestion_text: '제안', confidence: 'low', status: 'pending',
     provenance: { sessionMode: demoPractice ? 'demo' : 'real', sessionIsSeed: false, clinicalEligible: !demoPractice, demoPractice } })
-  const html = (demoPractice: boolean) => render(<ProgressPanel childId="c1" context={context()} progress={null} sessions={[]} plans={[]}
+  const html = (demoPractice: boolean) => render(<ProgressPanel childId="c1" context={context()} trends={null} sessions={[]} plans={[]}
     recommendations={[rec(demoPractice)]} rules={[]} onDecide={noop} onDeactivate={noop} />)
 
   it('DEMO 연습 기반 추천은 표시를 붙이고 수락·수정 버튼을 숨긴다', () => {

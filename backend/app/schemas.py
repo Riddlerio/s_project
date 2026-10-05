@@ -32,13 +32,8 @@ class GoalInput(ApiModel):
     note: str = ""
 
 
-class StartInput(ApiModel):
-    play_code: str
-    mode: str = "demo"
-
-
 class StartActivityInput(ApiModel):
-    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest"]
+    game: Literal["magic_beam", "sky_climb", "monster_adventure", "conversation_quest", "daegu_crossing"]
     mode: Literal["real", "demo"] = "demo"
 
 
@@ -58,6 +53,7 @@ class UtteranceInput(ApiModel):
     recognizer: str = "demo_script"
     acoustic: AcousticSummary = Field(default_factory=AcousticSummary)
     elapsed_sec: int = Field(default=0, ge=0, le=600)
+    attack: Literal["basic", "magic_beam"] = "basic"
 
     @field_validator("alternatives")
     @classmethod

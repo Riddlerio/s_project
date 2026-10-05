@@ -40,24 +40,24 @@ Phase 0에서 사용자(제품 소유자)가 승인했다(2026-09-30). 이후 �
 
 | 경로 | 등급 | 지켜야 할 제약 |
 |---|---|---|
-| `src/styles/**` | SAFE_TO_REDESIGN | tsx에서 쓰는 class 이름을 유지하거나 tsx와 함께 바꾼다: `child-screen`, `game-screen`, `target`, `small`, `big-button`, `card`, `grid`, `map`/`unlocked`, `speech-bubble`, `quiet`, `therapist-screen`, `workspace-tabs`, `summary-grid`, `notice`, `muted`, `chart-wrap`. 치료사 class는 `workspace.test.tsx`가 확인한다. CSP 때문에 외부 폰트나 CDN은 쓸 수 없고 자체 호스팅해야 한다 |
+| `src/styles/**` | SAFE_TO_REDESIGN | tsx에서 쓰는 class 이름을 유지하거나 tsx와 함께 바꾼다: `child-screen`, `game-screen`, `target`, `small`, `big-button`, `card`, `grid`, `speech-bubble`, `quiet`, `therapist-screen`, `workspace-tabs`, `summary-grid`, `notice`, `muted`, `chart-wrap`. 치료사 class는 `workspace.test.tsx`가 확인한다. CSP 때문에 외부 폰트나 CDN은 쓸 수 없고 자체 호스팅해야 한다 |
 | `src/pages/**` | SAFE_TO_REDESIGN | `/play`와 `/therapist/login` 링크를 유지한다 |
-| `src/character/**` | SAFE_TO_REDESIGN(제거 가능) | PlaySession만 `<Character line mood>`를 쓴다. `dialogue.ts`는 삭제하기로 승인되었다 |
-| `src/tiger/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | `<Hoya3D action className>`, `HoyaAction` 17개 값(THINKING 포함) 처리, `HoyaFallback`과 `data-hoya-fallback="true"`, `ACTION_TEXT` 문구(테스트가 확인), fallback에 "3D" 문구를 쓰지 않을 것, `canUseWebGL`, `HoyaErrorBoundary`, context loss fallback, 높이는 부모가 정하는 구조를 유지한다. 내부 `Tiger` 메시는 교체할 수 있다. GLB loader를 도입하거나 의존성을 추가하려면 사용자 승인이 필요하다 |
-| `src/child/**`(화면층) | SAFE_WITH_INTERFACE_CONSTRAINTS | sessionStorage 키(`speechHero.code`, `speechHero.play`, `speechHero.activity`, `speechHero.result`), API 호출, `detectCapabilities`·`supportsRealMode`·`missingText` 게이트, Space와 pointer 입력 핸들러, TTS 중 마이크 차단 ref(`modelSpeaking`, `submitting`), `HoyaActionController`의 dispatch 지점, `aria-live` 영역, DEMO 고지 문구를 유지한다 |
-| `src/game/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | `beamTransition`과 `towerTransition`의 의미를 유지한다(`game.test.ts`). `BeamCanvas`의 `{voicedMs, targetMs}`는 다시 만들어도 된다. V2 게임 장면은 새 코드로 작성한다 |
+| `src/character/**` | 삭제됨(2026-10-04) | legacy 모험 제거(로드맵 5절 3번)와 함께 `Character.tsx`·`tts.ts`를 지웠다. 폴더가 없다 |
+| `src/tiger/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | `<Hoya3D action className>`, `HoyaAction` 17개 값(THINKING 포함) 처리, `HoyaFallback`과 `data-hoya-fallback="true"`, `ACTION_TEXT` 문구(테스트가 확인), fallback에 "3D" 문구를 쓰지 않을 것, `canUseWebGL`, `HoyaErrorBoundary`, context loss fallback, 높이는 부모가 정하는 구조를 유지한다. 내부 `Tiger` 메시는 교체할 수 있다. GLB loader를 도입하거나 의존성을 추가하려면 사용자 승인이 필요하다(2026-10-04 승인: three 내장 `GLTFLoader`로 `public/assets/dudu/dudu.glb`를 읽는다. `EXT_texture_webp`·`KHR_mesh_quantization`만 쓰고 meshopt·Draco·KTX2 디코더는 쓰지 않는다. 로딩 실패 시 절차형 모델로 돌아간다) |
+| `src/child/**`(화면층) | SAFE_WITH_INTERFACE_CONSTRAINTS | sessionStorage 키(`speechHero.code`, `speechHero.activity`, `speechHero.result`. legacy 모험용 `speechHero.play`는 2026-10-04 삭제), API 호출, `detectCapabilities`·`supportsRealMode`·`missingText` 게이트, Space와 pointer 입력 핸들러, TTS 중 마이크 차단 ref(`modelSpeaking`, `submitting`), `HoyaActionController`의 dispatch 지점, `aria-live` 영역, DEMO 고지 문구를 유지한다 |
+| `src/game/**` | SAFE_WITH_INTERFACE_CONSTRAINTS | V2 게임 장면은 새 코드로 작성한다. legacy 상태 기계(`beamTransition`, `towerTransition`)와 `BeamCanvas`는 사용처가 legacy 모험뿐이라 2026-10-04 함께 삭제했다(로드맵 5절 3번) |
 | `public/assets/**` | SAFE_TO_REDESIGN(신규) | 같은 출처에서 제공한다. 에셋 출처와 라이선스, 대구대 마스코트 IP는 사용자가 확인한다 |
 | `src/child/**`(음성 로직), `hoyaChatController.ts`, `src/control/**`, `src/speech/**` | HIGH_RISK_TO_TOUCH | 캡처→파이프라인→인식기→제출 순서, `CALIBRATION_MS`, `mapSignalToHoya`(THINKING을 반환하지 않음). 수정하려면 사용자 승인과 해당 테스트가 필요하다 |
 
-## 5. 승인된 정리 작업(Phase 0.5, 별도 PR)
+## 5. 승인된 정리 작업(Phase 0.5) — 2026-10-04 실행
 
 사용자 승인(2026-09-30)에 따라 Phase 0 문서 PR과 분리해서 진행한다.
 
-- `src/character/dialogue.ts` 삭제. 사용처가 없고 루미·legacy 표현이 남아 있다. `lines.ko.ts`는 PlaySession이 쓰므로 유지한다.
+- `src/character/dialogue.ts` 삭제. 사용처가 없고 루미·legacy 표현이 남아 있다. (실행 시 확인: PlaySession은 `lines.ko.ts`를 더 이상 쓰지 않아 함께 삭제했다.)
 - `backend/app/security.py`의 `issue_token` 삭제. 쿠키 인증 이후 쓰이지 않는다. `AuthToken` 모델과 표는 유지한다.
 - `backend/app/auth.py`의 `require_child_access` 삭제. 쓰이지 않고, 감사 기록과 테스트가 없으며 ADMIN을 그대로 통과시킨다. Phase 7에서 필요해지면 감사 기록과 테스트를 갖춰 다시 설계한다.
 
-나머지 legacy 경로(기존 모험, legacy AI 추천, ActivityRecommendation, `/progress` 그래프)는 사용자 결정에 따라 각 Phase를 진행하며 처리한다. 후보와 충돌 지점은 `LEGACY_AND_PLACEHOLDER_REGISTER.md`에 있다.
+나머지 legacy 경로(기존 모험, legacy AI 추천, ActivityRecommendation, `/progress` 그래프)는 사용자 결정에 따라 각 Phase를 진행하며 처리한다. 후보와 충돌 지점은 `LEGACY_AND_PLACEHOLDER_REGISTER.md`에 있다. 기존 모험은 2026-10-04 사용자 승인(로드맵 5절 2·3번)으로 삭제했다.
 
 ## 6. 회귀 명령
 
@@ -86,3 +86,39 @@ npm.cmd audit
 7. **Phase 7, TherapyRun:** 승인된 계획 실행, LangGraph 회기 오케스트레이션
 
 각 Phase 경계마다 발견 사항, 제안, 변경 파일, 위험을 보여 주고 사용자 승인(APPROVE / MODIFY / REJECT)을 받은 뒤에 진행한다.
+
+## 8. 5일 데모 변경 기록 (2026-10-05)
+
+**승인 근거**
+- 사용자가 5일 데모 흐름을 승인했다(대화 약 10번·약 5분 뒤 '대구대 건너기' 안내, `DEMO_FLOW_PLAN_2026-10-05.md`).
+- Codex 세션의 승인 로그: "승인 절차 하자라고 하기 전까지 알아서 진행"(`CODEX_DEMO_TASK_2026-10-05.md` 7절).
+- Codex가 토큰을 다 써서 사용자 요청으로 Claude가 서버·치료사 작업을 이어받았다.
+
+**`backend/app/hoya/**`**
+- 대화 턴 200 응답에 `nextActivity: "daegu_crossing" | null` 하나만 추가했다. 기존 필드·경로·상태 코드(200/202/409)는 그대로다.
+- `SpeechEvidence` 값과 제공자 라벨은 바꾸지 않았다.
+- `TARGET_OBSERVED`는 '목표 낱말이 든 시도' 횟수로만 센다. 정확한 발음으로 취급하지 않는다.
+- 시작 문구·전환 규칙·DEMO 유도 대본은 heuristic이다(`HEURISTIC_REGISTER.md` 9절).
+
+**`backend/app/games/`**
+- 새 게임 id `daegu_crossing`을 추가했다. 기존 4게임의 동작과 저장된 과거 상태는 그대로다.
+- 판정 규칙 `ONSET_FRICATION`은 새 heuristic이다(4절).
+- 결과 어휘와 태그는 기존 값(`POOR_AUDIO`, `NO_ACOUSTIC_EVIDENCE`, `DEMO_INPUT`)만 쓴다.
+
+**`backend/app/speech/**`·`pronunciation/**`(interface 동결)**
+- 바꾸지 않았다. `AcousticSummary` 필드도 그대로다.
+
+**`backend/app/therapist_planning/**`**
+- schema는 바꾸지 않았다. 계획의 게임 목록에 새 게임을 넣지 않았다(데모는 계획이 게임을 구동하지 않는다. Phase 7 미착수).
+- 빛의 마법은 활동 제안 선택지에서만 숨겼다. 게임 id·과거 기록·치료사 기록 보기는 유지한다.
+
+**`src/speech/**`(HIGH_RISK_TO_TOUCH, 사용자 요청: '스' 감지 개선·두두 목소리 교체)**
+- `SustainTracker`에 선택 인자 `OnsetTolerance`를 추가했다. 기본값 0이면 기존 동작이고, 대구대 건너기만 쓴다.
+- `KoreanTts`가 두두 음성 파일(VOLI '하람')을 재생한다. 말의 모든 문장이 파일로 있을 때만 재생하고, 재생에 실패하면 같은 말을 브라우저 음성으로 한다. 입력 차단·종료 유예 규칙은 같다.
+- 새 파일 `duduClips.ts`를 추가했다. 음성 파일은 오디오 하나를 다시 쓰고, 로그인·시작 버튼을 누를 때 무음으로 한 번 깨운다(`unlockDuduAudio`, iOS Safari의 자동 재생 제한 대응). 재생 위치의 소리 크기(`speakingLevel`, 미리 계산한 값)로 두두의 입을 연다. `src/tiger`의 `faceState`에 선택 인자 `speech`를 더했고 `<Hoya3D action className>` 인터페이스는 그대로다.
+- 캡처→파이프라인→인식기→제출 순서와 `CALIBRATION_MS`는 바꾸지 않았다.
+- 테스트: `onsetPipeline.test.ts`(기본값과 봐주기 비교), `koreanTts.test.ts`, `duduClips.test.ts`, `backend/tests/test_dudu_voice_lines.py`.
+
+**main 병합 예외(사용자 결정, 2026-10-05):** 6절의 수동 검증(실제 마이크·아이폰·실제 LLM) 전에 'CI 통과, 실제 마이크 미확인'으로 표시해 main에 병합한다. 수동 검증은 리허설에서 하고, 결과와 수정은 다음 PR로 올린다.
+
+**회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 [OK](리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.

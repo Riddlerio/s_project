@@ -1,11 +1,29 @@
-"""LLM 없이 쓰는 결정적 호야 대화. Conversation Quest의 DEMO_RULES(quest_reply)와 별개다.
+"""LLM 없이 쓰는 결정적 두두 대화. Conversation Quest의 DEMO_RULES(quest_reply)와 별개다.
 
 아동 말의 주제에 먼저 반응하고, 전략에 맞춰 목표 음소가 나올 만한 질문 하나를 붙인다.
 """
 from ..prompt.prompt_builder import HoyaDialogueContext
 from ..schemas import ProviderOutput
 
-OPENING = "안녕! 나는 호야야. 오늘 뭐 하고 놀았어?"
+OPENING = "안녕~ 만나서 반가워! 나는 두두야."
+
+
+def opening_text(hero_name: str) -> str:
+    """등록한 별명만 시작 인사에 넣는다. 제공자에게 별명을 전달하지 않는다. 부르는 말은 받침에 따라 아/야."""
+    return f"안녕~ 만나서 반가워! {hero_name}{'아' if _has_final(hero_name) else '야'}. 나는 두두야."
+
+
+# 기존 conversation_candidates에 있는 낱말 중 허용된 것만 골라 쓴다.
+S_CLOZE = {
+    "사과": "빨갛고 동그란 과일은 사…?",
+    "사자": "갈기가 있는 동물은 사…?",
+    "소리": "귀로 듣는 것은 소…?",
+    "수박": "초록 껍질 속 빨간 과일은 수…?",
+    "시소": "놀이터에서 둘이 오르내리는 것은 시…?",
+    "사탕": "달콤하게 먹는 간식은 사…?",
+    "소풍": "도시락을 싸서 놀러 가는 건 소…?",
+    "수건": "젖은 손을 닦는 것은 수…?",
+}
 
 # (주제 단어, 반응, 음소별 이어 가는 질문). 질문은 그 주제를 유지하면서 목표 음소가 들어간 대답이 나오기 쉽게 고른다.
 TOPICS = [
@@ -23,7 +41,7 @@ TOPICS = [
      {"ㅅ": "같이 무슨 놀이 했어?", "ㅈ": "같이 뭐 할 때 제일 재미있어?", "ㄹ": "같이 어디 놀러 갔어?"}),
 ]
 GENERIC = ("그랬구나!", {"ㅅ": "그때 무슨 소리가 났어?", "ㅈ": "그거 재미있었어?", "ㄹ": "그다음에는 어디로 갔어?"})
-WAIT = ["천천히 생각해도 괜찮아. 오늘 뭐 하고 놀았어?", "호야는 기다릴 수 있어. 좋아하는 놀이가 뭐야?",
+WAIT = ["천천히 생각해도 괜찮아. 오늘 뭐 하고 놀았어?", "두두는 기다릴 수 있어. 좋아하는 놀이가 뭐야?",
         "괜찮아! 오늘 기분은 어때?"]
 
 
@@ -42,6 +60,36 @@ def _topic(transcript: str | None):
     return GENERIC
 
 
+def _choice(lexicon: list[str], first: str) -> tuple[str, list[str]]:
+    # 기본 데모는 사과/수박을 고른다. 치료사의 우선·제외 낱말 목록을 넘어가지는 않는다.
+    others = [word for word in lexicon if word != first]
+    second = "수박" if first == "사과" and "수박" in others else (others[0] if others else None)
+    if second:
+        return (f"{first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?", [first, second])
+    return f"{first}{'이' if _has_final(first) else '가'} 좋아?", [first]
+
+
+def _elicited_s_reply(context: HoyaDialogueContext, ack: str) -> ProviderOutput:
+    lexicon = context.target_lexicon
+    word = lexicon[((context.turn_index - 1) // 4) % len(lexicon)]
+    # 음절 단계는 허용된 청각 모델을 더 자주 쓰고, 낱말 단계는 선택/빈칸 기회를 더 자주 준다.
+    cycle = ("model", "choice", "model", "cloze") if context.level == "syllable" else ("choice", "cloze", "model", "choice")
+    technique = cycle[(context.turn_index - 1) % len(cycle)]
+    if technique == "model" and context.allowed_cue == "auditory_model":
+        question = f"두두는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너도 말해 볼래?"
+        targets = [word]
+    elif technique == "cloze" and word in S_CLOZE:
+        question, targets = S_CLOZE[word], [word]
+    else:
+        question, targets = _choice(lexicon, word)
+    # 인식이 불확실하면 아동 말을 되풀이하지 않는다. 관찰된 알려진 낱말만 바르게 다시 들려준다.
+    spoken = next((value for value in lexicon if value in (context.child_transcript or "")), None)
+    if context.evidence == "TARGET_OBSERVED" and spoken:
+        ack = f"맞아, {spoken}!"
+        targets = list(dict.fromkeys([spoken, *targets]))
+    return ProviderOutput(text=f"{ack} {question}", strategy=context.strategy, target_words=targets)
+
+
 class DemoProvider:
     name = "DEMO"
     model = None
@@ -57,18 +105,25 @@ class DemoProvider:
         if strategy == "WAIT_OR_SIMPLIFY":
             return ProviderOutput(text=WAIT[(context.turn_index - 1) % len(WAIT)], strategy=strategy)
         if strategy == "SIMPLIFY":
+            if context.evidence == "NO_SPEECH":
+                if lexicon:
+                    question, targets = _choice(lexicon, lexicon[0])
+                    return ProviderOutput(text=f"두두랑 그림을 보고 골라 보자. {question}", strategy=strategy, target_words=targets)
+                return ProviderOutput(text="두두랑 그림을 보고 골라 보자. 좋아하는 놀이 하나를 골라 볼래?", strategy=strategy)
             if len(lexicon) >= 2:
                 first, second = lexicon[(context.turn_index - 1) % len(lexicon)], lexicon[context.turn_index % len(lexicon)]
-                return ProviderOutput(text=f"호야가 잘 못 들었나 봐. {first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?",
+                return ProviderOutput(text=f"두두가 잘 못 들었나 봐. {first}{'이' if _has_final(first) else '가'} 좋아, {second}{'이' if _has_final(second) else '가'} 좋아?",
                                       strategy=strategy, target_words=[first, second])
-            return ProviderOutput(text="호야가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy)
+            return ProviderOutput(text="두두가 잘 못 들었나 봐. 좋아하는 놀이 하나만 알려 줄래?", strategy=strategy)
         # 불확실할 때는 인식 문장을 믿지 않으므로 주제 반응을 일반 문장으로 한다.
         ack, questions = _topic(context.child_transcript if context.evidence != "UNCERTAIN" else None)
         question = questions.get(phoneme, GENERIC[1].get(phoneme, "그다음엔 뭐 했어?"))
         if strategy == "ALLOWED_CUE" and word:
-            # 치료사가 허용한 청각 모델: 호야가 자기 말 속에서 목표 단어를 먼저 들려준다. 따라 하라고 시키지 않는다.
-            return ProviderOutput(text=f"{ack} 호야는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너는 뭐 좋아해?",
+            # 치료사가 허용한 청각 모델: 먼저 들려준 뒤 부담 없이 말할 기회를 권한다.
+            return ProviderOutput(text=f"{ack} 두두는 {word}{'을' if _has_final(word) else '를'} 좋아해. 너도 말해 볼래?",
                                   strategy=strategy, target_words=[word])
+        if phoneme == "ㅅ" and context.level in {"syllable", "word"} and lexicon:
+            return _elicited_s_reply(context, ack)
         if strategy == "CONTINUE_OR_EXPAND":
             return ProviderOutput(text=f"{ack} 더 이야기해 줄래?" if context.turn_index % 2 == 0 else f"{ack} {question}",
                                   strategy=strategy)

@@ -9,16 +9,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.games.rounds import GAME_ROUNDS, RE_ONSET_END_HOLD_MS, RE_ONSET_PAUSE_MS
 from app.models import TrainingSession
 from test_api_flow import api, student_auth
-from test_hardening import _jump, _start
+from test_hardening import _jump, _past_legacy, _start
 
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def _legacy(client, headers):
-    response = client.post("/api/play/start", headers=headers, json={"playCode": "HERO01", "mode": "demo"})
-    assert response.status_code == 200, response.text
-    return response.json()
 
 
 def _mutate(sessions, session_id, change):
@@ -31,12 +25,6 @@ def _mutate(sessions, session_id, change):
         db.commit()
 
 
-def _legacy_post(client, headers, started):
-    return client.post(f"/api/play/sessions/{started['sessionId']}/utterances", headers=headers,
-                       json={"itemId": started["firstItem"]["itemId"], "attemptIndex": 1,
-                             "transcript": started["firstItem"]["displayText"], "acoustic": {"durationMs": 900}})
-
-
 def _activity_post(client, headers, started):
     return client.post(f"/api/activities/{started['sessionId']}/utterances", headers=headers,
                        json={"roundIndex": 1, "itemId": started["firstItem"]["itemId"], "attemptIndex": 1,
@@ -44,29 +32,6 @@ def _activity_post(client, headers, started):
 
 
 # ---------------------------------------------------------------- B1. 손상된 세션 상태
-
-LEGACY_DAMAGE = {
-    "missing level": lambda state, _s: state["currentItem"].pop("level"),
-    "missing game": lambda state, _s: state["currentItem"].pop("game"),
-    "currentItem null": lambda state, _s: state.update(currentItem=None),
-    "currentItem list": lambda state, _s: state.update(currentItem=[]),
-    "queue not list": lambda state, _s: state.update(queue="x"),
-    "queue item not dict": lambda state, _s: state.update(queue=[1]),
-    "retry not dict": lambda state, _s: state.update(retry=[]),
-    "itemAttempt string": lambda state, _s: state.update(itemAttempt="1"),
-    "xp string": lambda state, _s: state.update(xp="10"),
-    "runtime state not dict": lambda state, _s: (state.clear(), state.update(broken=True)),
-}
-
-
-@pytest.mark.parametrize("name", list(LEGACY_DAMAGE))
-def test_malformed_legacy_state_returns_409(api, name):
-    client, sessions = api
-    headers = student_auth(client)
-    started = _legacy(client, headers)
-    _mutate(sessions, started["sessionId"], LEGACY_DAMAGE[name])
-    assert _legacy_post(client, headers, started).status_code == 409
-
 
 ACTIVITY_DAMAGE = {
     "missing level": lambda state, _s: state["currentItem"].pop("level"),
@@ -135,19 +100,15 @@ def test_corrupted_completed_summary_returns_409(api):
 
 
 def test_valid_sessions_still_work_and_cross_calls_stay_409(api):
-    client, _ = api
+    client, sessions = api
     headers = student_auth(client)
-    legacy = _legacy(client, headers)
+    past = _start(client, headers, "magic_beam", "demo")
+    _past_legacy(sessions, past["sessionId"])
     activity = _start(client, headers, "magic_beam", "demo")
-    assert _legacy_post(client, headers, legacy).status_code == 200
     assert _activity_post(client, headers, activity).status_code == 200
-    assert client.post(f"/api/play/sessions/{activity['sessionId']}/utterances", headers=headers,
-                       json={"itemId": activity["firstItem"]["itemId"], "acoustic": {}}).status_code == 409
-    assert client.post(f"/api/activities/{legacy['sessionId']}/utterances", headers=headers,
-                       json={"roundIndex": 1, "itemId": legacy["firstItem"]["itemId"], "acoustic": {}}).status_code == 409
+    assert client.post(f"/api/activities/{past['sessionId']}/utterances", headers=headers,
+                       json={"roundIndex": 1, "itemId": past["firstItem"]["itemId"], "acoustic": {}}).status_code == 409
     missing = "00000000-0000-0000-0000-000000000000"
-    assert client.post(f"/api/play/sessions/{missing}/utterances", headers=headers,
-                       json={"itemId": "x", "acoustic": {}}).status_code == 404
     assert client.post(f"/api/play/sessions/{missing}/complete", headers=headers, json={}).status_code == 404
     assert client.get(f"/api/activities/{missing}", headers=headers).status_code == 404
 

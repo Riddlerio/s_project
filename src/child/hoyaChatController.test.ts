@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HOYA_FILLER_TEXT, HOYA_THINKING_FILLER_DELAY_MS, HoyaChatController, type ChatDeps, type ChatReply, type HoyaChatState, type TurnRequest } from './hoyaChatController'
 import type { HoyaAction } from '../control/speechGameSignal'
+import { KOREAN_TTS_RELEASE_DELAY_MS, KoreanTts } from '../speech/koreanTts'
 
 interface Spoken { text: string; onStart(): void; onEnd(): void; cancelled: boolean }
 
@@ -50,6 +51,23 @@ describe('호야 대화 turn 흐름', () => {
     // 응답이 준비되면 인위적인 대기 없이 바로 말한다.
     t.spoken[1].onStart()
     expect(t.actions.at(-1)).toBe('TALKING')
+  })
+
+  it('서버가 게임을 권하면 그 말을 하기 전에 알리고, 대화는 계속 듣는다', async () => {
+    const suggested: string[] = []
+    const t = setup({ onNextActivity: activity => suggested.push(activity) })
+    t.ready()
+    t.controller.submit(t.utterance)
+    t.requests[0].resolve(t.reply("우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?", { nextActivity: 'daegu_crossing' }))
+    await t.flush()
+    expect(suggested).toEqual(['daegu_crossing'])
+    t.spoken[1].onStart(); t.spoken[1].onEnd()
+    expect(t.controller.state).toBe('LISTENING')
+    // 권하지 않은 답에는 알리지 않는다.
+    t.controller.submit(t.utterance)
+    t.requests[1].resolve(t.reply('좋아!', { nextActivity: null }))
+    await t.flush()
+    expect(suggested).toEqual(['daegu_crossing'])
   })
 
   it('Case 2: 응답이 늦으면 "음..."을 한 번 말한 뒤 답한다', async () => {
@@ -209,5 +227,36 @@ describe('호야 대화 turn 흐름', () => {
     vi.advanceTimersByTime(10)
     expect(controller.state).toBe('ENDED')
     expect(done).toHaveBeenCalledOnce()
+  })
+
+  it('실제 공통 TTS와 연결하면 시작 요청부터 종료 후 300ms까지 새 아동 발화를 받지 않는다', async () => {
+    const utterances: SpeechSynthesisUtterance[] = []
+    const tts = new KoreanTts({ synthesis: { speak() {}, cancel() {} },
+      createUtterance: text => {
+        const utterance = { text } as SpeechSynthesisUtterance
+        utterances.push(utterance)
+        return utterance
+      } })
+    const t = setup({ speak: (text, events) => tts.speak(text, events) })
+    t.controller.start('안녕! 나는 두두야.')
+    expect(t.controller.submit(t.utterance)).toBe(false)
+    utterances[0].onend?.({} as SpeechSynthesisEvent)
+    vi.advanceTimersByTime(KOREAN_TTS_RELEASE_DELAY_MS - 1)
+    expect(t.controller.listening).toBe(false)
+    expect(t.controller.submit(t.utterance)).toBe(false)
+    vi.advanceTimersByTime(1)
+    expect(t.controller.submit(t.utterance)).toBe(true)
+    t.requests[0].resolve(t.reply('좋아, 네 이야기를 들려줘!'))
+    await t.flush()
+    expect(t.controller.state).toBe('RESPONSE_SPEAKING')
+    utterances[1].onend?.({} as SpeechSynthesisEvent)
+    vi.advanceTimersByTime(KOREAN_TTS_RELEASE_DELAY_MS - 1)
+    expect(t.controller.submit(t.utterance)).toBe(false)
+    t.controller.end()
+    tts.dispose()
+    vi.advanceTimersByTime(1)
+    expect(t.controller.state).toBe('ENDED')
+    expect(t.controller.submit(t.utterance)).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

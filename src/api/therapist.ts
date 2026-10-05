@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Progress } from '../shared/types'
+import type { GoalTrends, SessionInsights } from '../therapist/insights'
 import type { PlanForm, PlanningContext, ProposalResponse, SessionPlan } from '../therapist/planning'
 
 export const login = (username: string, password: string) => api<{ csrfToken: string; role: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
@@ -7,7 +7,8 @@ export const login = (username: string, password: string) => api<{ csrfToken: st
 export const demoLogin = (role: 'THERAPIST' | 'STUDENT') => api<{ csrfToken: string; role: string; username: string }>('/auth/demo-login', { method: 'POST', body: JSON.stringify({ role }) })
 export const overview = (token: string) => api<any>('/dashboard/overview', {}, token)
 export const childDetail = (id: string, token: string) => api<any>(`/children/${id}`, {}, token)
-export const progress = (id: string, token: string) => api<Progress>(`/children/${id}/progress`, {}, token)
+export const goalTrends = (id: string, token: string) => api<GoalTrends>(`/children/${id}/goal-trends`, {}, token)
+export const sessionInsights = (id: string) => api<SessionInsights>(`/sessions/${id}/insights`)
 export const sessionDetail = (id: string, token: string) => api<any>(`/sessions/${id}`, {}, token)
 export const saveGoal = (id: string, goal: Record<string, unknown>, token: string) => api<any>(`/children/${id}/goals`, { method: 'POST', body: JSON.stringify(goal) }, token)
 export const decision = (id: string, body: Record<string, unknown>, token: string) => api<any>(`/recommendations/${id}/decision`, { method: 'POST', body: JSON.stringify(body) }, token)
@@ -22,3 +23,13 @@ export const updateSessionPlan = (planId: string, form: PlanForm) => api<Session
 export const approveSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/approve`, { method: 'POST' })
 export const cancelSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/cancel`, { method: 'POST' })
 export const cloneSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/clone`, { method: 'POST' })
+
+export interface ConversationSessionInsight {
+  sessionId: string; startedAt: string; status: string; source: 'REAL' | 'DEMO' | 'SAMPLE'
+  completedTurnN: number; targetObservedN: number; uncertainN: number; noSpeechN: number
+}
+export interface ConversationInsightsData { sessions: ConversationSessionInsight[]; limitation: string }
+export const childConversationInsights = (childId: string) =>
+  api<ConversationInsightsData>(`/children/${childId}/conversation-insights`)
+export const gameChildConversationInsights = (sessionId: string) =>
+  api<ConversationInsightsData>(`/sessions/${sessionId}/conversation-insights`)

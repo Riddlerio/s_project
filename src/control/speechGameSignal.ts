@@ -7,7 +7,8 @@ export type SpeechGameSignal =
   | { type: 'UNCERTAIN' }
   | { type: 'NO_SPEECH' }
 
-export type GameKind = 'magic_beam' | 'sky_climb' | 'monster_adventure' | 'conversation_quest'
+/** daegu_crossing: 5일 데모의 '대구대 건너기'(2026-10-05). 빛의 마법(magic_beam)은 아이 화면에서 숨겼고 기록을 위해 남긴다. */
+export type GameKind = 'magic_beam' | 'sky_climb' | 'monster_adventure' | 'conversation_quest' | 'daegu_crossing'
 export type HoyaAction = 'IDLE' | 'LISTENING' | 'TALKING' | 'CHARGE' | 'BEAM' | 'RELEASE' | 'FLY' | 'LAND' | 'CAST' | 'ATTACK' | 'WALK_TO' | 'PICK_UP' | 'PUT_IN_BAG' | 'WAVE' | 'CHEER' | 'ENCOURAGE'
   // 호야와 대화하기에서만 명시적으로 쓴다. mapSignalToHoya는 THINKING을 돌려주지 않는다.
   | 'THINKING'

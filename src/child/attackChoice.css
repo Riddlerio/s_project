@@ -1,0 +1,35 @@
+/* 몬스터 모험 공격 선택 카드. 큰 누름 영역·즉시 반응·잠금은 차분하게. */
+.dudu-tools { border: 0; margin: 1rem 0 .4rem; padding: 0; min-width: 0; }
+.dudu-tools legend { margin: 0 0 .6rem; padding: 0; color: var(--forest-deep); font-size: .95rem; font-weight: 900; }
+.dudu-tool-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.dudu-tool { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem; min-height: 112px; padding: .7rem .5rem .6rem; border: 2px solid #d6e0cf; border-radius: 20px;
+  background: #fffef8; box-shadow: 0 6px 0 #dfe6d5; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: transform .16s cubic-bezier(.3, 1.6, .6, 1), box-shadow .16s ease, border-color .16s ease, background .16s ease; }
+.dudu-tool:hover { transform: translateY(-2px); }
+.dudu-tool:active { transform: translateY(4px) scale(.97); box-shadow: 0 2px 0 #dfe6d5; }
+.dudu-tool:focus-within { outline: 3px solid #b9d45f; outline-offset: 3px; }
+.dudu-tool-icon { display: grid; flex: none; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: #e4f3f1; transition: transform .25s cubic-bezier(.3, 1.8, .5, 1); }
+.dudu-tool-text { display: flex; flex-direction: column; align-items: center; gap: .05rem; min-width: 0; text-align: center; }
+.dudu-tool-text strong { color: var(--ink); font-size: 1.08rem; letter-spacing: -.03em; white-space: nowrap; }
+.dudu-tool-text small { color: var(--muted); font-size: .74rem; font-weight: 700; white-space: nowrap; }
+.dudu-tool.selected { border-color: var(--forest); background: #f1faf6; box-shadow: 0 6px 0 #0e62553d, 0 0 0 4px #0e625514; }
+.dudu-tool.selected .dudu-tool-icon { transform: rotate(-8deg) scale(1.08); }
+.dudu-tool.selected::after { content: '✓'; position: absolute; top: -9px; right: -7px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--forest); color: #fff; font-size: .8rem; font-weight: 900; box-shadow: 0 2px 6px #0e625540; animation: dudu-tool-pop .3s cubic-bezier(.3, 1.8, .5, 1); }
+.dudu-tool-beam .dudu-tool-icon { background: radial-gradient(circle at 50% 45%, #fff8d6 0, #ffe9a3 60%, #f8d779 100%); }
+.dudu-tool-beam.selected { border-color: #e6a826; background: linear-gradient(135deg, #fffaf0, #fff2c9); box-shadow: 0 6px 0 #e6a82655, 0 0 0 4px #f6c84a33, 0 0 22px #ffd96a66; }
+.dudu-tool-beam.selected::after { background: #d99417; }
+.dudu-tool-beam.selected .dudu-tool-icon { animation: dudu-beam-glow 2.4s ease-in-out infinite; }
+.dudu-tool.locked { cursor: default; border-style: dashed; background: #f6f6f1; box-shadow: none; }
+.dudu-tool.locked:hover, .dudu-tool.locked:active { transform: none; }
+.dudu-tool.locked .dudu-tool-icon { filter: grayscale(.85); opacity: .55; }
+.dudu-tool.locked .dudu-tool-text strong { color: #7d8a84; }
+.dudu-tool:has(input:disabled):not(.locked) { cursor: default; opacity: .72; }
+.dudu-tool-hint { margin: .55rem 0 0; color: var(--muted); font-size: .78rem; }
+@keyframes dudu-tool-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes dudu-beam-glow { 0%, 100% { box-shadow: 0 0 0 0 #ffd96a00; } 50% { box-shadow: 0 0 16px 4px #ffd96aaa; } }
+@media (max-width: 420px) { .dudu-tool-row { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .dudu-tool, .dudu-tool-icon { transition: none; }
+  .dudu-tool-beam.selected .dudu-tool-icon, .dudu-tool.selected::after { animation: none; }
+}

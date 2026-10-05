@@ -411,3 +411,59 @@ class TherapistSessionPlanStep(Base):
     activity: Mapped[str] = mapped_column(String)
     target_level: Mapped[str | None] = mapped_column(String, nullable=True)
     parameters: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class SkillGrant(Base):
+    """치료사의 명시적 승인·철회 사건. 임상 점수나 제작 상태와 분리하고 수정하지 않는다."""
+    __tablename__ = "skill_grants"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), index=True)
+    therapist_id: Mapped[str] = mapped_column(ForeignKey("therapists.id"))
+    skill: Mapped[str] = mapped_column(String, default="magic_beam")
+    action: Mapped[str] = mapped_column(String)
+    evidence_kind: Mapped[str] = mapped_column(String)
+    note: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ActivityLease(Base):
+    """한 회기의 현재 진행 기기. 토큰 원문은 저장하지 않는다."""
+    __tablename__ = "activity_leases"
+    session_id: Mapped[str] = mapped_column(ForeignKey("training_sessions.id"), primary_key=True)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    active_elapsed_sec: Mapped[float] = mapped_column(default=0.0)
+
+
+class EpisodeProgress(Base):
+    """음식 장면의 비임상 소지품·제작 누적 상태. 발음 평가를 저장하지 않는다."""
+    __tablename__ = "episode_progress"
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), primary_key=True)
+    inventory_json: Mapped[dict] = mapped_column(JSON, default=lambda: {"rice": 0, "tuna": 0})
+    crafted_json: Mapped[dict] = mapped_column(JSON, default=lambda: {"tunaSushi": 0})
+
+
+class RoundMaterialReward(Base):
+    """한 라운드 완료 사건당 한 번의 참여 재료 지급 원장."""
+    __tablename__ = "round_material_rewards"
+    __table_args__ = (UniqueConstraint("session_id", "round_index"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), index=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("training_sessions.id"))
+    round_index: Mapped[int] = mapped_column(Integer)
+    material: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class CraftEvent(Base):
+    """제작 요청의 저장된 결과. 같은 요청 ID로 재료를 다시 소비하지 않는다."""
+    __tablename__ = "craft_events"
+    __table_args__ = (UniqueConstraint("child_id", "request_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    child_id: Mapped[str] = mapped_column(ForeignKey("children.id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(64))
+    recipe: Mapped[str] = mapped_column(String)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

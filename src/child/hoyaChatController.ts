@@ -18,18 +18,19 @@ export type HoyaChatState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'FILLER_SPEAKI
 export const HOYA_THINKING_FILLER_DELAY_MS = 750
 export const HOYA_FILLER_TEXT = '음...'
 /** 서버가 발화를 받지 않았을 때(거절)의 말. 오류 내용이나 발음 결과를 말하지 않는다. */
-export const HOYA_OFFLINE_TEXT = '호야가 잠깐 딴생각을 했어. 다시 이야기해 줄래?'
+export const HOYA_OFFLINE_TEXT = '두두가 잠깐 딴생각을 했어. 다시 이야기해 줄래?'
 /** 결과를 모르는 turn을 복구하는 동안의 말. 새 발화를 청하지 않는다. "음..."은 turn마다 한 번만 쓰므로 넣지 않는다. */
-export const HOYA_RECOVERING_TEXT = '잠깐만, 호야가 다시 생각해 볼게.'
+export const HOYA_RECOVERING_TEXT = '잠깐만, 두두가 다시 생각해 볼게.'
 /** 여러 번 복구해도 결과를 모를 때의 마지막 말. 이후 대화를 끝낸다. */
-export const HOYA_DISCONNECTED_TEXT = '호야가 잠시 쉬어야 해. 다음에 또 이야기하자!'
+export const HOYA_DISCONNECTED_TEXT = '두두가 잠시 쉬어야 해. 다음에 또 이야기하자!'
 /** 복구 재시도 사이 대기(ms). 각 재시도는 API 계층에서도 같은 요청 ID로 몇 번 더 묻는다. 끝없이 반복하지 않는다. */
 export const HOYA_RECOVERY_DELAYS_MS = [1000, 2000, 4000]
 
 export interface SpeakHandle { cancel(): void }
 export type Speak = (text: string, events: { onStart(): void; onEnd(): void }) => SpeakHandle
 export interface ChatUtterance { transcript: string | null; alternatives: string[]; acoustic: Partial<Acoustic>; recognizer: 'web_speech' | 'demo_script' }
-export interface ChatReply { text: string; nextTurnIndex?: number; sessionComplete: boolean }
+/** nextActivity: 서버가 대화를 마치고 게임을 권할 때만 온다(예: 'daegu_crossing'). 근거·횟수 같은 내부 정보는 오지 않는다. */
+export interface ChatReply { text: string; nextTurnIndex?: number; sessionComplete: boolean; nextActivity?: string | null }
 /** 서버로 보내는 발화 1회. 재시도는 이 객체(같은 번호·요청 ID·발화)를 그대로 다시 쓴다. */
 export interface TurnRequest { index: number; requestId: string; utterance: ChatUtterance }
 export interface Timers { set(callback: () => void, ms: number): unknown; clear(id: unknown): void }
@@ -48,6 +49,8 @@ export interface ChatDeps {
   onAction(action: HoyaAction): void
   onText(text: string): void
   onComplete?(): void
+  /** 두두가 게임을 권하는 말을 시작할 때 부른다. 화면은 아래 게임 버튼을 빛낸다. */
+  onNextActivity?(activity: string): void
   newRequestId?(): string
   fillerDelayMs?: number
   timers?: Timers
@@ -242,6 +245,7 @@ export class HoyaChatController {
   }
 
   private answer(reply: ChatReply) {
+    if (reply.nextActivity) this.deps.onNextActivity?.(reply.nextActivity)
     this.respond(reply.text, () => {
       if (reply.sessionComplete) { this.end(); this.deps.onComplete?.() }
       else this.listen()

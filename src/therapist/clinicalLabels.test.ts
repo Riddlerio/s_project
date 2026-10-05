@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, verificationText, type SummaryRow } from './clinicalLabels'
-import { chartPoints } from './charts/SessionTrendChart'
+import { INDEPENDENCE_LABELS, JUDGMENT_METHODS, MEASUREMENT_SOURCE_LABELS, PROVENANCE_LABELS, QUALITY_LABELS } from './insights'
+import { ACTIVITY_LABELS } from './planning'
+import { confidenceText, GOAL_SOURCE_LABELS, recommendationStatusText, RECOMMENDATION_CONFIDENCE, RECOMMENDATION_STATUS, evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, sessionStatusText, verificationText, type SummaryRow } from './clinicalLabels'
 
 const row = (values: Partial<SummaryRow>): SummaryRow => ({
   roundIndex: 1, clinicalFocus: '', totalObservedN: 0, evaluableN: 0, demoN: 0, aiSupportedSuccesses: 0,
@@ -42,10 +43,43 @@ describe('회기·추천 출처 표시', () => {
     expect(recommendationBadges(undefined)).toEqual([])
   })
 
-  it('추이 그래프 x축에 회기 출처를 붙이고 값은 그대로 둔다', () => {
-    const base = { sessionId: 's', date: '', goalVersion: 1, phoneme: 'ㅅ', firstTrySuccessRate: 50, successRate: 50, meanScore: 0, aiMeanScore: 0, retryRate: 10, hintRate: 0, noSpeechRate: 0, levelMix: {}, durationSec: 0 }
-    const points = chartPoints([{ ...base, index: 1, mode: 'demo', isSeed: false }, { ...base, index: 2, mode: 'real', isSeed: true }])
-    expect(points.map(point => point.label)).toEqual(['1 DEMO', '2 샘플'])
-    expect(points[0].firstTrySuccessRate).toBe(50)
+
+})
+
+describe('회기 상태 이름표', () => {
+  it('서버 상태 값을 한국어로 보인다', () => {
+    expect(sessionStatusText('completed')).toBe('완료')
+    expect(sessionStatusText('active')).toBe('진행 중')
+    expect(sessionStatusText(undefined)).toBe('상태 미상')
+  })
+})
+
+describe('관찰 카드 이름표', () => {
+  it('독립성·음질·음향 출처를 영어 코드 대신 한국어로 보인다', () => {
+    expect([INDEPENDENCE_LABELS.MODELED, INDEPENDENCE_LABELS.INDEPENDENT, INDEPENDENCE_LABELS.UNKNOWN]).toEqual(['시범 후', '혼자', '미기록'])
+    expect(QUALITY_LABELS.UNKNOWN).toBe('미측정')
+    expect(MEASUREMENT_SOURCE_LABELS.CLIENT_REPORTED).toBe('아동 기기 측정값')
+  })
+})
+
+describe('기존 AI 추천 이름표', () => {
+  it('근거 양·처리 상태를 한국어로 보인다(confidence는 확률이 아니라 근거 수 기준)', () => {
+    expect([RECOMMENDATION_CONFIDENCE.high, RECOMMENDATION_CONFIDENCE.medium, RECOMMENDATION_CONFIDENCE.low]).toEqual(['많음', '보통', '적음'])
+    expect([RECOMMENDATION_STATUS.pending, RECOMMENDATION_STATUS.accepted, RECOMMENDATION_STATUS.modified, RECOMMENDATION_STATUS.rejected]).toEqual(['검토 대기', '수락', '수정', '거부'])
+  })
+})
+
+describe('활동 제안·목표 이력 이름표', () => {
+  it('대소문자가 섞인 서버 값도 한국어로 보이고, 모르는 값은 그대로 둔다', () => {
+    expect([confidenceText('MEDIUM'), confidenceText('high'), confidenceText(undefined)]).toEqual(['보통', '많음', '-'])
+    expect([recommendationStatusText('PENDING'), recommendationStatusText('rejected'), recommendationStatusText('NEW_STATE')]).toEqual(['검토 대기', '거부', 'NEW_STATE'])
+    expect(GOAL_SOURCE_LABELS.demo_rehearsal).toBe('시연용')
+  })
+})
+
+describe('자동 추정 표기(Phase 2 AI 명칭 정리)', () => {
+  it('규칙·기준값 결과를 AI라 부르지 않고, 모든 활동에 판정 방식을 적는다', () => {
+    expect(PROVENANCE_LABELS.AI).toBe('자동 추정')
+    for (const activity of Object.keys(ACTIVITY_LABELS)) expect(JUDGMENT_METHODS[activity], activity).toMatch(/근사/)
   })
 })

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import type { Progress } from '../../shared/types'
+import ConversationInsights from '../ConversationInsights'
+import type { GoalTrends } from '../insights'
 import ActivityRecommendationPanel from '../ActivityRecommendationPanel'
-import SessionTrendChart from '../charts/SessionTrendChart'
-import { recommendationBadges, sessionSourceText } from '../clinicalLabels'
+import GoalTrendChart from '../charts/GoalTrendChart'
+import { confidenceText, recommendationBadges, recommendationStatusText, sessionSourceText, sessionStatusText } from '../clinicalLabels'
 import type { RecommendationProvenance } from '../clinicalLabels'
 import { LEVEL_LABELS, STATUS_LABELS } from '../planning'
 import type { PlanningContext, SessionPlan } from '../planning'
@@ -13,26 +14,26 @@ export interface LegacyRecommendation { id: string; observation: string; suggest
 export interface RuleRow { id: string; rule_type: string; params: Record<string, unknown> }
 
 type Props = {
-  childId: string; context: PlanningContext; progress: Progress | null; sessions: SessionRow[]; plans: SessionPlan[]
+  childId: string; context: PlanningContext; trends: GoalTrends | null; sessions: SessionRow[]; plans: SessionPlan[]
   recommendations: LegacyRecommendation[]; rules: RuleRow[]; showAdvanced?: boolean
   onDecide: (id: string, action: 'accept' | 'modify' | 'reject', note: string, level?: string) => void; onDeactivate: (id: string) => void
 }
 
-/** 경과 · 기록. 기존 AI 추천과 치료사 규칙은 접힌 고급 정보로 옮겨 첫 화면을 가볍게 한다. */
-export default function ProgressPanel({ childId, context, progress, sessions, plans, recommendations, rules, showAdvanced = true, onDecide, onDeactivate }: Props) {
+/** 경과 · 기록. 기존 자동 추천(규칙 기반, 내부 이름 AIRecommendation)과 치료사 규칙은 접힌 고급 정보로 옮겨 첫 화면을 가볍게 한다. */
+export default function ProgressPanel({ childId, context, trends, sessions, plans, recommendations, rules, showAdvanced = true, onDecide, onDeactivate }: Props) {
   const pendingSessions = sessions.filter(session => session.mode === 'real' && !session.isSeed)
   return <>
-    <section className="card"><h2>목표 경과</h2><EvidenceSummary metrics={context.metrics} /></section>
+    <GoalTrendChart data={trends} />
+    <ConversationInsights key={childId} childId={childId} />
+    <details className="card"><summary>다음 회기 제안에 사용되는 기존 근거 요약</summary><EvidenceSummary metrics={context.metrics} /></details>
     <section className="card"><h2>검토 대기 임상 관찰</h2>
       <p data-pending-review={context.evidenceAvailability.pendingReviewN}>치료사 확인을 기다리는 실제 음성 관찰 {context.evidenceAvailability.pendingReviewN}건. 확인하거나 교정한 관찰만 다음 회기 근거가 됩니다.</p>
       {context.evidenceAvailability.pendingReviewN > 0 && <ul>{pendingSessions.slice(0, 5).map(session => <li key={session.id}><Link to={`/therapist/sessions/${session.id}`}>{new Date(session.startedAt).toLocaleString()} 회기 관찰 검토</Link></li>)}</ul>}
       <p className="muted">DEMO·샘플 관찰 {context.evidenceAvailability.demoExcludedN}건은 근거에서 제외됩니다.</p>
     </section>
-    <section className="card"><h2>최근 회기</h2>{sessions.length ? <ul>{sessions.map(session => <li key={session.id}><Link to={`/therapist/sessions/${session.id}`}>{new Date(session.startedAt).toLocaleString()} · {sessionSourceText(session)} · {session.status}</Link></li>)}</ul> : <p>회기 기록이 없습니다.</p>}</section>
+    <section className="card"><h2>최근 회기</h2>{sessions.length ? <ul>{sessions.map(session => <li key={session.id}><Link to={`/therapist/sessions/${session.id}`}>{new Date(session.startedAt).toLocaleString()} · {sessionSourceText(session)} · {sessionStatusText(session.status)}</Link></li>)}</ul> : <p>회기 기록이 없습니다.</p>}</section>
     <section className="card"><h2>이전 회기 계획</h2>{plans.length ? <table><thead><tr><th>rev.</th><th>상태</th><th>목표</th><th>활동</th><th>작성</th></tr></thead><tbody>{plans.map(plan => <tr key={plan.id}><td>{plan.revision}</td><td>{STATUS_LABELS[plan.status]}</td><td>v{plan.goalVersion} · /{plan.targetPhoneme}/</td><td>{plan.steps.length}개</td><td>{new Date(plan.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table> : <p>작성한 계획이 없습니다.</p>}</section>
-    {showAdvanced && <details className="card advanced"><summary>고급 정보: 기존 모험 추이 · 활동 제안 · 목표 추천 · 적용 규칙</summary>
-      <h3>기존 모험 진행 추이</h3><p>AI 추정값이 포함된 기존 지표입니다. 임상 근거는 목표 경과를 보세요.</p>
-      <SessionTrendChart sessions={progress?.sessions || []} />
+    {showAdvanced && <details className="card advanced"><summary>고급 정보: 활동 제안 · 목표 추천 · 적용 규칙</summary>
       <ActivityRecommendationPanel childId={childId} />
       <h3>기존 목표 추천</h3>{recommendations.length ? recommendations.map(rec => <LegacyRecommendationRow key={rec.id} rec={rec} onDecide={onDecide} />) : <p>추천이 없습니다.</p>}
       <h3>적용 규칙</h3>{rules.length ? rules.map(rule => <p key={rule.id}>{rule.rule_type} · {JSON.stringify(rule.params)} <button onClick={() => onDeactivate(rule.id)}>비활성화</button></p>) : <p>적용 중인 규칙이 없습니다.</p>}
@@ -42,7 +43,7 @@ export default function ProgressPanel({ childId, context, progress, sessions, pl
 
 function LegacyRecommendationRow({ rec, onDecide }: { rec: LegacyRecommendation; onDecide: Props['onDecide'] }) {
   const badges = recommendationBadges(rec.provenance)
-  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>신뢰도: {rec.confidence} · {rec.status}</p>
+  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>근거 양(이전 회기 수 기준): {confidenceText(rec.confidence)} · {recommendationStatusText(rec.status)}</p>
     {rec.status === 'pending' && <form onSubmit={event => { event.preventDefault(); const note = String(new FormData(event.currentTarget).get('note') || ''); onDecide(rec.id, 'reject', note) }}>
       {rec.provenance?.demoPractice ? <p className="muted">DEMO 연습 기반 추천은 목표에 반영할 수 없어 거절만 할 수 있습니다.</p> : <>
       <button type="button" onClick={() => onDecide(rec.id, 'accept', '')}>수락</button>

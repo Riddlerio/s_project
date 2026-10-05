@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from app.speech.pipeline import analyze
-from app.training.policy import decide
 
 
 def goal():
@@ -33,21 +32,6 @@ def test_voiced_sound_is_not_fricative_success():
 def test_poor_audio_does_not_count_as_failure():
     result = analyze(ITEM, None, acoustic(snrDb=50, meanRmsDb=-56), goal())
     assert result.result == "uncertain"
-    state = {"currentLevel": "word", "itemAttempt": 1, "queue": [], "listenAgainCount": 0}
-    output = decide(goal(), ITEM, result, state, 1, 0)
-    assert output.events[0]["type"] == "LISTEN_AGAIN"
-    assert output.next_item == ITEM
-    assert output.target_retry_streak == 0
-
-
-def test_uncertain_advances_neutrally_after_two_retries():
-    result = analyze(ITEM, None, acoustic(snrDb=50, meanRmsDb=-56), goal())
-    state = {"currentLevel": "word", "itemAttempt": 1, "queue": [{**ITEM, "itemId": "beam-2"}], "listenAgainCount": 2}
-    output = decide(goal(), ITEM, result, state, 1, 0)
-    assert output.events[0] == {"type": "ITEM_ADVANCE", "payload": {"reason": "UNCERTAIN_SKIP"}}
-    assert output.advanced
-    assert not any(event["type"] == "TARGET_RETRY" for event in output.events)
-    assert any(event["type"] == "REWARD" and event["payload"].get("reason") == "ATTEMPT" for event in output.events)
 
 
 def test_malformed_acoustic_number_is_not_accepted():

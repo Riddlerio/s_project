@@ -38,8 +38,8 @@
 |---|---|---|---|---|---|
 | A. 제품 UI 전반 | PLACEHOLDER · VISUAL_PLACEHOLDER | `src/styles/{global,child,therapist}.css`(합계 10줄), `src/pages/Landing.tsx` | 한 가지 보라 버튼 스타일, 760px 중앙 열, 단색 gradient | 디자인 토큰, 폰트, 반응형 기준점, 레이아웃 셸이 없음. Landing은 ✨ emoji와 "루미" 문구 | 중간 |
 | B. 호야 3D | PLACEHOLDER · VISUAL_PLACEHOLDER | `src/tiger/Hoya3D.tsx`의 `Tiger` | R3F Canvas, 기본 도형 메시 약 20개, `useFrame` sine 움직임, WebGL fallback(🐯) | GLB/GLTF/FBX 에셋, rig, skeleton, 애니메이션 클립, 승인된 캐릭터 모델이 없음 | 중간 |
-| C. 아동 경험 | FUNCTIONAL_PROTOTYPE · VISUAL_PLACEHOLDER | `src/child/*` route 8개(`src/App.tsx`) | 로그인, 홈, 지도, 5라운드 활동, legacy 모험, 호야 대화, 보상 | `WorldMap`은 "★ N층" 알약 10개짜리 grid이고 실제 지도가 아님. 보상은 텍스트 나열. CharacterHome의 메뉴 버튼 두 개가 같은 경로로 감 | 중간 |
-| D. 게임 | FUNCTIONAL_PROTOTYPE · VISUAL_PLACEHOLDER | `src/game/magicBeam/{machine,BeamCanvas}`, `src/game/monsterTower/machine`, `src/child/ActivitySession.tsx` | magic_beam 상태 기계와 2D canvas 막대, monster_tower 상태 기계, V2 4종을 한 화면이 공용으로 처리 | sky_climb, monster_adventure, conversation_quest 전용 장면이 없음. `pictureKey`를 쓰는 곳이 없음 | 중간 |
+| C. 아동 경험 | FUNCTIONAL_PROTOTYPE · VISUAL_PLACEHOLDER | `src/child/*` route 8개(`src/App.tsx`) | 로그인, 홈, 지도, 5라운드 활동, 호야 대화, 보상(legacy 모험은 2026-10-04 삭제) | `WorldMap`은 "★ N층" 알약 10개짜리 grid이고 실제 지도가 아님. 보상은 텍스트 나열. CharacterHome의 메뉴 버튼 두 개가 같은 경로로 감 | 중간 |
+| D. 게임 | FUNCTIONAL_PROTOTYPE · VISUAL_PLACEHOLDER | `src/game/magicBeam/MagicBeamScene.tsx`, `src/child/ActivitySession.tsx` | 빛의 마법 3D 장면, V2 4종을 한 화면이 공용으로 처리(legacy 상태 기계와 canvas 막대는 2026-10-04 삭제) | sky_climb, monster_adventure, conversation_quest 전용 장면이 없음. `pictureKey`를 쓰는 곳이 없음 | 중간 |
 | E. 치료사 UI | FUNCTIONAL_PROTOTYPE | `src/therapist/**` | 담당 아동 목록, 4탭 작업 공간, 회기 계획 편집기, 세션 상세, recharts 그래프 | 기본 수준 스타일. 일부 legacy 지표가 섞여 있음(9절) | 낮음 |
 | F. 음성 입력 | FUNCTIONAL_PROTOTYPE · UNVALIDATED · EXTERNAL_DEPENDENCY | `src/speech/{audioCapture,vad,micUtterance,features,sustainTracker,fricativeDetector,webSpeechRecognizer}.ts` | AudioContext 분석(FFT, RMS, HF 비율), VAD, 브라우저 Web Speech ko-KR 인식 | 아동 음성으로 보정한 적 없음. Web Speech는 브라우저 제공자 서버로 음성을 보냄 | 높음 |
 | G. 발음 분석 | HEURISTIC_BASELINE · UNVALIDATED · CLINICAL_SENSITIVE | `backend/app/speech/pipeline.py`의 `analyze`, `g2p.py`의 `SimpleKoreanG2P`, `alignment.py`의 `align` | ASR 문장을 규칙 G2P로 음소화한 뒤 편집거리로 정렬해 가중 점수를 냄. 기준은 85/75/70 | 오디오를 직접 보지 않음. 음향 모델, 신뢰도 모델이 없음. G2P 규칙이 일부만 있음(비음화·구개음화 없음) | 높음 |
@@ -57,7 +57,7 @@
 | N. 인증·권한·CSRF | IMPLEMENTED · SECURITY_SENSITIVE | `auth.py`의 `current_account`, `require_*`, `owned_child`, `security.py`의 `hash_password`, `main.py`의 `login` | PBKDF2-SHA256 20만 회, 쿠키 세션 12시간, CSRF 해시 비교, 로그인 throttle, 소유권 404와 감사 기록 | 프록시 뒤에서 IP 버킷이 하나로 합쳐짐. 세션 회전, 만료 행 정리, 비밀번호 재설정 없음. `add_child`가 전체 기관 아동 수로 `child_code`를 만듦. `secret_key`는 쓰이지 않음 | 중간 |
 | O. 데이터베이스 | FUNCTIONAL_PROTOTYPE | `db.py`, `models.py`(표 22개) | SQLAlchemy와 SQLite | `relationship()` 없음, FK 누락 다수, 인덱스 부족, N+1 쿼리(`child_detail`, `session_detail`, `overview`) | 중간 |
 | O-1. 마이그레이션 | PARTIALLY_IMPLEMENTED | `main.py`의 `lifespan`(`create_all`), `hoya/schema_compat.py` | 새 표 생성, SQLite 전용 호야 표 보정 하나 | Alembic 없음. 기존 표에 열을 추가할 방법이 없음. PostgreSQL은 테스트한 적 없음 | 중간 |
-| P. DEMO/seed | DEMO_ONLY · SECURITY_SENSITIVE | `seed.py`, `demo.py`, `/api/auth/demo-login`, `src/speech/demoRecognizer.ts`, `src/child/WorldMap.tsx` | 샘플 계정(seed) 생성과 demo-login만 `SEED_DEMO_DATA`일 때 동작하고, 비밀번호 "speechhero"가 코드에 고정됨. **DEMO 플레이 모드(스크립트 인식·키보드 입력)는 설정과 관계없이 일반 아동 계정에서도 항상 쓸 수 있고, WorldMap의 기본 선택이 DEMO** | 5절의 혼입 지점 참고 | 중간 |
+| P. DEMO/seed | DEMO_ONLY · SECURITY_SENSITIVE | `seed.py`, `demo.py`, `/api/auth/demo-login`, `src/child/WorldMap.tsx` | 샘플 계정(seed) 생성과 demo-login만 `SEED_DEMO_DATA`일 때 동작하고, 비밀번호 "speechhero"가 코드에 고정됨. **DEMO 플레이 모드(스크립트 인식·키보드 입력)는 설정과 관계없이 일반 아동 계정에서도 항상 쓸 수 있고, WorldMap의 기본 선택이 DEMO** | 5절의 혼입 지점 참고 | 중간 |
 | Q. 테스트 | IMPLEMENTED(logic/API 한정) | `backend/tests/*`(289개), `src/**/*.test.*`(89개) | API 통합, logic, 정적 렌더 | 브라우저 E2E, DOM 상호작용, 실제 마이크, 실제 OpenAI, Web Speech, PostgreSQL, 임상 검증 테스트가 없음 | 높음 |
 | R. 배포·운영 | PARTIALLY_IMPLEMENTED | README "Production 실행", `backend/.env.example` | uvicorn 단일 프로세스 절차, 안전한 기본값(`cookie_secure=True`, seed 꺼짐) | CI 없음, 브랜치 보호 없음, Dockerfile 없음, 백업 없음, 요청 로깅 없음, LLM smoke 없음 | 높음 |
 | S. 문서 | PARTIALLY_IMPLEMENTED | `README.md`, `docs/therapist-workflow.md`, `docs/references/**` | 계약 문서와 README의 최근 절(회기 계획, 호야 대화)은 최신. README 구조 설명에는 낡은 부분이 있음(존재하지 않는 `TrainingPolicy` 클래스를 설명하지만 실제는 `training/policy.py`의 `decide` 함수) | `docs/ARCHITECTURE.md`가 낡음(호야 대화, 쿠키 인증, 5라운드, 회기 계획이 빠짐). 루트에 agent 프롬프트 파일 4개와 참조되지 않는 jpg가 있음 | 낮음 |
@@ -77,7 +77,7 @@
 | `ClinicalObservation.ai_result` / `ai_confidence`, provenance `AI_ESTIMATED` | `clinical/observation_builder.py` | D | "AI_ESTIMATED"라는 표현 |
 | `propose_activity`의 `confidence` | `clinical/activity_recommendation.py` | D | 검증 관찰 5건 이상이면 MEDIUM |
 | `quest_reply` | `games/conversation.py` | F | 라벨 `DEMO_RULES`는 정확함 |
-| `DemoRecognizer` | `src/speech/demoRecognizer.ts` | F | 정확함 |
+| ~~`DemoRecognizer`~~ | ~~`src/speech/demoRecognizer.ts`~~ | — | 2026-10-04 legacy 모험과 함께 삭제 |
 | 호야 대화 제공자 | `hoya/providers/*` | B(선택) / F | 정확함 |
 | 치료사 요약 | `therapist_planning/summary.py` | B(선택) / C 템플릿 | 정확함 |
 
@@ -164,3 +164,20 @@
 | legacy 경로 | 필요 없는 것은 없애는 방향. 미사용 코드 3개는 재판단 뒤 삭제를 승인했고 별도 정리 PR에서 실행한다. 나머지 legacy는 Phase를 진행하며 처리한다 |
 | "AI" 명칭 불일치와 근거 없는 heuristic | 둘 다 나중 Phase에서 수정한다 |
 | Phase 순서 | 제안 순서 승인(`FROZEN_CORE_CONTRACT.md` 7절) |
+
+## 8. 2026-10-05 갱신 (5일 데모, `claude/dudu-followup`)
+
+위 1~7절은 2026-09-30 감사 기록이다. 그 뒤 바뀐 것만 여기에 적는다(감사 당시 내용은 고치지 않는다).
+
+| 영역 | 상태 | 근거(파일) | 실제로 하는 것 | 하지 않는 것 / 한계 |
+|---|---|---|---|---|
+| 두두 3D | FUNCTIONAL_PROTOTYPE | `public/assets/dudu/dudu.glb`, `src/tiger/DuduCharacter.tsx` | Meshy로 만든 GLB(리깅·동작 포함)를 불러오고, 실패하면 절차형 모델로 돌아간다. 공식 흉장을 투영했다 | 대학 디자인 최종 검수 |
+| 대구대 건너기 | FUNCTIONAL_PROTOTYPE · HEURISTIC_BASELINE · UNVALIDATED · CLINICAL_SENSITIVE | `src/child/DaeguCrossing.tsx`, `src/game/crossing/**`, `backend/app/games/crossing.py`, `games/evaluation.py` | 3D 횡단보도와 정문, 5라운드 × 2줄. 시작 마찰·유성 구간으로 /ㅅ/를 근사 판정하고, 관찰을 치료사 타임라인에 남긴다 | 성인 1명·PC 마이크 실측값이다. 아동 음성·여러 기기 검증이 없다. 혀 위치 오류(치간음 등)·ㅅ/ㅆ은 구분하지 못해 치료사가 확인한다 |
+| 대화 → 게임 전환 | HEURISTIC_BASELINE | `backend/app/hoya/transitions.py`, `src/child/HoyaChat.tsx` | 목표 낱말 시도 10회와 2분, 또는 5분 뒤 두두가 게임을 권한다 | 시도 횟수는 정확한 발음 횟수가 아니다 |
+| 두두 목소리 | DEMO_ONLY · EXTERNAL_DEPENDENCY | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json`, `src/speech/duduClips.ts` | VOLI '하람' 음성 파일 85개를 재생하고, 없는 말은 브라우저 음성으로 말한다 | 무료 플랜이라 비상업적 사용만 가능하고 출처 표기가 필요하다. 외부 LLM 대화 문장은 파일이 없다 |
+| 시연 계정·리허설 | DEMO_ONLY | `backend/app/demo_seed.py`, `backend/scripts/demo_rehearsal.py` | 전용 로컬 SQLite에만 시연 아동·치료사를 만들고, 오늘 기록만 지운다(실제 DB 거부) | 운영 배포용이 아니다 |
+| 운영 준비 | 변화 없음 | — | — | CI·브랜치 보호·Alembic은 여전히 없다(Phase 6 미착수) |
+
+**'AI' 명칭(3절) 후속, 2026-10-05:** 치료사 화면 표기만 정리했다. 규칙·기준값 결과(E·D)는 '자동 추정', confidence는 '근거 양'(근거 수 기준임을 함께 적음)으로 보이고, 관찰 카드마다 활동별 판정 방식을 보인다. 외부 LLM(B)인 치료사 요약은 'AI 문장 정리'로 둔다. 내부 이름(`ai_score`, `AIRecommendation`, `AI_ESTIMATED`)은 표·API 동결 때문에 그대로다.
+
+**Phase 1 과거 행(1절 1번) 후속, 2026-10-05:** 수리 도구 `backend/scripts/repair_seed_provenance.py`를 더했다(기본 미리 보기, `--apply` 시 SQLite 백업 후 seed 아동의 게임·대화 회기를 샘플로, 그 관찰의 검토 상태를 DEMO_ 상태로 맞춤, 감사 기록 남김, 예전 스키마의 없는 표는 건너뜀). 로컬 DB 점검 결과는 로드맵 2절에 적었다.

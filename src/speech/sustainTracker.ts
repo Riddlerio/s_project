@@ -3,6 +3,12 @@ import { isFrication, isVoicedLike } from './fricativeDetector'
 import { SUSTAIN_GAP_MS } from './thresholds'
 
 export type SustainMode = 'fricative' | 'any_sound'
+/**
+ * 시작 마찰을 잴 때의 너그러움. 기본 0이면 예전과 같다(마찰이 아닌 소리가 한 프레임만 나와도 시작 구간이 닫힌다).
+ * leadInMs: 마찰이 시작되기 전 숨·입술 소리처럼 들리는 앞부분을 이만큼 건너뛴다.
+ * dipMs: 마찰 도중 유성이 아닌 소리로 잠깐 꺼지는 구간을 이만큼 봐준다(그 구간은 마찰 길이에 넣지 않는다).
+ */
+export interface OnsetTolerance { leadInMs?: number; dipMs?: number }
 
 export class SustainTracker {
   currentRunMs = 0
@@ -23,8 +29,10 @@ export class SustainTracker {
   private onsetOpen = true
   private lastFrameMs: number | null = null
   private lastActiveMs: number | null = null
+  private leadInUsedMs = 0
+  private dipUsedMs = 0
 
-  constructor(public mode: SustainMode, private noiseFloorDb: number) {}
+  constructor(public mode: SustainMode, private noiseFloorDb: number, private tolerance: OnsetTolerance = {}) {}
 
   get energyMean01(): number { return this.energySamples ? this.energySum / this.energySamples : 0 }
   get energyStd01(): number { return this.energySamples ? Math.sqrt(Math.max(0, this.energySumSquares / this.energySamples - this.energyMean01 ** 2)) : 0 }
@@ -49,6 +57,8 @@ export class SustainTracker {
     this.onsetOpen = true
     this.lastFrameMs = null
     this.lastActiveMs = null
+    this.leadInUsedMs = 0
+    this.dipUsedMs = 0
   }
 
   process(frame: VadFrame): void {
@@ -63,12 +73,15 @@ export class SustainTracker {
     this.energySamples += 1
     if (audible) this.totalActiveMs += frameMs
     if (frication) this.fricationMs += frameMs
-    if (this.onsetOpen && frication) this.onsetFricationMs += frameMs
-    else if (this.onsetOpen && audible && !frication) this.onsetOpen = false
-    if (this.onsetFricationMs > 0 && !frication && isVoicedLike(frame, this.noiseFloorDb)) {
-      this.onsetOpen = false
-      this.voicedAfterFricationMs += frameMs
-    } else if (this.onsetFricationMs > 0 && !frication) this.onsetOpen = false
+    const voiced = isVoicedLike(frame, this.noiseFloorDb)
+    if (this.onsetOpen) {
+      if (frication) { this.onsetFricationMs += frameMs; this.dipUsedMs = 0 }
+      else if (this.onsetFricationMs === 0) {
+        if (audible && (this.leadInUsedMs += frameMs) > (this.tolerance.leadInMs ?? 0)) this.onsetOpen = false
+      } else if (!voiced && (this.dipUsedMs += frameMs) <= (this.tolerance.dipMs ?? 0)) { /* 잠깐 꺼짐: 기다린다 */ }
+      else this.onsetOpen = false
+    }
+    if (this.onsetFricationMs > 0 && !frication && voiced) this.voicedAfterFricationMs += frameMs
     if (active) {
       const continues = this.lastActiveMs !== null && frame.tMs - this.lastActiveMs <= SUSTAIN_GAP_MS
       if (!continues && this.lastActiveMs !== null) {

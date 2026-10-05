@@ -5,12 +5,13 @@ export type SpeechCapability = 'MIC_AVAILABLE' | 'ACOUSTIC_AVAILABLE' | 'ASR_AVA
 export type Capabilities = Record<SpeechCapability, boolean>
 
 /** 게임별 필요 기능. 지속 발성 게임은 음향 특징만, 단어·대화 게임은 음성 인식 문장도 필요하다. */
-export const GAME_REQUIREMENTS: Record<GameKind | 'legacy_adventure', SpeechCapability[]> = {
+export const GAME_REQUIREMENTS: Record<GameKind, SpeechCapability[]> = {
   magic_beam: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE'],
   sky_climb: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE'],
   monster_adventure: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE', 'ASR_AVAILABLE'],
   conversation_quest: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE', 'ASR_AVAILABLE'],
-  legacy_adventure: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE', 'ASR_AVAILABLE'],
+  // 대구대 건너기는 소리 시작의 마찰 구간(음향)으로 판정한다. 음성 인식은 쓰지 않는다.
+  daegu_crossing: ['MIC_AVAILABLE', 'ACOUSTIC_AVAILABLE'],
 }
 
 type CapabilityScope = {

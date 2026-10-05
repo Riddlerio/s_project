@@ -11,13 +11,3 @@ class TrainingLevel(StrEnum):
 
 
 LEVEL_ORDER = list(TrainingLevel)
-
-
-class GameType(StrEnum):
-    monster_tower = "monster_tower"
-    magic_beam = "magic_beam"
-
-
-class SessionMode(StrEnum):
-    real = "real"
-    demo = "demo"

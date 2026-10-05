@@ -5,6 +5,15 @@ from ..speech.g2p import SimpleKoreanG2P
 from ..speech.normalization import normalize
 
 
+# 대구대 건너기 음향 근사 기준(2026-10-05 성인 1명 PC 마이크 실측 2회, 정답 확인 포함).
+# 근거: docs/handoff/MIC_MEASUREMENT_2026-10-05.md. 임상적으로 검증된 발음 정확도 기준이 아니다.
+# - 바른 '사' 시작 마찰 79~99ms, '차·자' 39~59ms → 70ms(20ms 프레임 4개). 60ms는 둘이 겹친다.
+# - 잡음보다 15dB 미만으로 작은 소리는 판단하지 않는다(틀림이 아니라 불확실). 화면 crossingFlow.ONSET_RULE과 같은 값.
+ONSET_FRICATION_MS = 70
+VOICED_AFTER_FRICATION_MS = 80
+ONSET_MIN_SNR_DB = 15
+
+
 def _result(result: str, tags=()) -> AnalysisResult:
     return AnalysisResult(0, result, "unknown" if result in {"uncertain", "no_speech", "target_observed", "not_target_attempt"} else "correct" if result == "success" else "omitted",
                           None, list(tags), [], [], [])
@@ -42,6 +51,15 @@ def evaluate_round(round_def, item: dict, transcript: str | None, acoustic: dict
         passed = sum(segment >= target for segment in segments) >= 3
     elif rule == "TRANSITION":
         passed = acoustic_number(acoustic, "onsetFricationMs") >= target and acoustic_number(acoustic, "voicedAfterFricationMs") >= 200
+    elif rule == "ONSET_FRICATION":
+        # 필드가 누락된 입력은 실패로 세지 않는다. 0은 측정된 부재이므로 retry다.
+        if acoustic.get("onsetFricationMs") is None or acoustic.get("voicedAfterFricationMs") is None:
+            return _result("uncertain", ["NO_ACOUSTIC_EVIDENCE"])
+        noise, level = acoustic.get("noiseFloorDb"), acoustic.get("meanRmsDb")
+        if acoustic.get("source") == "microphone" and noise is not None and level is not None and level - noise < ONSET_MIN_SNR_DB:
+            return _result("uncertain", ["POOR_AUDIO"])
+        passed = (acoustic_number(acoustic, "onsetFricationMs") >= ONSET_FRICATION_MS
+                  and acoustic_number(acoustic, "voicedAfterFricationMs") >= VOICED_AFTER_FRICATION_MS)
     elif rule == "ENERGY_BAND":
         passed = 0.35 <= acoustic_number(acoustic, "energyMean01", -1) <= 0.75 and run >= target
     elif rule == "RE_ONSET":

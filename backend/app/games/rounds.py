@@ -35,8 +35,15 @@ def _round(game, index, title, prompt, focus, task, level, elicitation, prompt_t
 
 
 GAME_ROUNDS = {
+    "daegu_crossing": (
+        _round("daegu_crossing", 1, "두두 따라 건너기", "두두를 따라 말하고 건너자!", "모델에 따른 /ㅅ/ 산출 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 2, "혼자 건너기", "이번에는 혼자 말해 볼까?", "독립 산출 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "PROMPTED_PRODUCTION", "VISUAL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 3, "모음 바꿔 건너기", "다른 소리로 한 줄씩 건너자!", "모음 환경 전이 · 음향 근사", "TARGET_PRODUCTION", "SYLLABLE", "PROMPTED_PRODUCTION", "VISUAL", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 4, "낱말 건너기", "그림의 이름을 말해 줘!", "낱말 수준 산출 · 음향 근사", "TARGET_PRODUCTION", "WORD", "SELF_GENERATED", "PICTURE_PROMPT", 3, "ONSET_FRICATION"),
+        _round("daegu_crossing", 5, "정문까지", "정문까지 한 줄씩 가 보자!", "음절·낱말 혼합 · 음향 근사", "TARGET_PRODUCTION", "WORD", "PROMPTED_PRODUCTION", "PICTURE_PROMPT", 3, "ONSET_FRICATION"),
+    ),
     "magic_beam": (
-        _round("magic_beam", 1, "마법 깨우기", "호야를 따라 스— 하고 말해줘!", "모델 후 /ㅅ/ 지속 산출", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "FRICATION", 1000),
+        _round("magic_beam", 1, "마법 깨우기", "두두를 따라 스— 하고 말해줘!", "모델 후 /ㅅ/ 지속 산출", "SUSTAINED_PRODUCTION", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "FRICATION", 1000),
         _round("magic_beam", 2, "빔 쏘기", "혼자 힘으로 빔을 쏴 볼까?", "독립 지속 산출", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 3, "FRICATION", 1500),
         _round("magic_beam", 3, "끊기지 않는 빔", "빛을 길게 이어 줘!", "연속성·쉼 관찰", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 3, "CONTINUITY", 2000),
         _round("magic_beam", 4, "리듬 펄스", "스, 스, 스! 세 번 들려줘!", "반복 onset 안정성", "RHYTHM", "SOUND", "DIRECT_IMITATION", "AUDITORY_MODEL", 3, "PULSES", 500, 1200),
@@ -50,7 +57,7 @@ GAME_ROUNDS = {
         _round("sky_climb", 5, "정상 도착", "마지막 구름까지 길게 날아가자!", "최장 지속 관찰", "SUSTAINED_PRODUCTION", "SOUND", "PROMPTED_PRODUCTION", "VISUAL", 6, "SUSTAIN", 2500),
     ),
     "monster_adventure": (
-        _round("monster_adventure", 1, "주문 따라 하기", "호야를 따라 말해줘!", "음절 수준 모방", "TARGET_PRODUCTION", "SYLLABLE", "DIRECT_IMITATION", "WORD_CARD", 3, "TARGET_WORD"),
+        _round("monster_adventure", 1, "주문 따라 하기", "두두를 따라 말해줘!", "음절 수준 모방", "TARGET_PRODUCTION", "SYLLABLE", "DIRECT_IMITATION", "WORD_CARD", 3, "TARGET_WORD"),
         _round("monster_adventure", 2, "따라 말하는 마법", "말을 따라 하며 마법을 모으자!", "단어 모방", "TARGET_PRODUCTION", "WORD", "DIRECT_IMITATION", "WORD_CARD", 3, "TARGET_WORD"),
         _round("monster_adventure", 3, "그림 보고 마법", "그림을 보고 이름을 말해줘!", "독립 명명", "TARGET_PRODUCTION", "WORD", "SELF_GENERATED", "PICTURE_PROMPT", 3, "TARGET_WORD"),
         _round("monster_adventure", 4, "새 장면 몬스터", "몬스터에게 그림 이름을 알려줘!", "새 장면에서 훈련 단어 산출", "TARGET_PRODUCTION", "WORD", "SELF_GENERATED", "PICTURE_PROMPT", 3, "TARGET_WORD"),
@@ -59,7 +66,7 @@ GAME_ROUNDS = {
     "conversation_quest": (
         _round("conversation_quest", 1, "소풍 준비", "사과랑 바나나 중에 뭐 챙길까?", "선택형 유도 산출", "CONTEXTUAL_PRODUCTION", "WORD", "PROMPTED_PRODUCTION", "MODELED_CHOICE", 2, "CONVERSATION"),
         _round("conversation_quest", 2, "무엇이 필요할까", "소풍에 뭐 가져갈까?", "그림 기반 자기 생성", "CONTEXTUAL_PRODUCTION", "WORD", "SELF_GENERATED", "OPEN_QUESTION", 2, "CONVERSATION"),
-        _round("conversation_quest", 3, "가방 채우기", "호야한테 넣어 달라고 말해줘!", "운반구 속 산출", "CONTEXTUAL_PRODUCTION", "PHRASE", "CONVERSATIONAL", "SENTENCE_FRAME", 2, "CONVERSATION"),
+        _round("conversation_quest", 3, "가방 채우기", "두두한테 넣어 달라고 말해줘!", "운반구 속 산출", "CONTEXTUAL_PRODUCTION", "PHRASE", "CONVERSATIONAL", "SENTENCE_FRAME", 2, "CONVERSATION"),
         _round("conversation_quest", 4, "누구랑 갈까", "누구랑 갈까?", "문장 수준 응답", "CONTEXTUAL_PRODUCTION", "SENTENCE", "CONVERSATIONAL", "OPEN_QUESTION", 2, "CONVERSATION"),
         _round("conversation_quest", 5, "소풍 이야기", "소풍에서 뭐가 제일 재밌었어?", "자유 대화 중 자발 산출", "CONTEXTUAL_PRODUCTION", "SPONTANEOUS", "SPONTANEOUS", "OPEN_QUESTION", 2, "CONVERSATION"),
     ),
