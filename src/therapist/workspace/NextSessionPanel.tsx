@@ -37,7 +37,7 @@ export function NextSessionView({ proposal, plan, form, message, busy, onPropose
         <p>현재 평가 가능 {proposal.metrics.evaluableN}건 · 음질 POOR {proposal.metrics.poorAudioN}건 · 검토 대기 {proposal.metrics.pendingReviewN}건 · 거부 {proposal.metrics.rejectedN}건.</p>
         <p>규칙: 전체 또는 목표 단계의 평가 가능 자료가 5건 미만이면 유지·추가 관찰. 목표 단계 성공 비율 50% 미만이면 허용 최저 단계 안에서 한 단계 낮은 시작을 검토하고, 80% 이상이면 다음 단계 검토만 제안합니다. 목표는 자동 변경하지 않습니다.</p>
         <ul>{proposal.proposal.rationale.map(reason => <li key={reason.code}><code>{reason.code}</code> · {reason.text}</li>)}</ul>
-        <p>한계: 현재 목표와 다른 음소·위치의 관찰도 기존 계획 집계에 포함될 수 있습니다. 목표별 비교는 경과 탭에서 따로 확인하세요. 게임 점수나 AI 확신도는 임상 정확도가 아닙니다. 치료사가 저장·승인하기 전에는 적용되지 않습니다.</p>
+        <p>한계: 현재 목표와 다른 음소·위치의 관찰도 기존 계획 집계에 포함될 수 있습니다. 목표별 비교는 경과 탭에서 따로 확인하세요. 게임 점수나 자동 추정·근거 양 표시는 임상 정확도가 아닙니다. 치료사가 저장·승인하기 전에는 적용되지 않습니다.</p>
       </details>
       <ul className="rationale">{proposal.proposal.rationale.map(row => <li key={row.code}>{row.text}</li>)}</ul>
       {proposal.summary.limitations.length > 0 && <details><summary>해석 한계</summary><ul>{proposal.summary.limitations.map(item => <li key={item}>{item}</li>)}</ul></details>}

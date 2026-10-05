@@ -25,7 +25,17 @@ export interface GoalTrends {
   limitations: string[]; baselineRule: string
 }
 export const SOURCE_LABELS: Record<EvidenceSource, string> = { REAL: '실제', DEMO: 'DEMO', SAMPLE: '샘플' }
-export const PROVENANCE_LABELS: Record<Provenance, string> = { SYSTEM: '시스템 측정', AI: 'AI 추정', THERAPIST: '치료사 확인·교정' }
+// 'AI' 출처는 학습 모델이 아니라 규칙·기준값으로 자동 추정한 결과다(감사: PRODUCT_REALITY_MATRIX 3절). 화면에는 '자동 추정'으로 보인다.
+export const PROVENANCE_LABELS: Record<Provenance, string> = { SYSTEM: '시스템 측정', AI: '자동 추정', THERAPIST: '치료사 확인·교정' }
+/** 활동별 자동 추정 방식. 관찰 카드에 한 줄로 보여 무엇으로 판단했는지 알린다(games/rounds.py의 규칙). */
+export const JUDGMENT_METHODS: Record<string, string> = {
+  magic_beam: '음향 근사 — 마찰음(바람 소리)의 길이·이어짐·끊어 내기',
+  sky_climb: '음향 근사 — 소리를 낸 길이·크기 범위·쉬었다 다시 내기',
+  daegu_crossing: '음향 근사 — 시작 마찰음과 그 뒤 유성 구간',
+  monster_adventure: '음성 인식 근사 — 브라우저가 인식한 문장을 목표 낱말과 맞춤(인식 오류·자동 보정 가능)',
+  conversation_quest: '음성 인식 근사 — 인식 문장에 목표 소리가 들어갔는지(시도 여부이며 발음 정확도 아님)',
+  hoya_conversation: '음성 인식 근사 — 목표 낱말이 들어간 시도인지(발음 정확도 아님)',
+}
 export const RESULT_LABELS: Record<string, string> = { success: '성공', retry: '재시도', uncertain: '불확실', no_speech: '발화 없음', target_observed: '목표 관찰(정오 판정 아님)' }
 export const FLAG_LABELS: Record<string, string> = {
   NO_SPEECH: 'NO_SPEECH · 발화 없음', UNCERTAIN: 'UNCERTAIN · 불확실', POOR: 'POOR · 음질 불량',

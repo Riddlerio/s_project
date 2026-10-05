@@ -27,7 +27,7 @@ describe('치료사 읽기 화면', () => {
 
   it('원 AI 결과와 치료사 결과를 구분하고 품질 제외를 실패라고 하지 않는다', () => {
     const html = renderToStaticMarkup(<ObservationEvidence row={{ ...observation, result: 'uncertain', included: false, qualityFlags: ['UNCERTAIN', 'POOR', 'LOW_SNR'], excludedReasons: ['NOT_EVALUABLE', 'POOR'] }} />)
-    expect(html).toContain('AI 추정: 재시도')
+    expect(html).toContain('자동 추정: 재시도')
     expect(html).toContain('현재 검토 결과: 불확실')
     expect(html).toContain('성공률 분모 제외')
     expect(html).toContain('제외는 실패가 아닙니다')

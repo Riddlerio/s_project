@@ -36,8 +36,11 @@ export function sessionStatusText(status?: string | null): string {
   return status === 'completed' ? '완료' : status === 'active' ? '진행 중' : '상태 미상'
 }
 
-/** 추천·활동 제안의 신뢰도·처리 상태. 서버 값(high·MEDIUM·pending·PENDING 등, 대소문자 섞임)을 영어로 보이지 않게 한다. */
-export const RECOMMENDATION_CONFIDENCE: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' }
+/**
+ * 추천·활동 제안의 '근거 양'과 처리 상태. 서버 값(high·MEDIUM·pending·PENDING 등, 대소문자 섞임)을 한국어로 보인다.
+ * 서버의 confidence는 확률이 아니라 근거 수 기준이다(기존 추천: 이전 회기 수, 활동 제안: 확인 관찰 5건 이상). 그래서 '신뢰도'가 아니라 '근거 양'이라 부른다.
+ */
+export const RECOMMENDATION_CONFIDENCE: Record<string, string> = { high: '많음', medium: '보통', low: '적음' }
 export const RECOMMENDATION_STATUS: Record<string, string> = { pending: '검토 대기', accepted: '수락', modified: '수정', rejected: '거부' }
 export const confidenceText = (value?: string | null) => (value && RECOMMENDATION_CONFIDENCE[value.toLowerCase()]) || value || '-'
 export const recommendationStatusText = (value?: string | null) => (value && RECOMMENDATION_STATUS[value.toLowerCase()]) || value || '-'

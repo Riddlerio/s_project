@@ -35,7 +35,7 @@ export default function ActivityRecommendationPanel({ childId }: { childId: stri
   return <section className="card"><h2>다음 활동 제안</h2><p>치료사가 확인한 실제 발화 근거에서만 제안을 만듭니다. 수락 또는 수정 후 아동 화면에 반영됩니다.</p>
     <button onClick={() => { void generate() }}>근거로 제안 만들기</button>{message && <p role="status">{message}</p>}
     {rows.map(row => <article key={row.id}><h3>{ACTIVITY_LABELS[row.activity as keyof typeof ACTIVITY_LABELS] || row.activity} · {recommendationStatusText(row.status)}</h3>
-      <p>관찰 목적: {row.clinical_purpose}</p><p>이유: {row.reason}</p><p>저장된 근거 링크: {row.evidence.length}건 · 확신도 {confidenceText(row.confidence)}</p>
+      <p>관찰 목적: {row.clinical_purpose}</p><p>이유: {row.reason}</p><p>저장된 근거 링크: {row.evidence.length}건 · 근거 양(확인 관찰 수 기준) {confidenceText(row.confidence)}</p>
       <details><summary>활동 제안의 입력 · 적용 규칙 · 한계</summary>
         <p>입력: 생성 당시 실제·비샘플 회기의 확인·교정 관찰 후보 최대 10건. 저장된 링크는 최대 5건이며 전체 입력의 재현용 스냅숏은 아닙니다.</p>
         <ul>{row.evidence.map(item => <li key={item.observationId}><Link to={`/therapist/sessions/${item.sessionId}`}>근거 회기 열기</Link> · 관찰 {item.observationId}</li>)}</ul>

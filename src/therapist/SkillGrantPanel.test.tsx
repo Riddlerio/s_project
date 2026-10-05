@@ -24,6 +24,6 @@ describe('치료사 매직빔 결정', () => {
   it('기본 공격 클리어와 별도 사람 결정을 설명한다', () => {
     const html = render(status, '')
     expect(html).toContain('기본 공격으로도 같은 모험을 끝낼 수 있습니다')
-    expect(html).toContain('점수·AI·게임 완료로 자동 승인되지 않습니다')
+    expect(html).toContain('점수·자동 판정·게임 완료로 자동 승인되지 않습니다')
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { INDEPENDENCE_LABELS, MEASUREMENT_SOURCE_LABELS, QUALITY_LABELS } from './insights'
+import { INDEPENDENCE_LABELS, JUDGMENT_METHODS, MEASUREMENT_SOURCE_LABELS, PROVENANCE_LABELS, QUALITY_LABELS } from './insights'
+import { ACTIVITY_LABELS } from './planning'
 import { confidenceText, GOAL_SOURCE_LABELS, recommendationStatusText, RECOMMENDATION_CONFIDENCE, RECOMMENDATION_STATUS, evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, sessionStatusText, verificationText, type SummaryRow } from './clinicalLabels'
 
 const row = (values: Partial<SummaryRow>): SummaryRow => ({
@@ -62,16 +63,23 @@ describe('관찰 카드 이름표', () => {
 })
 
 describe('기존 AI 추천 이름표', () => {
-  it('신뢰도·처리 상태를 한국어로 보인다', () => {
-    expect([RECOMMENDATION_CONFIDENCE.high, RECOMMENDATION_CONFIDENCE.medium, RECOMMENDATION_CONFIDENCE.low]).toEqual(['높음', '보통', '낮음'])
+  it('근거 양·처리 상태를 한국어로 보인다(confidence는 확률이 아니라 근거 수 기준)', () => {
+    expect([RECOMMENDATION_CONFIDENCE.high, RECOMMENDATION_CONFIDENCE.medium, RECOMMENDATION_CONFIDENCE.low]).toEqual(['많음', '보통', '적음'])
     expect([RECOMMENDATION_STATUS.pending, RECOMMENDATION_STATUS.accepted, RECOMMENDATION_STATUS.modified, RECOMMENDATION_STATUS.rejected]).toEqual(['검토 대기', '수락', '수정', '거부'])
   })
 })
 
 describe('활동 제안·목표 이력 이름표', () => {
   it('대소문자가 섞인 서버 값도 한국어로 보이고, 모르는 값은 그대로 둔다', () => {
-    expect([confidenceText('MEDIUM'), confidenceText('high'), confidenceText(undefined)]).toEqual(['보통', '높음', '-'])
+    expect([confidenceText('MEDIUM'), confidenceText('high'), confidenceText(undefined)]).toEqual(['보통', '많음', '-'])
     expect([recommendationStatusText('PENDING'), recommendationStatusText('rejected'), recommendationStatusText('NEW_STATE')]).toEqual(['검토 대기', '거부', 'NEW_STATE'])
     expect(GOAL_SOURCE_LABELS.demo_rehearsal).toBe('시연용')
+  })
+})
+
+describe('자동 추정 표기(Phase 2 AI 명칭 정리)', () => {
+  it('규칙·기준값 결과를 AI라 부르지 않고, 모든 활동에 판정 방식을 적는다', () => {
+    expect(PROVENANCE_LABELS.AI).toBe('자동 추정')
+    for (const activity of Object.keys(ACTIVITY_LABELS)) expect(JUDGMENT_METHODS[activity], activity).toMatch(/근사/)
   })
 })

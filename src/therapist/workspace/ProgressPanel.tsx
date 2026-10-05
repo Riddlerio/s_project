@@ -19,7 +19,7 @@ type Props = {
   onDecide: (id: string, action: 'accept' | 'modify' | 'reject', note: string, level?: string) => void; onDeactivate: (id: string) => void
 }
 
-/** 경과 · 기록. 기존 AI 추천과 치료사 규칙은 접힌 고급 정보로 옮겨 첫 화면을 가볍게 한다. */
+/** 경과 · 기록. 기존 자동 추천(규칙 기반, 내부 이름 AIRecommendation)과 치료사 규칙은 접힌 고급 정보로 옮겨 첫 화면을 가볍게 한다. */
 export default function ProgressPanel({ childId, context, trends, sessions, plans, recommendations, rules, showAdvanced = true, onDecide, onDeactivate }: Props) {
   const pendingSessions = sessions.filter(session => session.mode === 'real' && !session.isSeed)
   return <>
@@ -43,7 +43,7 @@ export default function ProgressPanel({ childId, context, trends, sessions, plan
 
 function LegacyRecommendationRow({ rec, onDecide }: { rec: LegacyRecommendation; onDecide: Props['onDecide'] }) {
   const badges = recommendationBadges(rec.provenance)
-  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>신뢰도: {confidenceText(rec.confidence)} · {recommendationStatusText(rec.status)}</p>
+  return <article><h4>{rec.observation}{badges.length > 0 && <small data-provenance="non-clinical"> · {badges.join(' · ')}</small>}</h4><p>{rec.suggestion_text}</p><p>근거: {rec.evidence?.map(item => `${item.label}: ${item.value}`).join(' · ')}</p><p>근거 양(이전 회기 수 기준): {confidenceText(rec.confidence)} · {recommendationStatusText(rec.status)}</p>
     {rec.status === 'pending' && <form onSubmit={event => { event.preventDefault(); const note = String(new FormData(event.currentTarget).get('note') || ''); onDecide(rec.id, 'reject', note) }}>
       {rec.provenance?.demoPractice ? <p className="muted">DEMO 연습 기반 추천은 목표에 반영할 수 없어 거절만 할 수 있습니다.</p> : <>
       <button type="button" onClick={() => onDecide(rec.id, 'accept', '')}>수락</button>

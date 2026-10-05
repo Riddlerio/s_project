@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { sessionInsights } from '../api/therapist'
 import { verificationText } from './clinicalLabels'
-import { CUE_NAMES, FLAG_LABELS, INDEPENDENCE_LABELS, insightRate, MEASUREMENT_SOURCE_LABELS, PROVENANCE_LABELS, QUALITY_LABELS, RESULT_LABELS, SOURCE_LABELS } from './insights'
+import { CUE_NAMES, FLAG_LABELS, INDEPENDENCE_LABELS, insightRate, JUDGMENT_METHODS, MEASUREMENT_SOURCE_LABELS, PROVENANCE_LABELS, QUALITY_LABELS, RESULT_LABELS, SOURCE_LABELS } from './insights'
 import type { InsightObservation, Provenance, SessionInsights } from './insights'
 import { ACTIVITY_LABELS, LEVEL_LABELS, POSITION_LABELS } from './planning'
 import SessionNote from './SessionNote'
@@ -39,8 +39,8 @@ export function ObservationEvidence({ row }: { row: InsightObservation }) {
     {row.source !== 'REAL' && <p className="notice">실제 음성 임상 자료가 아닙니다. 검토해도 임상 비교에서는 제외됩니다.</p>}
     <p>목표 /{row.targetPhoneme}/ · {POSITION_LABELS[row.wordPosition] || row.wordPosition} · {LEVEL_LABELS[row.level] || row.level}</p>
     <p>단서 {CUE_NAMES[row.cue] || row.cue} · 독립성 {INDEPENDENCE_LABELS[row.independence] || row.independence} · 측정 지속시간 {row.durationMs === null ? '자료 없음' : `${row.durationMs}ms`}</p>
-    <p>AI 추정: {RESULT_LABELS[row.aiResult] || row.aiResult} · 현재 검토 결과: {RESULT_LABELS[row.result] || row.result}</p>
-    {row.activity === 'daegu_crossing' && <p>음향 근사: 시작 마찰음과 이후 유성 구간을 사용합니다. 정확한 발음 판정이 아니며 치료사 확인이 필요합니다.</p>}
+    <p>자동 추정: {RESULT_LABELS[row.aiResult] || row.aiResult} · 현재 검토 결과: {RESULT_LABELS[row.result] || row.result}</p>
+    <p>판정 방식: {JUDGMENT_METHODS[row.activity] || '규칙 기반 근사'}. 정확한 발음 판정이 아니며 치료사 확인이 필요합니다.</p>
     <p>음질 {QUALITY_LABELS[row.audioQuality] || row.audioQuality} · 음향 출처 {MEASUREMENT_SOURCE_LABELS[row.measurementSource] || row.measurementSource}</p>
     <div className="quality-flags">{row.qualityFlags.map(flag => <span key={flag}>{FLAG_LABELS[flag] || flag}</span>)}</div>
     <p className={row.included ? '' : 'notice'}>{row.included ? '확인된 성공률 분모에 포함' : `성공률 분모 제외: ${row.excludedReasons.map(reason => FLAG_LABELS[reason] || reason).join(' · ')}. 제외는 실패가 아닙니다.`}</p>
@@ -74,7 +74,7 @@ export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
   }
   const row = data?.observations.find(item => item.id === selectedId)
   return <section className="card"><h2>회기 관찰 타임라인</h2>
-    <p>아동 음성 인식에는 오인식과 환경·기기 영향이 있습니다. AI 추정은 임상 진단이 아니며 치료사 확인 전에는 임상 근거가 아닙니다.</p>
+    <p>아동 음성 인식에는 오인식과 환경·기기 영향이 있습니다. 자동 추정은 학습된 AI 모델이 아니라 규칙·기준값으로 낸 근사이며, 임상 진단이 아니고 치료사 확인 전에는 임상 근거가 아닙니다.</p>
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">관찰을 불러오는 중입니다.</p>}
     {data && <>

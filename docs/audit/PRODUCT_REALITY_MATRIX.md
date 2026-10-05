@@ -177,3 +177,7 @@
 | 두두 목소리 | DEMO_ONLY · EXTERNAL_DEPENDENCY | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json`, `src/speech/duduClips.ts` | VOLI '하람' 음성 파일 85개를 재생하고, 없는 말은 브라우저 음성으로 말한다 | 무료 플랜이라 비상업적 사용만 가능하고 출처 표기가 필요하다. 외부 LLM 대화 문장은 파일이 없다 |
 | 시연 계정·리허설 | DEMO_ONLY | `backend/app/demo_seed.py`, `backend/scripts/demo_rehearsal.py` | 전용 로컬 SQLite에만 시연 아동·치료사를 만들고, 오늘 기록만 지운다(실제 DB 거부) | 운영 배포용이 아니다 |
 | 운영 준비 | 변화 없음 | — | — | CI·브랜치 보호·Alembic은 여전히 없다(Phase 6 미착수) |
+
+**'AI' 명칭(3절) 후속, 2026-10-05:** 치료사 화면 표기만 정리했다. 규칙·기준값 결과(E·D)는 '자동 추정', confidence는 '근거 양'(근거 수 기준임을 함께 적음)으로 보이고, 관찰 카드마다 활동별 판정 방식을 보인다. 외부 LLM(B)인 치료사 요약은 'AI 문장 정리'로 둔다. 내부 이름(`ai_score`, `AIRecommendation`, `AI_ESTIMATED`)은 표·API 동결 때문에 그대로다.
+
+**Phase 1 과거 행(1절 1번) 후속, 2026-10-05:** 수리 도구 `backend/scripts/repair_seed_provenance.py`를 더했다(기본 미리 보기, `--apply` 시 SQLite 백업 후 seed 아동의 게임·대화 회기를 샘플로, 그 관찰의 검토 상태를 DEMO_ 상태로 맞춤, 감사 기록 남김, 예전 스키마의 없는 표는 건너뜀). 로컬 DB 점검 결과는 로드맵 2절에 적었다.
