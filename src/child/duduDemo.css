@@ -233,3 +233,26 @@
   .crossing-beats i.say { min-width: 54px; }
 }
 @keyframes pop-label-center { from { transform: translateX(-50%) scale(.3); opacity: 0; } }
+
+/* 다시 할 때 도움말(2026-10-06): 제목 자리에 잠깐 보인다. 입 모양 그림 + 짧은 안내. 깜박임 없이 한 번만 나타난다. */
+.crossing-top { min-height: 5.6rem; }
+.crossing-top-main { min-width: 0; }
+.crossing-tip { display: flex; align-items: center; gap: .75rem; flex: 1 1 16rem; min-width: 0; margin: 0; padding: .5rem 1rem .5rem .5rem; border-radius: 22px; background: var(--color-surface-white); box-shadow: 0 0 0 4px var(--color-alpha-white-a53), 0 6px 0 var(--color-alpha-forest-a08), 0 12px 24px var(--color-alpha-forest-a16); animation: crossing-tip-in .32s ease-out both; }
+.crossing-tip-art { flex: none; width: 64px; height: 64px; }
+.crossing-tip-text { display: grid; gap: .15rem; min-width: 0; }
+.crossing-tip-text strong { color: var(--forest-deep); font-size: 1.1rem; font-weight: 900; }
+.crossing-tip-text span { color: var(--ink); font-size: .92rem; font-weight: 700; line-height: 1.4; }
+@keyframes crossing-tip-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .crossing-tip { animation: none; } }
+@media (max-width: 760px) {
+  .crossing-tip { gap: .55rem; padding: .45rem .75rem .45rem .45rem; }
+  .crossing-tip-art { width: 52px; height: 52px; }
+  .crossing-tip-text strong { font-size: 1rem; }
+  .crossing-tip-text span { font-size: .84rem; }
+}
+
+/* 건너기 머리줄: 제목(또는 도움말)과 동그란 쉬기 버튼을 한 줄에. 휴대폰에서 버튼이 아래로 밀려 무대가 내려가지 않게 한다. */
+.crossing-top { flex-wrap: nowrap; align-items: flex-start; }
+.crossing-top-main { flex: 1 1 auto; }
+.crossing-screen.dudu-sky .crossing-top button.crossing-pause { flex: none; display: grid; place-items: center; width: 58px; height: 58px; min-height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+.crossing-pause svg { width: 26px; height: 26px; }

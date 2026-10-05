@@ -21,9 +21,10 @@ export const CROSSING_MIN_START_DB = -56
 const HISTORY_MS = 700
 /**
  * 사용자 실측(2026-10-05): 길게 낸 '스~'(마찰 1.4~1.9초)인데 시작 마찰이 0으로 나온 경우가 있었다. 마찰 직전의 숨·입술 소리
- * 한두 프레임이 시작 구간을 닫았기 때문이다. 이 게임에서만 앞부분 40ms, 마찰 도중 20ms 꺼짐을 봐준다.
+ * 한두 프레임이 시작 구간을 닫았기 때문이다. 이 게임에서만 앞부분과 마찰 도중 20ms 꺼짐을 봐준다.
+ * 앞부분은 40ms였다가 2026-10-06에 60ms로 늘렸다. 2차 측정에서 바른 '사' 2개(#1·#5)가 마찰 앞 소리 때문에 시작 마찰 0이 됐다.
  */
-export const ONSET_TOLERANCE = { leadInMs: 40, dipMs: 20 }
+export const ONSET_TOLERANCE = { leadInMs: 60, dipMs: 20 }
 /** 개발 점검용으로 남기는 발화 앞부분 프레임 수(20ms × 15 = 0.3초). 판정에는 쓰지 않는다. */
 export const ONSET_DUMP_FRAMES = 15
 
