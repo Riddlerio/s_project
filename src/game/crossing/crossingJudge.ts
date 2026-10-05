@@ -2,6 +2,7 @@ import { api } from '../../api/client'
 import { sendActivityUtterance, startActivity, type ActivityItem, type ActivityResponse, type ActivityRound, type ActivityStart } from '../../api/activities'
 import type { Acoustic } from '../../shared/types'
 import { CrossingProgress, ITEMS_PER_ROUND, MAX_QUIET, MAX_TRIES, judgeOnset, previewPlan, resultFromEvents, type CrossingItem, type CrossingResult } from './crossingFlow'
+import { DEFAULT_RHYTHM, rhythmSetting, type RhythmSetting } from './rhythm'
 
 /*
  * '대구대 건너기'의 판정·진행 공급자. 실제 화면은 서버(server)만 쓴다: 두두가 점프하는 것은 서버 결과를 따른다.
@@ -10,7 +11,8 @@ import { CrossingProgress, ITEMS_PER_ROUND, MAX_QUIET, MAX_TRIES, judgeOnset, pr
 export interface CrossingTurn { result: CrossingResult; next: CrossingItem | null; complete: boolean }
 export interface CrossingJudge {
   readonly kind: 'server' | 'preview'
-  start(): Promise<{ first: CrossingItem; heroName: string }>
+  /** rhythm: 치료사가 정한 박자(시작·이어받기 응답의 선택 필드). 없으면 기본값(84BPM, 빨라지기 허용). */
+  start(): Promise<{ first: CrossingItem; heroName: string; rhythm: RhythmSetting }>
   submit(item: CrossingItem, attempt: { transcript: string | null; acoustic: Acoustic }): Promise<CrossingTurn>
   finish(elapsedSec: number): Promise<void>
 }
@@ -20,7 +22,7 @@ export function previewJudge(level: 'syllable' | 'word' = 'syllable', heroName =
   const progress = new CrossingProgress(plan)
   return {
     kind: 'preview',
-    start: async () => ({ first: plan[0], heroName }),
+    start: async () => ({ first: plan[0], heroName, rhythm: DEFAULT_RHYTHM }),
     submit: async (_item, attempt) => {
       const result = judgeOnset(attempt.acoustic)
       const { next } = progress.record(result)
@@ -53,7 +55,8 @@ export function serverJudge(mode: 'real' | 'demo'): CrossingJudge {
       round = session.currentRound
       activityItem = session.firstItem
       attemptIndex = session.nextAttemptIndex ?? 1
-      return { first: toItem(session.firstItem, session.currentRound, session as Extra), heroName: session.heroName }
+      return { first: toItem(session.firstItem, session.currentRound, session as Extra), heroName: session.heroName,
+        rhythm: rhythmSetting((session as ActivityStart & { rhythm?: unknown }).rhythm) }
     },
     async submit(item, attempt) {
       if (!session || !round || !activityItem) throw new Error('CROSSING_NOT_STARTED')

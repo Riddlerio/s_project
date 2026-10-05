@@ -96,27 +96,8 @@ export function resultFromEvents(events: readonly { type: string }[]): CrossingR
   return 'uncertain'
 }
 
-/**
- * 속도: 처음엔 말풍선이 5초 동안 다가오고 4초 기다린다. 최근 8번 중 성공이 80% 이상이면 한 번에 하나만 0.5초씩 빠르게,
- * 2번 연속 어려우면 0.5초씩 느리게(시작값까지). 말더듬·마비말장애 아동은 allowFaster=false(치료사 설정).
- */
-export interface Pace { approachMs: number; windowMs: number }
-export const START_PACE: Pace = { approachMs: 5000, windowMs: 4000 }
-export const FASTEST_PACE: Pace = { approachMs: 2500, windowMs: 2500 }
+/** 빠르기 조정에 쓰는 결과 기록. 'miss'는 박 안에 말이 없었던 것이다. 빠르기 규칙은 rhythm.ts(박자)에 있다. */
 export type PaceEvent = CrossingResult | 'miss'
-
-export function nextPace(pace: Pace, history: readonly PaceEvent[], allowFaster = true): Pace {
-  const last2 = history.slice(-2)
-  if (last2.length === 2 && last2.every(event => event !== 'success')) {
-    return { approachMs: Math.min(START_PACE.approachMs, pace.approachMs + 500), windowMs: Math.min(START_PACE.windowMs, pace.windowMs + 500) }
-  }
-  const last8 = history.slice(-8)
-  if (allowFaster && last8.length === 8 && last8.filter(event => event === 'success').length >= 7) {
-    if (pace.approachMs > FASTEST_PACE.approachMs) return { ...pace, approachMs: pace.approachMs - 500 }
-    if (pace.windowMs > FASTEST_PACE.windowMs) return { ...pace, windowMs: pace.windowMs - 500 }
-  }
-  return pace
-}
 
 const PRAISE = ['정말 잘했어!', '좋아!', '멋져!', '최고야!']
 export const praiseLine = (count: number) => PRAISE[count % PRAISE.length]
@@ -128,6 +109,11 @@ export function retryLine(reason: OnsetReason | null, text: string): string {
   if (reason === 'no_vowel') return `바람 소리 좋아! 끝까지 이어서 말해 볼까? ${text}!`
   return RETRY_LINE
 }
-export const listenAgainLine = (text: string) => `두두가 다시 들려줄게. ${text}!`
+/** 두두가 먼저 들려주기 전에 하는 말. 이어서 박에 맞춰 낱말만 부른다(리듬, rhythm.ts). */
+export const MODEL_LEAD = '두두 따라 해 봐.'
+export const LISTEN_AGAIN_LEAD = '두두가 다시 들려줄게.'
+export const listenAgainLine = (text: string) => `${LISTEN_AGAIN_LEAD} ${text}!`
 export const MISS_LINE = '앗, 지나가 버렸네! 한 번 더 온다!'
-export const modelLine = (text: string) => `두두 따라 해 봐. ${text}!`
+export const modelLine = (text: string) => `${MODEL_LEAD} ${text}!`
+/** 두두가 박에 맞춰 부르는 말(음성 파일 '사!' 등). */
+export const callWord = (text: string) => `${text}!`
