@@ -3,7 +3,14 @@
  * 화면 연출일 뿐 임상 자료가 아니다. 깜박임 없이 한 번만 터지고(초당 3회 미만), 빨간색을 쓰지 않으며,
  * 움직임 줄이기에서는 별 하나만 멈춰서 보여 준다. 효과음은 듣기가 끝난 뒤에만 낸다(마이크에 들어가지 않게).
  */
+import { VOICE_CREDIT } from '../speech/duduClips'
+
 const COLORS = ['#f4b400', '#7ac13a', '#13a389', '#ffffff', '#ffd75e', '#9be15d']
+
+/** 두두 음성(VOLI 무료 플랜) 출처 표기. 두두가 말하는 화면 아래에 작게 둔다. */
+export function VoiceCredit() {
+  return <p className="voice-credit">{VOICE_CREDIT}</p>
+}
 
 export type PopKind = 'perfect' | 'good'
 

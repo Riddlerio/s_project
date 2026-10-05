@@ -10,6 +10,7 @@ import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
 import { KoreanTts } from '../speech/koreanTts'
 import './duduDemo.css'
+import { VoiceCredit } from './demoFx'
 
 /** 대화를 마치고 두두가 권하는 게임. 화면 아래 버튼으로 들어간다(2026-10-05 데모 흐름). */
 export const CROSSING_PATH = '/play/crossing'
@@ -208,5 +209,6 @@ export default function HoyaChat() {
       </button>
       {!suggested && <button className="quiet dudu-skip" onClick={goCrossing}>선생님: 게임으로 넘기기</button>}
     </nav>}
+    <VoiceCredit />
   </main>
 }

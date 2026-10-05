@@ -13,7 +13,7 @@ import type { Acoustic } from '../shared/types'
 import { AudioCapture } from '../speech/audioCapture'
 import { detectCapabilities, missingText, supportsRealMode } from '../speech/capabilities'
 import { KoreanTts } from '../speech/koreanTts'
-import { playFx, PopBurst, type PopKind } from './demoFx'
+import { playFx, PopBurst, VoiceCredit, type PopKind } from './demoFx'
 import { isName } from './koreanText'
 import './duduDemo.css'
 
@@ -316,5 +316,6 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       </div>}
     </>}
     {error && <p role="alert" className="notice">{error}</p>}
+    <VoiceCredit />
   </div></main>
 }

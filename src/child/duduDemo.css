@@ -86,6 +86,9 @@
 .dudu-status { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem auto; padding: .3rem .8rem; border-radius: 999px; background: #ffffffcc; color: var(--forest); font-weight: 800; font-size: .88rem; }
 .dudu-status:empty { display: none; }
 
+/* 두두 음성 출처 표기(VOLI 무료 플랜 조건) */
+.voice-credit { margin: 1.2rem auto .4rem; text-align: center; color: var(--muted); font-size: .72rem; opacity: .85; }
+
 @media (prefers-reduced-motion: reduce) {
   .dudu-next-game.suggested .dudu-next-button, .dudu-next-hint, .crossing-ring.open, .crossing-countdown, .pop-burst *, .pop-label { animation: none !important; }
   .crossing-card { transition: none !important; }

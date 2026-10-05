@@ -120,10 +120,10 @@ const PRAISE = ['정말 잘했어!', '좋아!', '멋져!', '최고야!']
 export const praiseLine = (count: number) => PRAISE[count % PRAISE.length]
 /** 다시: 실패라고 하지 않고 소리 단서를 하나 준다(/ㅅ/: 바람 소리). */
 export const RETRY_LINE = "바람 소리 '스~'를 먼저 내 볼까?"
-/** 무엇이 달랐는지에 맞춘 단서 하나(수행에 대한 피드백). 이유를 모르면 기본 단서. */
+/** 무엇이 달랐는지에 맞춘 단서 하나(수행에 대한 피드백). 이유를 모르면 기본 단서. 문장은 두두 음성 파일(duduClips)과 같다. */
 export function retryLine(reason: OnsetReason | null, text: string): string {
-  if (reason === 'short_frication') return `바람 소리를 조금 더 길게! 스~ ${text}!`
-  if (reason === 'no_vowel') return `바람 소리 좋아! 이번엔 끝까지 이어서, ${text}!`
+  if (reason === 'short_frication') return `바람 소리를 조금 더 길게 내 볼까? ${text}!`
+  if (reason === 'no_vowel') return `바람 소리 좋아! 끝까지 이어서 말해 볼까? ${text}!`
   return RETRY_LINE
 }
 export const listenAgainLine = (text: string) => `두두가 다시 들려줄게. ${text}!`

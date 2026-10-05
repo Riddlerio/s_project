@@ -149,3 +149,55 @@ describe('두두 한국어 음성의 입력 차단과 종료 유예', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 })
+
+describe('두두 음성 파일 재생', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  function withClips(covered: boolean) {
+    const hooks: { onStart(): void; onEnd(): void; onError(): void }[] = []
+    const stop = vi.fn()
+    const clips = { plan: (text: string) => covered ? [`/clip/${text}.wav`] : null, play: vi.fn((_urls: readonly string[], h: (typeof hooks)[number]) => { hooks.push(h); return { stop } }) }
+    const synthesis = { cancel: vi.fn(), speak: vi.fn() }
+    const utterances: SpeechSynthesisUtterance[] = []
+    const tts = new KoreanTts({ synthesis, clips, timeoutMs: 5000, createUtterance: text => { const u = { text, onstart: null, onend: null, onerror: null } as unknown as SpeechSynthesisUtterance; utterances.push(u); return u } })
+    return { tts, clips, hooks, stop, synthesis, utterances }
+  }
+
+  it('파일이 있으면 파일을 재생하고, 같은 차단·유예 규칙으로 끝낸다', async () => {
+    const t = withClips(true)
+    const events = { onStart: vi.fn(), onEnd: vi.fn() }
+    const speech = t.tts.speak('정말 잘했어!', events)
+    expect(t.tts.blocked).toBe(true)
+    expect(t.synthesis.speak).not.toHaveBeenCalled()
+    t.hooks[0].onStart(); expect(events.onStart).toHaveBeenCalledOnce()
+    t.hooks[0].onEnd()
+    vi.advanceTimersByTime(KOREAN_TTS_RELEASE_DELAY_MS)
+    expect(t.tts.blocked).toBe(false)
+    expect(await speech.finished).toBe('ended')
+    expect(events.onEnd).toHaveBeenCalledOnce()
+  })
+
+  it('파일을 못 틀면 같은 말을 브라우저 음성으로 하고, 취소하면 파일 재생도 멈춘다', async () => {
+    const t = withClips(true)
+    const first = t.tts.speak('정말 잘했어!')
+    t.hooks[0].onError()
+    expect(t.synthesis.speak).toHaveBeenCalledOnce()
+    expect(t.utterances[0].text).toBe('정말 잘했어!')
+    t.utterances[0].onend?.({} as SpeechSynthesisEvent)
+    vi.advanceTimersByTime(KOREAN_TTS_RELEASE_DELAY_MS)
+    expect(await first.finished).toBe('ended')
+    const second = t.tts.speak('좋아!')
+    second.cancel()
+    expect(t.stop).toHaveBeenCalled()
+    vi.advanceTimersByTime(KOREAN_TTS_RELEASE_DELAY_MS)
+    expect(await second.finished).toBe('cancelled')
+  })
+
+  it('파일이 없는 말은 처음부터 브라우저 음성으로 한다', () => {
+    const t = withClips(false)
+    t.tts.speak('처음 듣는 말이야.')
+    expect(t.clips.play).not.toHaveBeenCalled()
+    expect(t.synthesis.speak).toHaveBeenCalledOnce()
+  })
+})

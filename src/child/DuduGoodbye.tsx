@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { KoreanTts } from '../speech/koreanTts'
 import { Hoya3D } from '../tiger/Hoya3D'
-import { PopBurst } from './demoFx'
+import { PopBurst, VoiceCredit } from './demoFx'
 import { hasFinalConsonant } from './koreanText'
 import './duduDemo.css'
 
@@ -17,7 +17,8 @@ export function goodbyeLines({ attempts = 0, word = '사과' }: Arrival): string
   const sound = word.slice(0, 1)
   const quote = `'${word}'${hasFinalConsonant(word) ? '이라고' : '라고'}`
   return [
-    attempts > 0 ? `오늘 나랑 대구대까지 건넜지! '${sound}' 소리를 ${attempts}번이나 말했어.` : '오늘 나랑 대구대까지 건넜지!',
+    // 횟수 대신 '정말 많이': 두두 음성 파일로 말할 수 있게 문장을 고정한다(숫자는 치료사 화면에 남는다).
+    attempts > 0 ? `오늘 나랑 대구대까지 건넜지! '${sound}' 소리를 정말 많이 말했어.` : '오늘 나랑 대구대까지 건넜지!',
     `집에서도 ${quote} 말해 볼까?`,
     '오늘 나랑 얘기해 줘서 고마워. 다음에 또 만나!',
   ]
@@ -59,5 +60,6 @@ export default function DuduGoodbye() {
     {ended && <div className="crossing-controls">
       <button onClick={() => navigate('/play')}>처음으로</button>
     </div>}
+    <VoiceCredit />
   </main>
 }
