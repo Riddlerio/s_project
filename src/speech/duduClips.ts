@@ -1,49 +1,16 @@
 /*
  * 두두 목소리 파일(VOLI 베이직 보이스 '하람', 무료 플랜, 2026-10-05 생성, 16kHz 모노 WAV).
  * 무료 플랜 조건: 비상업적 사용, 출처 표기 필수(VOICE_CREDIT을 화면에 보인다). 자세한 내용: docs/handoff/DUDU_VOICE_VOLI_2026-10-05.md
- * 문장(마침표·느낌표·물음표 단위)이 모두 여기 있으면 파일을 이어 재생하고, 하나라도 없으면 브라우저 음성으로 말한다.
+ * 문장(마침표·느낌표·물음표 단위)이 모두 목록에 있으면 파일을 이어 재생하고, 하나라도 없으면 브라우저 음성으로 말한다.
+ * 목록은 shared/dudu_voice_lines.json에 있고, 백엔드 테스트가 DEMO 대화 대본의 모든 문장이 목록에 있는지 확인한다.
  */
+import DUDU_VOICE_LINES from '../../shared/dudu_voice_lines.json'
+
 export const VOICE_CREDIT = '이 콘텐츠는 VOLI의 AI보이스를 활용하여 제작되었습니다. https://voli.ai'
 export const DUDU_CLIP_BASE = '/assets/voice/dudu/'
 
 /** [앱이 말하는 문장, 파일 이름] */
-export const DUDU_CLIPS: readonly (readonly [string, string])[] = [
-  ['사!', 'w_sa'],
-  ['소!', 'w_so'],
-  ['시!', 'w_si'],
-  ['수!', 'w_su'],
-  ['사과!', 'w_sagwa'],
-  ['수박!', 'w_subak'],
-  ['시소!', 'w_siso'],
-  ['소리!', 'w_sori'],
-  ['두두 따라 해 봐.', 'c_model'],
-  ['두두가 다시 들려줄게.', 'c_again'],
-  ['정말 잘했어!', 'p_great'],
-  ['좋아!', 'p_good'],
-  ['멋져!', 'p_cool'],
-  ['최고야!', 'p_best'],
-  ['딱 맞았어!', 'p_perfect'],
-  ["바람 소리 '스~'를 먼저 내 볼까?", 'r_wind'],
-  ['바람 소리를 조금 더 길게 내 볼까?', 'r_longer'],
-  ['바람 소리 좋아!', 'r_windgood'],
-  ['끝까지 이어서 말해 볼까?', 'r_through'],
-  ['앗, 지나가 버렸네!', 'm_oops'],
-  ['한 번 더 온다!', 'm_again'],
-  ['남은 길은 두두랑 같이 가자!', 'a_walk'],
-  ['도착!', 'a_arrive'],
-  ['역시 바람용사야!', 'a_name'],
-  ['역시 최고야!', 'a_best'],
-  ['오늘 나랑 대구대까지 건넜지!', 'g_crossed'],
-  ["'사' 소리를 정말 많이 말했어.", 'g_many'],
-  ["집에서도 '사과'라고 말해 볼까?", 'g_home'],
-  ['오늘 나랑 얘기해 줘서 고마워.', 'g_thanks'],
-  ['다음에 또 만나!', 'g_bye'],
-  ['안녕~ 만나서 반가워!', 'h_hello'],
-  ['바람용사야.', 'h_name'],
-  ['나는 두두야.', 'h_dudu'],
-  ['우리 게임 해 볼까?', 'h_game'],
-  ["아래 '대구대 건너기'를 눌러 볼래?", 'h_press'],
-]
+export const DUDU_CLIPS: readonly (readonly [string, string])[] = DUDU_VOICE_LINES.map(([text, id]) => [text, id] as const)
 
 const CLIP_BY_TEXT = new Map(DUDU_CLIPS.map(([text, id]) => [text, id]))
 /** 문장 사이 쉼(ms). 이어 붙인 파일이 한 사람이 말하듯 들리게 짧게 둔다. */
