@@ -260,3 +260,10 @@ def test_late_provider_response_cannot_overwrite_stale_transition(api, monkeypat
         turn = db.scalar(select(HoyaChatTurn).where(HoyaChatTurn.session_id == session_id))
         assert turn.provider == "DEMO_FALLBACK" and turn.fallback_reason == "STALE_PROCESSING"
         assert db.get(HoyaChatSession, session_id).summary_json["nextActivityFromTurnIndex"] == 1
+
+
+def test_opening_calls_hero_name_with_vocative_particle():
+    # 부르는 말은 받침에 따라 아/야(두두 음성 파일이 있는 DEMO 별명은 받침이 없다).
+    from app.hoya.providers.demo_provider import opening_text
+    assert opening_text("두두친구") == "안녕~ 만나서 반가워! 두두친구야. 나는 두두야."
+    assert opening_text("튼튼곰") == "안녕~ 만나서 반가워! 튼튼곰아. 나는 두두야."

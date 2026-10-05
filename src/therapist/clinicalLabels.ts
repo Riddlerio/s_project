@@ -31,6 +31,11 @@ export function sessionSourceText(session: { mode?: string; isSeed?: boolean }):
   return session.isSeed ? '샘플' : session.mode === 'real' ? '실제' : 'DEMO'
 }
 
+/** 회기 진행 상태. 서버 값(active·completed)을 화면에 영어로 보이지 않게 한다. */
+export function sessionStatusText(status?: string | null): string {
+  return status === 'completed' ? '완료' : status === 'active' ? '진행 중' : '상태 미상'
+}
+
 export type RecommendationProvenance = { sessionMode: string | null; sessionIsSeed: boolean; clinicalEligible: boolean; demoPractice: boolean }
 
 /** legacy 추천 카드의 출처 표시. 임상 근거 회기에서 나온 추천에는 표시가 없다. */

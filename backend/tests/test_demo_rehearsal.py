@@ -167,6 +167,27 @@ def test_reset_only_today_seoul_demo_records_and_preserves_accounts_goals_other_
     assert not any(reset_today(engine, demo_enabled=True, current_time=TODAY)["deleted"].values())
 
 
+def test_reset_include_mic_also_removes_dedicated_childs_real_mode_records_only(demo_db):
+    # 마이크 리허설: 전용 seed 아동의 오늘 real 모드 회기까지 지운다. seed가 아닌 기록·다른 아동·다른 날은 그대로다.
+    engine, identity = demo_db
+    child_id = identity["childId"]
+    with Session(engine) as db, db.begin():
+        mic_game = game_record(db, child_id, TODAY, mode="real")[0]
+        mic_chat = chat_record(db, child_id, TODAY, mode="real")
+        demo_game = game_record(db, child_id, TODAY)[0]
+        kept = [game_record(db, child_id, TODAY, mode="real", is_seed=False)[0],
+                game_record(db, child_id, MIDNIGHT - timedelta(microseconds=1), mode="real")[0]]
+        kept_chat = chat_record(db, child_id, TODAY, mode="real", is_seed=False)
+    assert not reset_today(engine, demo_enabled=True, current_time=TODAY)["includeMic"]
+    with Session(engine) as db:
+        assert db.get(TrainingSession, mic_game) and db.get(HoyaChatSession, mic_chat) and db.get(TrainingSession, demo_game) is None
+    result = reset_today(engine, demo_enabled=True, current_time=TODAY, include_mic=True)
+    assert result["includeMic"] and result["deleted"]["training_sessions"] == 1 and result["deleted"]["hoya_chat_sessions"] == 1
+    with Session(engine) as db:
+        assert db.get(TrainingSession, mic_game) is None and db.get(HoyaChatSession, mic_chat) is None
+        assert all(db.get(TrainingSession, sid) for sid in kept) and db.get(HoyaChatSession, kept_chat)
+
+
 @pytest.mark.parametrize("damage", ["disabled", "marker", "ownership", "not_seed", "account"])
 def test_reset_rejects_production_or_invalid_identity_without_changes(demo_db, damage):
     engine, identity = demo_db

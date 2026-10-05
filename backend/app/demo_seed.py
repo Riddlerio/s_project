@@ -141,8 +141,12 @@ def _protect_references(db, child, session_ids, utterance_ids, observation_ids):
             raise DemoSafetyError("활동 제안의 보존 근거가 삭제 대상 기록을 참조합니다.")
 
 
-def reset_today(engine, *, demo_enabled: bool, current_time: datetime | None = None) -> dict:
-    """한국시간 오늘 시작한 전용 아동의 seed·DEMO 회기만 한 트랜잭션에서 지운다."""
+def reset_today(engine, *, demo_enabled: bool, current_time: datetime | None = None, include_mic: bool = False) -> dict:
+    """한국시간 오늘 시작한 전용 아동의 seed·DEMO 회기만 한 트랜잭션에서 지운다.
+
+    include_mic=True면 같은 전용 seed 아동의 오늘 마이크(real 모드) 회기도 지운다. 시연은 마이크로 하므로 리허설을
+    반복할 때 쓴다. 전용 DB·전용 아동·seed·오늘·임상 검증 전 기록이라는 나머지 제한은 그대로다.
+    """
     instant = current_time or now()
     if instant.tzinfo is None:
         raise DemoSafetyError("초기화 기준 시각에는 시간대가 필요합니다.")
@@ -155,7 +159,8 @@ def reset_today(engine, *, demo_enabled: bool, current_time: datetime | None = N
         db.connection().exec_driver_sql("BEGIN IMMEDIATE")
         child = _identity(db)
         def today(model):
-            return (model.child_id == child.id, model.is_seed.is_(True), model.mode == "demo",
+            modes = ("demo", "real") if include_mic else ("demo",)
+            return (model.child_id == child.id, model.is_seed.is_(True), model.mode.in_(modes),
                     model.started_at >= start, model.started_at < end)
         session_ids = set(db.scalars(select(TrainingSession.id).where(*today(TrainingSession))).all())
         chat_ids = set(db.scalars(select(HoyaChatSession.id).where(*today(HoyaChatSession))).all())
@@ -181,4 +186,4 @@ def reset_today(engine, *, demo_enabled: bool, current_time: datetime | None = N
         # 기존 감사 기록·계정·목표·실행 계획·소지품은 보존한다.
         db.add(AuditEvent(actor_id=child.therapist_id, resource_id=child.id,
                           action="DEMO_REHEARSAL_RESET", result=f"SEOUL_{day.isoformat()}"))
-        return {"date": day.isoformat(), "timeZone": "Asia/Seoul", "childId": child.id, "deleted": counts}
+        return {"date": day.isoformat(), "timeZone": "Asia/Seoul", "childId": child.id, "includeMic": include_mic, "deleted": counts}

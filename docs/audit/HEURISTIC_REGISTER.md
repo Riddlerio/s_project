@@ -66,6 +66,11 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 난이도 배율 1 + 0.15×(d−2), 800–3500ms 범위, d는 1–5, 시작값 2 | `games/rounds.py`의 `effective_round`, `main.py`의 `start_activity` | 난이도 조정 | UNKNOWN |
 | 성공 비율 ≥ 2/3이고 올림 < 2회면 올림. 성공 비율 ≤ 1/3이 2회면 한 번만 내림 | `games/rounds.py`의 `next_difficulty` | 난이도 규칙 | UNKNOWN |
 | 다시 듣기 ≥ 2회면 중립 건너뛰기 | `main.py`의 `activity_utterance` | 불확실 처리 | UNKNOWN |
+| 대구대 건너기 ONSET_FRICATION: 시작 마찰 ≥ 70ms이고 마찰 뒤 유성 ≥ 80ms. 잡음보다 15dB 미만이면 불확실(공용 음질 기준 8dB보다 엄격) | `games/evaluation.py`의 `ONSET_FRICATION_MS`·`VOICED_AFTER_FRICATION_MS`·`ONSET_MIN_SNR_DB`. 화면 사본 `src/game/crossing/crossingFlow.ts`의 `ONSET_RULE` | 줄 통과(음향 근사) | PRODUCT_HEURISTIC. 2026-10-05 성인 1명 PC 마이크 실측 2회(정답 확인 포함): 바른 '사' 79~99ms, '차·자' 39~59ms. 임상 검증 아님([MIC_MEASUREMENT](../handoff/MIC_MEASUREMENT_2026-10-05.md)) |
+| 대구대 건너기 진행: 5라운드 × 2줄, 줄당 최대 3번 시도, 불확실·무발화는 시도를 쓰지 않고 같은 줄에서 연속 3번이면 중립 이동 | `games/crossing.py` | 진행 | PRODUCT_HEURISTIC(사용자 결정 2026-10-05) |
+| 건너기 화면 발화 감지: 시작 여유 9dB, 바닥 -56dB, 앞부분 되살리기 최대 400ms, 시작 마찰 앞 40ms·도중 20ms 봐주기 | `src/game/crossing/onsetPipeline.ts` | 조용한 /ㅅ/ 감지 | PRODUCT_HEURISTIC(실측: 조용한 '스'를 놓침, 숨소리 한 프레임에 시작 마찰 0) |
+| 건너기 속도: 말풍선 접근 5000ms·말하기 창 4000ms에서 시작, 최소 2500/2500. 최근 8번 중 7번 성공이면 0.5초씩(한 번에 하나), 2번 연속 어려우면 느리게 | `src/game/crossing/crossingFlow.ts`의 `nextPace` | 속도 조절 | UNKNOWN |
+| '딱 맞았어!' 창: 카드가 동그라미에 든 뒤 1.5초 안에 말 시작 | `src/child/DaeguCrossing.tsx`의 `ON_TIME_MS` | 화면 연출(임상 자료 아님) | PRODUCT_HEURISTIC |
 
 ## 5. legacy 훈련 정책(기존 모험)
 
@@ -118,6 +123,10 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 응답 120자, 질문 부호 ≤ 1개, 최근 5턴 context | `hoya/validator.py`, `hoya/prompt/*` | 응답 형식 | UNKNOWN |
 | 같은 UNCERTAIN이 반복되면 SIMPLIFY. TARGET_NOT_OBSERVED가 반복되면 단서 허용 | `hoya/policy.py` | 전략 | UNKNOWN |
 | "음..." 지연 750ms | `src/child/hoyaChatController.ts`의 `HOYA_THINKING_FILLER_DELAY_MS` | UX | UNKNOWN |
+| 게임 전환: 목표 관찰(TARGET_OBSERVED) 턴 ≥ 10이고 서버 시간 ≥ 120초, 또는 ≥ 300초, 또는 무발화 연속 4턴(3턴째에 쉬운 질문 먼저). 관찰 횟수는 발음 정확도가 아니다 | `hoya/transitions.py` | 대화 → 대구대 건너기 안내 | PRODUCT_HEURISTIC(사용자 데모 흐름 승인 2026-10-05: 약 10번·약 5분) |
+| 시작 문구 "안녕~ 만나서 반가워! {별명}아/야. 나는 두두야."(받침에 따라 아/야), 전환 문구 "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?" | `hoya/providers/demo_provider.py`의 `opening_text`, `hoya/transitions.py`의 `TRANSITION_TEXT` | 대본 | PRODUCT_HEURISTIC |
+| DEMO 유도 대본: 선택 질문·빈칸 채우기·먼저 들려주고 권하기·바르게 다시 들려주기를 돌려 쓴다(음절 단계는 먼저 들려주기를 더 자주) | `hoya/providers/demo_provider.py` | /ㅅ/ 낱말 유도 | PRODUCT_HEURISTIC |
+| 두두 음성 파일: 말의 모든 문장이 목록에 있을 때만 파일 재생(아니면 전부 브라우저 음성), 문장 사이 120ms | `src/speech/duduClips.ts`, `shared/dudu_voice_lines.json` | 목소리 일관성 | PRODUCT_HEURISTIC |
 
 ## 10. 변경할 때의 규칙
 

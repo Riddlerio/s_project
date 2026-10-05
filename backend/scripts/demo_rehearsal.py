@@ -3,6 +3,7 @@
 SEED_DEMO_DATA=true 설정 후 실행:
   python backend/scripts/demo_rehearsal.py provision --database backend/test-temp/rehearsal.db
   python backend/scripts/demo_rehearsal.py reset-today --database backend/test-temp/rehearsal.db
+  python backend/scripts/demo_rehearsal.py reset-today --include-mic --database backend/test-temp/rehearsal.db  # 마이크 리허설 기록까지
 
 서버 DATABASE_URL도 위 DB의 절대 경로로 명시한다. reset 전 진행 중인 리허설을 멈춘다.
 """
@@ -35,6 +36,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="명시적으로 만든 로컬 DEMO 리허설 DB만 관리합니다.")
     parser.add_argument("command", choices=("provision", "reset-today"))
     parser.add_argument("--database", required=True, help="로컬 SQLite DB 파일 경로(기본 DB를 사용하지 않음)")
+    parser.add_argument("--include-mic", action="store_true", help="reset-today에서 전용 아동의 오늘 마이크(real 모드) 회기도 지운다")
     args = parser.parse_args(argv)
     if not settings.seed_demo_data:
         raise DemoSafetyError("SEED_DEMO_DATA=true가 필요합니다. 실제 DB에서는 실행하지 않습니다.")
@@ -61,7 +63,7 @@ def main(argv=None):
             result["database"] = str(path)
             result["notice"] = "시연 전용 샘플 계정입니다. 기존 DEMO 로그인 계정은 유지합니다."
         else:
-            result = reset_today(engine, demo_enabled=settings.seed_demo_data)
+            result = reset_today(engine, demo_enabled=settings.seed_demo_data, include_mic=args.include_mic)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return result
     finally:

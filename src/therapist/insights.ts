@@ -34,6 +34,9 @@ export const FLAG_LABELS: Record<string, string> = {
   NO_NOISE_FLOOR: '잡음 기준 미측정', TARGET_OBSERVED: '목표 관찰',
   PENDING: '검토 대기', REJECTED: '치료사 거부', NOT_EVALUABLE: '정오 평가 보류', DEMO: 'DEMO', SAMPLE: '샘플',
 }
+export const INDEPENDENCE_LABELS: Record<string, string> = { MODELED: '시범 후', INDEPENDENT: '혼자', UNKNOWN: '미기록' }
+export const QUALITY_LABELS: Record<string, string> = { GOOD: '좋음', FAIR: '보통', POOR: '나쁨', UNKNOWN: '미측정' }
+export const MEASUREMENT_SOURCE_LABELS: Record<string, string> = { CLIENT_REPORTED: '아동 기기 측정값', SYSTEM_MEASURED: '서버 측정', UNKNOWN: '미상' }
 export const CUE_NAMES: Record<string, string> = { NONE: '단서 없음', AUDITORY_MODEL: '소리 시범', PICTURE: '그림 단서', VISUAL: '시각 단서', AUDITORY: '청각 단서', MODEL: '모델 제시', COMBINED: '복합 단서', UNKNOWN: '단서 미기록' }
 export const cueText = (counts: Record<string, number>) => Object.entries(counts).map(([cue, count]) => `${CUE_NAMES[cue] || cue} ${count}건`).join(' · ') || '자료 없음'
 export const insightRate = (stats: InsightStats) => stats.successRate === null ? '자료 없음' : `${stats.successRate}% (${stats.successN}/${stats.evaluableN}건)`

@@ -86,3 +86,37 @@ npm.cmd audit
 7. **Phase 7, TherapyRun:** 승인된 계획 실행, LangGraph 회기 오케스트레이션
 
 각 Phase 경계마다 발견 사항, 제안, 변경 파일, 위험을 보여 주고 사용자 승인(APPROVE / MODIFY / REJECT)을 받은 뒤에 진행한다.
+
+## 8. 5일 데모 변경 기록 (2026-10-05)
+
+**승인 근거**
+- 사용자가 5일 데모 흐름을 승인했다(대화 약 10번·약 5분 뒤 '대구대 건너기' 안내, `DEMO_FLOW_PLAN_2026-10-05.md`).
+- Codex 세션의 승인 로그: "승인 절차 하자라고 하기 전까지 알아서 진행"(`CODEX_DEMO_TASK_2026-10-05.md` 7절).
+- Codex가 토큰을 다 써서 사용자 요청으로 Claude가 서버·치료사 작업을 이어받았다.
+
+**`backend/app/hoya/**`**
+- 대화 턴 200 응답에 `nextActivity: "daegu_crossing" | null` 하나만 추가했다. 기존 필드·경로·상태 코드(200/202/409)는 그대로다.
+- `SpeechEvidence` 값과 제공자 라벨은 바꾸지 않았다.
+- `TARGET_OBSERVED`는 '목표 낱말이 든 시도' 횟수로만 센다. 정확한 발음으로 취급하지 않는다.
+- 시작 문구·전환 규칙·DEMO 유도 대본은 heuristic이다(`HEURISTIC_REGISTER.md` 9절).
+
+**`backend/app/games/`**
+- 새 게임 id `daegu_crossing`을 추가했다. 기존 4게임의 동작과 저장된 과거 상태는 그대로다.
+- 판정 규칙 `ONSET_FRICATION`은 새 heuristic이다(4절).
+- 결과 어휘와 태그는 기존 값(`POOR_AUDIO`, `NO_ACOUSTIC_EVIDENCE`, `DEMO_INPUT`)만 쓴다.
+
+**`backend/app/speech/**`·`pronunciation/**`(interface 동결)**
+- 바꾸지 않았다. `AcousticSummary` 필드도 그대로다.
+
+**`backend/app/therapist_planning/**`**
+- schema는 바꾸지 않았다. 계획의 게임 목록에 새 게임을 넣지 않았다(데모는 계획이 게임을 구동하지 않는다. Phase 7 미착수).
+- 빛의 마법은 활동 제안 선택지에서만 숨겼다. 게임 id·과거 기록·치료사 기록 보기는 유지한다.
+
+**`src/speech/**`(HIGH_RISK_TO_TOUCH, 사용자 요청: '스' 감지 개선·두두 목소리 교체)**
+- `SustainTracker`에 선택 인자 `OnsetTolerance`를 추가했다. 기본값 0이면 기존 동작이고, 대구대 건너기만 쓴다.
+- `KoreanTts`가 두두 음성 파일(VOLI '하람')을 재생한다. 말의 모든 문장이 파일로 있을 때만 재생하고, 재생에 실패하면 같은 말을 브라우저 음성으로 한다. 입력 차단·종료 유예 규칙은 같다.
+- 새 파일 `duduClips.ts`를 추가했다.
+- 캡처→파이프라인→인식기→제출 순서와 `CALIBRATION_MS`는 바꾸지 않았다.
+- 테스트: `onsetPipeline.test.ts`(기본값과 봐주기 비교), `koreanTts.test.ts`, `duduClips.test.ts`, `backend/tests/test_dudu_voice_lines.py`.
+
+**회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 [OK](리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.

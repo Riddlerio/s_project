@@ -21,7 +21,8 @@ const expectation = (tag: string) => (CORRECT_TAGS as readonly string[]).include
 // 대구대 건너기와 같은 판정(crossingFlow.judgeOnset)과 이유를 그대로 보여 준다.
 const REASON_TEXT: Record<OnsetReason, string> = {
   ok: '맞음: 바람 소리 + 모음', no_frication: '다시: 바람 소리 없음(다·아 쪽)', short_frication: '다시: 바람 소리 짧음(차·자 쪽)',
-  no_vowel: '다시: 바람 소리만(모음 없음)', quiet: '판단 안 함: 너무 작음', too_short: '판단 안 함: 너무 짧음', no_speech: '말 없음',
+  no_vowel: '다시: 바람 소리만(모음 없음)', quiet: '판단 안 함: 너무 작음', too_short: '판단 안 함: 너무 짧음(0.3초 미만)',
+  poor_audio: '판단 안 함: 너무 길거나 소리 깨짐', no_speech: '말 없음',
 }
 // 시작 마찰은 대구대 건너기와 같은 경로로 잰다: 발화 감지(잡음+12dB) 전에 지나간 조용한 /ㅅ/를 앞부분에서 되살린다.
 

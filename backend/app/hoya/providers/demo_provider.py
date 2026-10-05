@@ -9,8 +9,8 @@ OPENING = "안녕~ 만나서 반가워! 나는 두두야."
 
 
 def opening_text(hero_name: str) -> str:
-    """등록한 별명만 시작 인사에 넣는다. 제공자에게 별명을 전달하지 않는다."""
-    return f"안녕~ 만나서 반가워! {hero_name}야. 나는 두두야."
+    """등록한 별명만 시작 인사에 넣는다. 제공자에게 별명을 전달하지 않는다. 부르는 말은 받침에 따라 아/야."""
+    return f"안녕~ 만나서 반가워! {hero_name}{'아' if _has_final(hero_name) else '야'}. 나는 두두야."
 
 
 # 기존 conversation_candidates에 있는 낱말 중 허용된 것만 골라 쓴다.

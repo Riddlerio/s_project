@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, verificationText, type SummaryRow } from './clinicalLabels'
+import { INDEPENDENCE_LABELS, MEASUREMENT_SOURCE_LABELS, QUALITY_LABELS } from './insights'
+import { evidenceBadges, rateText, recommendationBadges, sampleText, sessionSourceText, sessionStatusText, verificationText, type SummaryRow } from './clinicalLabels'
 
 const row = (values: Partial<SummaryRow>): SummaryRow => ({
   roundIndex: 1, clinicalFocus: '', totalObservedN: 0, evaluableN: 0, demoN: 0, aiSupportedSuccesses: 0,
@@ -42,4 +43,20 @@ describe('회기·추천 출처 표시', () => {
   })
 
 
+})
+
+describe('회기 상태 이름표', () => {
+  it('서버 상태 값을 한국어로 보인다', () => {
+    expect(sessionStatusText('completed')).toBe('완료')
+    expect(sessionStatusText('active')).toBe('진행 중')
+    expect(sessionStatusText(undefined)).toBe('상태 미상')
+  })
+})
+
+describe('관찰 카드 이름표', () => {
+  it('독립성·음질·음향 출처를 영어 코드 대신 한국어로 보인다', () => {
+    expect([INDEPENDENCE_LABELS.MODELED, INDEPENDENCE_LABELS.INDEPENDENT, INDEPENDENCE_LABELS.UNKNOWN]).toEqual(['시범 후', '혼자', '미기록'])
+    expect(QUALITY_LABELS.UNKNOWN).toBe('미측정')
+    expect(MEASUREMENT_SOURCE_LABELS.CLIENT_REPORTED).toBe('아동 기기 측정값')
+  })
 })

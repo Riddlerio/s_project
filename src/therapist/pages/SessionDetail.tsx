@@ -3,9 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { feedback, sessionDetail } from '../../api/therapist'
 import { getToken } from '../auth'
 import ConversationInsights from '../ConversationInsights'
-import { ACTIVITY_LABELS } from '../planning'
+import { ACTIVITY_LABELS, LEVEL_LABELS } from '../planning'
 import ClinicalTimeline from '../ClinicalTimeline'
-import { sessionSourceText } from '../clinicalLabels'
+import { sessionSourceText, sessionStatusText } from '../clinicalLabels'
 
 export default function SessionDetail() {
   const { id = '' } = useParams()
@@ -21,8 +21,8 @@ export default function SessionDetail() {
   }
   const v2 = Boolean(data?.session?.activityGame)
   return <main className="therapist-screen"><Link to="/therapist">← 아동 현황</Link><h1>세션 상세</h1>
-    <p>{data?.session?.mode} · {data?.session?.status} · {data?.session ? `${sessionSourceText(data.session)} 회기` : ''}</p>
-    <p>목표 v{data?.goal?.version} · /{data?.goal?.target_phoneme}/ · {data?.goal?.level}</p>
+    <p>{data?.session ? `${sessionSourceText(data.session)} 회기 · ${sessionStatusText(data.session.status)}` : ''}</p>
+    <p>목표 v{data?.goal?.version} · /{data?.goal?.target_phoneme}/ · {LEVEL_LABELS[data?.goal?.level] || data?.goal?.level}</p>
     {error && <p role="alert">{error}</p>}
     {v2 ? <section className="card"><h2>게임 진행</h2><p>{ACTIVITY_LABELS[data?.session?.activityGame as keyof typeof ACTIVITY_LABELS] || data?.session?.activityGame} · 5라운드</p><p>게임 완료·별·XP는 임상 정확도 지표가 아닙니다. 아래 관찰 근거를 검토해 주세요.</p></section>
       : <section className="card"><h2>기존 모험 요약</h2><p>시도 {data?.metrics?.[0]?.attempts || 0} · 성공 {data?.metrics?.[0]?.successes || 0} · 재시도 {data?.metrics?.[0]?.retries || 0} · 힌트 {data?.metrics?.[0]?.hints || 0}</p><p>첫 시도 성공률 {data?.metrics?.[0]?.first_try_success_rate || 0}% · 소요 시간 {data?.session?.summary?.durationSec || 0}초</p></section>}

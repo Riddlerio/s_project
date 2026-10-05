@@ -63,14 +63,16 @@ export class CrossingProgress {
  * - 시작 마찰 70ms 이상(20ms 프레임 4개). 바르게 낸 '사'는 79~80ms였다. 60ms(3프레임)는 'ㅊ·ㅈ'처럼 짧은 마찰도 통과시킬 수 있어 올렸다.
  * - 마찰 뒤 모음 80ms 이상. 바람 소리만 길게 낸 것('스~~')은 '사'가 아니다.
  * - 소리가 잡음보다 15dB 이상 크지 않으면 판단하지 않는다(불확실). 작게 말한 것을 틀렸다고 하지 않기 위해서다.
- * 서버 판정도 같은 값을 쓴다(Codex, HEURISTIC_REGISTER). 혀 위치 차이(치간음 등)는 이 근사로 구분할 수 없어 치료사가 확인한다.
+ * - 길이 300ms 미만·8초 초과, 소리 깨짐 1% 이상도 판단하지 않는다(서버 공용 음질 검사 assess_audio_quality와 같다).
+ * 서버 판정도 같은 값을 쓴다(backend/app/games/evaluation.py, HEURISTIC_REGISTER). 혀 위치 차이(치간음 등)는 이 근사로 구분할 수 없어 치료사가 확인한다.
  */
-export const ONSET_RULE = { onsetFricationMs: 70, voicedAfterMs: 80, minDurationMs: 120, minSnrDb: 15 }
+export const ONSET_RULE = { onsetFricationMs: 70, voicedAfterMs: 80, minDurationMs: 300, maxDurationMs: 8000, maxClippingRatio: 0.01, minSnrDb: 15 }
 /** 판정 이유. success·retry·uncertain을 정하고, '다시'일 때 두두가 줄 단서를 고른다. */
-export type OnsetReason = 'ok' | 'no_frication' | 'short_frication' | 'no_vowel' | 'quiet' | 'too_short' | 'no_speech'
+export type OnsetReason = 'ok' | 'no_frication' | 'short_frication' | 'no_vowel' | 'quiet' | 'too_short' | 'poor_audio' | 'no_speech'
 export function onsetReason(acoustic: Partial<Acoustic>, rule = ONSET_RULE): OnsetReason {
   if (!acoustic.activeMs) return 'no_speech'
   if ((acoustic.durationMs ?? 0) < rule.minDurationMs) return 'too_short'
+  if ((acoustic.durationMs ?? 0) > rule.maxDurationMs || (acoustic.clippingRatio ?? 0) >= rule.maxClippingRatio) return 'poor_audio'
   if (acoustic.noiseFloorDb !== undefined && acoustic.meanRmsDb !== undefined && acoustic.meanRmsDb - acoustic.noiseFloorDb < rule.minSnrDb) return 'quiet'
   const onset = acoustic.onsetFricationMs ?? 0
   if (onset === 0) return 'no_frication'
@@ -82,7 +84,7 @@ export function judgeOnset(acoustic: Partial<Acoustic>, rule = ONSET_RULE): Cros
   const reason = onsetReason(acoustic, rule)
   if (reason === 'ok') return 'success'
   if (reason === 'no_speech') return 'no_speech'
-  return reason === 'quiet' || reason === 'too_short' ? 'uncertain' : 'retry'
+  return reason === 'quiet' || reason === 'too_short' || reason === 'poor_audio' ? 'uncertain' : 'retry'
 }
 
 /** 서버 응답의 사건 목록을 결과로 바꾼다(기존 활동 API 사건 이름). */
