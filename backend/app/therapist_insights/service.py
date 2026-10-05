@@ -14,7 +14,7 @@ LIMITATIONS = [
     "이 읽기 화면은 잡음·클리핑 등 품질 경고도 보수적으로 제외합니다. 기존 계획 제안 계산은 바꾸지 않습니다.",
     "활동·목표 음소·위치·수준이 같은 자료만 비교합니다. 단서 유형은 순서 척도가 아니므로 평균하지 않습니다.",
 ]
-ACOUSTIC_KEYS = ("durationMs", "voicedMs", "bestRunMs", "fricationMs", "onsetLatencyMs",
+ACOUSTIC_KEYS = ("durationMs", "voicedMs", "bestRunMs", "fricationMs", "onsetLatencyMs", "onsetFricationMs", "voicedAfterFricationMs",
                  "meanRmsDb", "noiseFloorDb", "snrDb", "clippingRatio")
 EXCLUDED_QUALITY = {"POOR", "LOW_SNR", "NOISY_FLOOR", "CLIPPING", "TOO_SHORT", "TOO_LONG", "INVALID_ACOUSTIC"}
 

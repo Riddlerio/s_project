@@ -23,3 +23,13 @@ export const updateSessionPlan = (planId: string, form: PlanForm) => api<Session
 export const approveSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/approve`, { method: 'POST' })
 export const cancelSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/cancel`, { method: 'POST' })
 export const cloneSessionPlan = (planId: string) => api<SessionPlan>(`/session-plans/${planId}/clone`, { method: 'POST' })
+
+export interface ConversationSessionInsight {
+  sessionId: string; startedAt: string; status: string; source: 'REAL' | 'DEMO' | 'SAMPLE'
+  completedTurnN: number; targetObservedN: number; uncertainN: number; noSpeechN: number
+}
+export interface ConversationInsightsData { sessions: ConversationSessionInsight[]; limitation: string }
+export const childConversationInsights = (childId: string) =>
+  api<ConversationInsightsData>(`/children/${childId}/conversation-insights`)
+export const gameChildConversationInsights = (sessionId: string) =>
+  api<ConversationInsightsData>(`/sessions/${sessionId}/conversation-insights`)

@@ -129,10 +129,32 @@
 | D4 10/8 | D(DEMO 계정·초기화), 통합 회귀 검사 |
 | D5 10/9 | PR 정리, 리허설 지원 |
 
-## 6. API 약속 (Codex가 채운다)
+## 6. API 약속 (2026-10-05 확정)
 
-| 대상 | 필드 | 상태 |
-|---|---|---|
-| 대화 턴 응답 | `nextActivity: "daegu_crossing" \| null` | 제안 |
-| 활동 시작 | `game: "daegu_crossing"` | 제안 |
-| 발화 응답 | `roundIndex`, `itemIndexInRound`, `stripeIndex`, `triesLeft`, `modelCue`, `sessionComplete`, 다음 항목 | 제안. 확정 이름을 여기에 적는다 |
+Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 연결한다. 기존 네 게임과 아이 쪽 `GameKind` 타입은 이 계약 커밋에서 변경하지 않는다.
+
+| 대상 | 확정 필드·의미 |
+|---|---|
+| 대화 턴 200 | 기존 `status, turnIndex, clientRequestId, text, nextTurnIndex, sessionComplete` 유지. `nextActivity: "daegu_crossing" \| null`만 추가 |
+| 대화 202 | 기존 처리 중 응답 유지. 완료한 요청 재전송은 저장한 같은 문구·전환 값을 반환 |
+| 활동 시작 | `POST /api/activities`, 요청 `{game:"daegu_crossing", mode:"real"\|"demo"}`. 응답 타입 `DaeguCrossingStart` |
+| 시작·재개 응답 | `sessionId, game, mode, heroName, rounds, currentRound, firstItem, nextAttemptIndex`와 아래 진행 필드. 재개 경로의 `leaseToken, completedRounds` 보존 |
+| 진행 필드 | `roundIndex` 1~5, `itemIndexInRound` 1~4, `stripeIndex` 1~20, `triesLeft` 0~3, `modelCue` boolean, `sessionComplete` boolean |
+| 발화 요청 | 기존 `POST /api/activities/{sessionId}/utterances`. `roundIndex, itemId, attemptIndex, transcript, acoustic, recognizer, attack:"basic"`. lease가 있으면 `X-Activity-Lease` 헤더 |
+| 발화 응답 | 타입 `DaeguCrossingResponse`: `result: "success"\|"retry"\|"uncertain"\|"no_speech"`, `events, nextItem, nextAttemptIndex, currentRound`와 진행 필드 |
+| 항목 | 타입 `DaeguCrossingItem`: `itemId, displayText, level, game:"daegu_crossing", pictureKey` |
+| 라운드 | 타입 `DaeguCrossingRound`: `index, id, childTitle, childPrompt`. 임상 메타는 아동 응답에 포함하지 않음 |
+
+- 진행 번호·남은 시도·시범 여부는 **응답 후 표시할 다음 항목** 기준이다. `result`는 방금 제출한 항목의 음향 근사 결과다.
+- 최초 값은 1/1/1, `triesLeft=3`, `nextAttemptIndex=1`이다. 새 항목에서는 시도 번호와 남은 시도를 초기화한다.
+- 같은 항목에서 `nextAttemptIndex`는 수락한 제출마다 증가한다. `uncertain/no_speech`의 제출 번호도 증가하지만 `triesLeft`는 줄지 않는다. 서버가 반환한 번호를 그대로 다음 요청에 사용한다.
+- 완료 시 번호는 5/4/20에 머무르고 `nextItem=null, currentRound=null, triesLeft=0, modelCue=false, sessionComplete=true`다.
+- 음질 보류·무발화는 평가 시도를 소모하지 않는다. 같은 줄에서 연속 세 번이면 중립적으로 다음 줄로 이동한다.
+- 점수·정확도·판정 근거는 새 아동 응답에 넣지 않는다. 관찰은 기존 치료사 API에서만 검토한다.
+- 대화 전환은 목표 관찰 시도 10회 이상+서버 시간 120초 이상, 또는 300초 이상이다. 연속 무발화 3회에는 쉬운 질문을 먼저 하고, 그 다음에도 무발화면 전환한다.
+- 마이크 측정 전 판정 임시값은 onset 60ms·이후 유성 80ms다. 측정하지 않은 값을 검증됐다고 표시하지 않는다.
+
+## 7. 승인 로그
+
+- 2026-10-05 사용자: “앞으로 작업 다 승인할테니까 승인 절차 하자라고 하기전까지 알아서 진행해 대신 승인에 관한 로그 짧게 남겨놔”.
+- 적용: 데모 서버·치료사 범위 및 대화 동결 계약의 추가 필드/전환 변경을 별도 재확인 없이 구현·검사·기능 브랜치 PR까지 진행한다. 변경 파일·계약 영향·회귀 결과는 PR에 기록한다. 명시된 파일 분담, 새 의존성/외부 서비스 금지, main push·병합 금지는 유지한다.

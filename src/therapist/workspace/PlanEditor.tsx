@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ACTIVITY_LABELS, CUE_LABELS, LEVEL_LABELS, POSITION_LABELS, START_LEVELS, STEP_ACTIVITIES, STEP_LABELS, TARGET_LEVELS, parseWords } from '../planning'
+import { ACTIVITY_LABELS, CUE_LABELS, LEVEL_LABELS, POSITION_LABELS, START_LEVELS, selectablePlanActivities, STEP_LABELS, TARGET_LEVELS, parseWords } from '../planning'
 import type { PlanForm, PlanStep, StepType } from '../planning'
 
 type Props = { form: PlanForm; readOnly: boolean; onChange: (form: PlanForm) => void }
@@ -32,8 +32,8 @@ export default function PlanEditor({ form, readOnly, onChange }: Props) {
     </div>
     <h3>활동 순서</h3>
     <ol className="plan-steps">{form.steps.map((step, index) => <li key={index}>
-      <select aria-label={`${index + 1}번 활동 유형`} value={step.stepType} onChange={event => { const stepType = event.target.value as StepType; setStep(index, { ...step, stepType, activity: STEP_ACTIVITIES[stepType][0] }) }}>{Object.entries(STEP_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-      <select aria-label={`${index + 1}번 활동`} value={step.activity} onChange={event => setStep(index, { ...step, activity: event.target.value as PlanStep['activity'] })}>{STEP_ACTIVITIES[step.stepType].map(value => <option key={value} value={value}>{ACTIVITY_LABELS[value]}</option>)}</select>
+      <select aria-label={`${index + 1}번 활동 유형`} value={step.stepType} onChange={event => { const stepType = event.target.value as StepType; setStep(index, { ...step, stepType, activity: selectablePlanActivities(stepType)[0] }) }}>{Object.entries(STEP_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      <select aria-label={`${index + 1}번 활동`} value={step.activity} onChange={event => setStep(index, { ...step, activity: event.target.value as PlanStep['activity'] })}>{step.activity === 'magic_beam' && <option value="magic_beam" disabled>빛의 마법 (기존 기록·선택 중지)</option>}{selectablePlanActivities(step.stepType).map(value => <option key={value} value={value}>{ACTIVITY_LABELS[value]}</option>)}</select>
       {step.stepType !== 'CONVERSATION' && <select aria-label={`${index + 1}번 활동 단계`} value={step.targetLevel || ''} onChange={event => setStep(index, { ...step, targetLevel: (event.target.value || null) as PlanStep['targetLevel'] })}><option value="">계획 단계 따름</option>{START_LEVELS.map(value => <option key={value} value={value}>{LEVEL_LABELS[value]}</option>)}</select>}
       {!readOnly && <span><button type="button" disabled={index === 0} onClick={() => moveStep(index, -1)} aria-label="위로">↑</button><button type="button" disabled={index === form.steps.length - 1} onClick={() => moveStep(index, 1)} aria-label="아래로">↓</button><button type="button" disabled={form.steps.length === 1} onClick={() => set('steps', form.steps.filter((_row, at) => at !== index))}>삭제</button></span>}
     </li>)}</ol>

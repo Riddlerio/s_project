@@ -44,6 +44,7 @@ from .hoya.schema_compat import upgrade_hoya_chat_schema
 from .adventure.api import router as adventure_router
 from .adventure import service as adventure_service
 from .games.round_rewards import round_reward
+from .games import crossing
 
 
 @asynccontextmanager
@@ -390,7 +391,7 @@ def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db)
     state = completion_state(session)
     if session.status == "completed":
         return session.summary_json
-    if lease is not None and state.get("activityGame") and not state.get("roundsComplete"):
+    if (lease is not None or state.get("activityGame") == crossing.GAME) and state.get("activityGame") and not state.get("roundsComplete"):
         raise HTTPException(409, "다섯 라운드를 마친 뒤 모험을 완료할 수 있습니다")
     # 보호된 V2 회기는 숨김·중단 시간을 포함하는 브라우저 벽시계 대신 서버의 활동 시간을 쓴다.
     elapsed_sec = body.elapsed_sec
@@ -400,6 +401,15 @@ def complete(session_id: str, body: CompleteInput, db: Session = Depends(get_db)
     goal = db.get(TrainingGoal, session.goal_id)
     stage_index = state.get("stageIndex", 0)
     metric = recompute(db, session, goal, elapsed_sec)
+    if state.get("activityGame") == crossing.GAME:
+        # 재시도 뒤 성공해도 XP·배지·카드·재료를 발급하지 않는 별도 완료 경계다.
+        summary = {"totalAttempts": state.get("totalAttempts", 0),
+                   "durationSec": max(0, elapsed_sec), "sessionComplete": True}
+        session.summary_json = summary
+        session.insight_json = ["음향 근사 관찰입니다. 치료사가 확인해 주세요."]
+        session.status, session.ended_at = "completed", now()
+        db.commit()
+        return summary
     if not state.get("activityGame") and legacy_recommendation_allowed(session):
         recommend(db, session, goal, metric)
     child.xp += state.get("xp", 0)
@@ -458,18 +468,21 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
     if not goal:
         raise HTTPException(409, "활성 목표가 없습니다")
     definitions = GAME_ROUNDS[body.game]
-    plan_stages = []
-    used = set()
-    for definition in definitions:
-        level = "syllable" if body.game == "monster_adventure" and definition.index == 1 else "short_sentence" if body.game == "monster_adventure" and definition.index == 5 else "word"
-        candidates = items(goal.target_phoneme, level, goal.word_position)
-        # 같은 세션 안에서는 앞 라운드와 다른 단어를 고른다. 모두 쓰였으면 순서대로 다시 쓴다.
-        rotated = candidates[(definition.index - 1) % len(candidates):] + candidates[:(definition.index - 1) % len(candidates)] if candidates else []
-        text = next((c["displayText"] for c in rotated if c["displayText"] not in used), rotated[0]["displayText"] if rotated else goal.target_sound)
-        used.add(text)
-        item = {"itemId": secrets.token_hex(8), "displayText": text, "level": level if body.game == "monster_adventure" else definition.generalization_level.lower(),
-                "game": body.game, "beamTargetMs": definition.target_ms, "pictureKey": text}
-        plan_stages.append({"game": body.game, "level": item["level"], "round": public_round(definition), "items": [item]})
+    if body.game == crossing.GAME:
+        plan_stages = crossing.build_stages(goal)
+    else:
+        plan_stages = []
+        used = set()
+        for definition in definitions:
+            level = "syllable" if body.game == "monster_adventure" and definition.index == 1 else "short_sentence" if body.game == "monster_adventure" and definition.index == 5 else "word"
+            candidates = items(goal.target_phoneme, level, goal.word_position)
+            # 같은 세션 안에서는 앞 라운드와 다른 단어를 고른다. 모두 쓰였으면 순서대로 다시 쓴다.
+            rotated = candidates[(definition.index - 1) % len(candidates):] + candidates[:(definition.index - 1) % len(candidates)] if candidates else []
+            text = next((c["displayText"] for c in rotated if c["displayText"] not in used), rotated[0]["displayText"] if rotated else goal.target_sound)
+            used.add(text)
+            item = {"itemId": secrets.token_hex(8), "displayText": text, "level": level if body.game == "monster_adventure" else definition.generalization_level.lower(),
+                    "game": body.game, "beamTargetMs": definition.target_ms, "pictureKey": text}
+            plan_stages.append({"game": body.game, "level": item["level"], "round": public_round(definition), "items": [item]})
     plan = TrainingPlan(goal_id=goal.id, child_id=child.id,
                         plan_json={"stages": plan_stages, "nextSlot": 5, "rationale": ["V2_ROUND_ACTIVITY"]},
                         rationale_json=["V2_ROUND_ACTIVITY"])
@@ -482,15 +495,20 @@ def start_activity(body: StartActivityInput, db: Session = Depends(get_db), acco
              "currentCue": "AUDITORY_MODEL" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "NONE",
              "currentItem": first, "totalAttempts": 0, "xp": 0, "stageIndex": 0,
              "roundDefinition": {**public_round(definitions[0], 2), "independence": "MODELED" if definitions[0].elicitation_type == "DIRECT_IMITATION" else "INDEPENDENT"}}
+    if body.game == crossing.GAME:
+        state.update(itemIndexInRound=1, itemAttemptsUsed=0, modelCue=True)
+        crossing.update_cue(state, model=True)
     state["magicBeamRound"] = adventure_service.round_magic_beam(db, state, child.id)
     session = TrainingSession(child_id=child.id, goal_id=goal.id, plan_id=plan.id, mode=body.mode, is_seed=child.is_seed,
                               play_token_hash=hash_token(secrets.token_urlsafe(32)), runtime_state=state)
     db.add(session)
     db.flush()
     events = save_events(db, session, [{"type": "SESSION_START", "payload": {"activity": body.game}},
-                                        {"type": "ROUND_START", "payload": public_round(definitions[0], 2)},
+                                        {"type": "ROUND_START", "payload": crossing.child_round(definitions[0]) if body.game == crossing.GAME else public_round(definitions[0], 2)},
                                         {"type": "TARGET_PRESENTED", "payload": {"item": first}}], item=first, goal=goal)
     db.commit()
+    if body.game == crossing.GAME:
+        return {**adventure_service.activity_payload(db, session), "events": events}
     return {"sessionId": session.id, "game": body.game, "mode": body.mode, "heroName": child.hero_name,
             "rounds": [public_round(definition) for definition in definitions], "currentRound": public_round(definitions[0], 2),
             "firstItem": first, "events": events}
@@ -523,7 +541,8 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     round_index = state["roundIndex"]
     if body.round_index != round_index or body.item_id != state["currentItem"]["itemId"] or body.attempt_index != state["roundAttempt"]:
         raise HTTPException(409, "현재 라운드 또는 항목과 일치하지 않습니다")
-    definition = effective_round(GAME_ROUNDS[state["activityGame"]][round_index - 1], state["difficulty"])
+    definition = (crossing.definition_for_item(state) if state["activityGame"] == crossing.GAME else
+                  effective_round(GAME_ROUNDS[state["activityGame"]][round_index - 1], state["difficulty"]))
     goal = db.get(TrainingGoal, session.goal_id)
     acoustic = body.acoustic.model_dump(by_alias=True, exclude_none=True)
     acoustic["source"] = "keyboard" if session.mode == "demo" else "microphone"
@@ -542,6 +561,18 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
                           final_score=analysis.score, final_result=analysis.result))
     if analysis.result != "not_target_attempt":
         db.add(build_observation(session, utterance, goal, analysis, acoustic, state))
+    if state["activityGame"] == crossing.GAME:
+        stages = db.get(TrainingPlan, session.plan_id).plan_json["stages"]
+        drafts = crossing.advance(state, analysis.result, stages, now())
+        session.runtime_state = state
+        events = save_events(db, session, drafts, utterance.id, item, goal, analysis)
+        db.commit()
+        finished = bool(state.get("roundsComplete"))
+        return {"events": events, "result": analysis.result,
+                "nextItem": None if finished else state["currentItem"],
+                "nextAttemptIndex": state["roundAttempt"],
+                "currentRound": None if finished else crossing.child_round(crossing.definition_for_item(state)),
+                **crossing.cursor(state)}
     drafts = []
     if analysis.result == "no_speech":
         drafts.append({"type": "NO_SPEECH", "payload": {}})

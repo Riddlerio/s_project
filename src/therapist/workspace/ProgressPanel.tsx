@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ConversationInsights from '../ConversationInsights'
 import type { GoalTrends } from '../insights'
 import ActivityRecommendationPanel from '../ActivityRecommendationPanel'
 import GoalTrendChart from '../charts/GoalTrendChart'
@@ -23,6 +24,7 @@ export default function ProgressPanel({ childId, context, trends, sessions, plan
   const pendingSessions = sessions.filter(session => session.mode === 'real' && !session.isSeed)
   return <>
     <GoalTrendChart data={trends} />
+    <ConversationInsights key={childId} childId={childId} />
     <details className="card"><summary>다음 회기 제안에 사용되는 기존 근거 요약</summary><EvidenceSummary metrics={context.metrics} /></details>
     <section className="card"><h2>검토 대기 임상 관찰</h2>
       <p data-pending-review={context.evidenceAvailability.pendingReviewN}>치료사 확인을 기다리는 실제 음성 관찰 {context.evidenceAvailability.pendingReviewN}건. 확인하거나 교정한 관찰만 다음 회기 근거가 됩니다.</p>

@@ -3,9 +3,9 @@ from .evidence import MIN_EVALUABLE
 
 START_LEVELS = ("phoneme", "syllable", "word", "short_sentence")
 TARGET_LEVELS = ("syllable", "word", "short_sentence")
-MAIN_GAME_BY_LEVEL = {"phoneme": "magic_beam", "syllable": "monster_adventure", "word": "monster_adventure",
+MAIN_GAME_BY_LEVEL = {"phoneme": "sky_climb", "syllable": "monster_adventure", "word": "monster_adventure",
                       "short_sentence": "conversation_quest"}
-GAMES = ("magic_beam", "sky_climb", "monster_adventure", "conversation_quest")
+GAMES = ("sky_climb", "monster_adventure", "conversation_quest")
 
 
 def _level_row(metrics: dict, level: str) -> dict | None:

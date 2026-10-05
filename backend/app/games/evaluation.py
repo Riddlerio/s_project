@@ -5,6 +5,11 @@ from ..speech.g2p import SimpleKoreanG2P
 from ..speech.normalization import normalize
 
 
+# 실기기 측정 전 임시 음향 근사 기준. 임상적으로 검증된 발음 정확도 기준이 아니다.
+ONSET_FRICATION_MS = 60
+VOICED_AFTER_FRICATION_MS = 80
+
+
 def _result(result: str, tags=()) -> AnalysisResult:
     return AnalysisResult(0, result, "unknown" if result in {"uncertain", "no_speech", "target_observed", "not_target_attempt"} else "correct" if result == "success" else "omitted",
                           None, list(tags), [], [], [])
@@ -42,6 +47,12 @@ def evaluate_round(round_def, item: dict, transcript: str | None, acoustic: dict
         passed = sum(segment >= target for segment in segments) >= 3
     elif rule == "TRANSITION":
         passed = acoustic_number(acoustic, "onsetFricationMs") >= target and acoustic_number(acoustic, "voicedAfterFricationMs") >= 200
+    elif rule == "ONSET_FRICATION":
+        # 필드가 누락된 입력은 실패로 세지 않는다. 0은 측정된 부재이므로 retry다.
+        if acoustic.get("onsetFricationMs") is None or acoustic.get("voicedAfterFricationMs") is None:
+            return _result("uncertain", ["NO_ACOUSTIC_EVIDENCE"])
+        passed = (acoustic_number(acoustic, "onsetFricationMs") >= ONSET_FRICATION_MS
+                  and acoustic_number(acoustic, "voicedAfterFricationMs") >= VOICED_AFTER_FRICATION_MS)
     elif rule == "ENERGY_BAND":
         passed = 0.35 <= acoustic_number(acoustic, "energyMean01", -1) <= 0.75 and run >= target
     elif rule == "RE_ONSET":

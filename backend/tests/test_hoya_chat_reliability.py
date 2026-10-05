@@ -138,6 +138,7 @@ def test_processing_duplicate_does_not_call_provider_again(api):
             # 원래 요청이 제공자를 기다리는 동안 같은 요청이 다시 온다.
             duplicate = await http.post(url, headers=headers, json=body)
             assert duplicate.status_code == 202 and duplicate.json()["status"] == "PROCESSING"
+            assert set(duplicate.json()) == {"status", "turnIndex", "clientRequestId", "retryAfterMs"}
             assert provider.calls == 1
             provider.gate.set()
             finished = await original

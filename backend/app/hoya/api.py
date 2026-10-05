@@ -21,9 +21,10 @@ from ..training.content import conversation_candidates
 from .evidence import classify_speech
 from .policy import HoyaConversationPolicy, allowed_cue
 from .prompt.prompt_builder import HoyaDialogueContext
-from .providers.demo_provider import OPENING
+from .providers.demo_provider import OPENING, opening_text
 from .schemas import RECENT_TURNS, HoyaChatStartInput, HoyaChatTurnInput, HoyaDialogueResponse
 from .service import HoyaDialogueService, select_provider
+from .transitions import NEXT_ACTIVITY, TRANSITION_TEXT, should_transition
 
 router = APIRouter(prefix="/api/hoya/chat")
 policy = HoyaConversationPolicy()
@@ -54,10 +55,16 @@ def _public(session: HoyaChatSession, turns: list[HoyaChatTurn]) -> dict:
             "openingText": session.summary_json.get("opening", OPENING), "lastHoyaText": done[-1].hoya_text if done else None}
 
 
-def _completed(turn: HoyaChatTurn) -> dict:
-    # 아동 화면에는 근거·전략·제공자 같은 내부 정보를 보내지 않는다.
+def _next_activity(session: HoyaChatSession, turn_index: int) -> str | None:
+    first = session.summary_json.get("nextActivityFromTurnIndex")
+    return NEXT_ACTIVITY if isinstance(first, int) and turn_index >= first else None
+
+
+def _completed(session: HoyaChatSession, turn: HoyaChatTurn) -> dict:
+    # 아동 화면에는 전환 신호 하나만 더한다. 근거·전략·제공자·횟수는 보내지 않는다.
     return {"status": "COMPLETED", "turnIndex": turn.turn_index, "clientRequestId": turn.client_request_id,
-            "text": turn.hoya_text or "", "nextTurnIndex": turn.turn_index + 1, "sessionComplete": turn.session_complete}
+            "text": turn.hoya_text or "", "nextTurnIndex": turn.turn_index + 1, "sessionComplete": turn.session_complete,
+            "nextActivity": _next_activity(session, turn.turn_index)}
 
 
 def _processing(turn: HoyaChatTurn) -> JSONResponse:
@@ -85,7 +92,8 @@ def _context(db: Session, session: HoyaChatSession, turn: HoyaChatTurn) -> HoyaD
         if row.hoya_text:
             recent.append({"speaker": "hoya", "text": row.hoya_text})
     if not previous:
-        recent.append({"speaker": "hoya", "text": session.summary_json.get("opening", OPENING)})
+        # 별명 인사는 아동 화면에만 보인다. 제공자 context에는 식별 정보를 넣지 않는다.
+        recent.append({"speaker": "hoya", "text": OPENING})
     return HoyaDialogueContext(
         age_band=child.age_band, target_phoneme=goal.target_phoneme, word_position=goal.word_position, level=goal.level,
         strategy=turn.strategy, evidence=turn.speech_evidence,
@@ -100,18 +108,28 @@ def _finish(db: Session, session: HoyaChatSession, turn: HoyaChatTurn, reply: Ho
     db.refresh(session)
     final = turn.turn_index >= settings.hoya_chat_max_turns
     finished = now()
+    evidence = [row.speech_evidence for row in _turns(db, session.id)
+                if row.turn_index < turn.turn_index and row.status == "COMPLETED"] + [turn.speech_evidence]
+    elapsed = (finished.replace(tzinfo=None) - session.started_at.replace(tzinfo=None)).total_seconds()
+    transition = _next_activity(session, turn.turn_index) is not None or should_transition(evidence, elapsed)
+    # 시간·근거를 다시 계산해도 재시도 응답이 달라지지 않도록, 문구와 최초 전환 턴을 같은 transaction에 저장한다.
+    text = TRANSITION_TEXT if transition else reply.text
     changed = db.execute(update(HoyaChatTurn).where(HoyaChatTurn.id == turn.id, HoyaChatTurn.status == "PROCESSING").values(
-        status="COMPLETED", hoya_text=reply.text, strategy=reply.strategy, target_words=reply.target_words,
+        status="COMPLETED", hoya_text=text, strategy=reply.strategy, target_words=reply.target_words,
         provider=reply.provider, model_name=reply.model, fallback_reason=reply.fallback_reason,
         session_complete=final or session.status != "active", updated_at=finished)).rowcount
     if changed:
-        session.summary_json = {**session.summary_json, "turnCount": turn.turn_index}
+        summary = {**session.summary_json, "turnCount": turn.turn_index}
+        if transition and "nextActivityFromTurnIndex" not in summary:
+            summary["nextActivityFromTurnIndex"] = turn.turn_index
+        session.summary_json = summary
         # 마지막 허용 turn은 같은 transaction에서 서버가 대화를 끝낸다. 브라우저가 /complete를 못 보내도 된다.
         if final and session.status == "active":
             session.status, session.ended_at = "completed", finished
     db.commit()
     db.refresh(turn)
-    return _completed(turn)
+    db.refresh(session)
+    return _completed(session, turn)
 
 
 @router.post("/sessions")
@@ -126,7 +144,7 @@ def start_chat(body: HoyaChatStartInput, db: Session = Depends(get_db), account:
                                                         HoyaChatSession.status == "active")).all():
         old.status, old.ended_at = "aborted", now()
     session = HoyaChatSession(child_id=child.id, goal_id=goal.id, mode=body.mode, is_seed=child.is_seed,
-                              summary_json={"opening": OPENING, "turnCount": 0})
+                              summary_json={"opening": opening_text(child.hero_name), "turnCount": 0})
     db.add(session)
     db.commit()
     return _public(session, [])
@@ -163,7 +181,7 @@ def _existing(db: Session, session: HoyaChatSession, turn: HoyaChatTurn, body: H
     if not _same_request(turn, body, transcript):
         raise HTTPException(409, "REQUEST_ID_REUSED")
     if turn.status == "COMPLETED":
-        return _completed(turn)
+        return _completed(session, turn)
     if not _stale(turn):
         return _processing(turn)
     # 서버 중단 등으로 멈춘 예약: 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리해 대화를 잇는다.

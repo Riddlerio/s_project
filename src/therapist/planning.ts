@@ -49,7 +49,7 @@ export interface ProposalResponse {
 export const LEVEL_LABELS: Record<string, string> = { phoneme: '음소', syllable: '음절', word: '단어', short_sentence: '짧은 문장', spontaneous: '자발 발화', unknown: '단계 미상' }
 export const POSITION_LABELS: Record<string, string> = { initial: '어두', medial: '어중', final: '어말' }
 export const CUE_LABELS: Record<string, string> = { none: '단서 없음', visual_mouth: '입 모양 보기', auditory_model: '소리 들려주기', tactile_description: '촉각 설명' }
-export const ACTIVITY_LABELS: Record<Activity, string> = { hoya_conversation: '두두와 대화', magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍' }
+export const ACTIVITY_LABELS: Record<Activity | 'daegu_crossing', string> = { hoya_conversation: '두두와 대화', magic_beam: '빛의 마법', sky_climb: '하늘 오르기', monster_adventure: '몬스터 모험', conversation_quest: '두두와 소풍', daegu_crossing: '대구대 건너기' }
 export const STEP_LABELS: Record<StepType, string> = { CONVERSATION: '대화', GAME: '게임', PRACTICE: '연습' }
 export const STATUS_LABELS: Record<PlanStatus, string> = { DRAFT: '초안', APPROVED: '승인됨', SUPERSEDED: '새 계획으로 대체됨', CANCELLED: '취소됨' }
 export const START_LEVELS: StartLevel[] = ['phoneme', 'syllable', 'word', 'short_sentence']
@@ -59,6 +59,9 @@ export const STEP_ACTIVITIES: Record<StepType, Activity[]> = {
   GAME: ['magic_beam', 'sky_climb', 'monster_adventure', 'conversation_quest'],
   PRACTICE: ['magic_beam', 'sky_climb', 'monster_adventure', 'conversation_quest'],
 }
+
+/** 저장된 계획의 계약은 유지하며 새 선택에서는 숨긴 게임을 제외한다. */
+export const selectablePlanActivities = (type: StepType) => STEP_ACTIVITIES[type].filter(activity => activity !== 'magic_beam')
 
 const FORM_KEYS: (keyof PlanForm)[] = ['targetPhoneme', 'wordPosition', 'startLevel', 'targetLevel', 'durationMin', 'repetitionTarget', 'preferredCue', 'priorityTargets', 'excludedWords', 'conversationTheme', 'therapistNote', 'steps']
 
