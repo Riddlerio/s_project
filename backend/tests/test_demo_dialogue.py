@@ -13,7 +13,7 @@ from app.hoya.providers.demo_provider import DemoProvider, OPENING
 from app.hoya.service import HoyaDialogueService
 from app.hoya.transitions import TRANSITION_TEXT, should_transition
 from app.hoya.validator import validate_output
-from app.models import Child, HoyaChatSession, HoyaChatTurn, now
+from app.models import Child, HoyaChatSession, HoyaChatTurn, TrainingGoal, now
 from app.training.content import conversation_candidates
 from test_api_flow import api, student_auth
 from test_hoya_chat import GOOD_MIC, _start, _turn, context, no_network, rid
@@ -157,32 +157,101 @@ def test_nickname_greeting_does_not_enter_provider_context(api):
 
     api_module.app.dependency_overrides[dialogue_service] = lambda: HoyaDialogueService(CaptureProvider())
     started = _start(client, headers)
-    assert started["openingText"] == "안녕~ 만나서 반가워! 두두친구야. 나는 두두야."
+    assert started["openingText"] == "안녕~ 만나서 반가워! 두두친구야. 나는 두두야. 오늘 뭐 하고 놀았어?"
     _turn(client, headers, started["sessionId"], 1, "안녕")
     assert seen[0].recent_turns == [{"speaker": "hoya", "text": OPENING}]
     assert "두두친구" not in repr(seen[0])
 
 
-def test_word_script_has_choice_cloze_model_and_recast_without_correction():
+def _said(*items):
+    """최근 대화(오래된 것부터). (말한 사람, 문장)"""
+    return [{"speaker": speaker, "text": text} for speaker, text in items]
+
+
+def _help_kind(text):
+    """두두가 어떻게 도왔는지(고르기·빈칸·먼저 들려주기). 자연스러운 질문이면 None."""
+    if "좋아, " in text and text.endswith("좋아?"):
+        return "choice"
+    if text.endswith("…?"):
+        return "cloze"
+    if text.endswith("너도 말해 볼래?"):
+        return "model"
+    return None
+
+
+def test_word_script_starts_naturally_and_helps_after_two_misses():
     base = replace(context(), allowed_cue="auditory_model")
-    replies = [DemoProvider().reply_sync(replace(base, turn_index=index)) for index in range(1, 5)]
-    assert "사과가 좋아, 수박이 좋아?" in replies[0].text
-    assert "빨갛고 동그란 과일은 사…?" in replies[1].text
-    assert "두두는 사과를 좋아해. 너도 말해 볼래?" in replies[2].text
+    first = DemoProvider().reply_sync(base)
+    assert first.text == "학교 다녀왔구나! 오늘 선생님이랑 어떤 수업 했어?" and first.target_words == []
+    # 이번 말("몰라")과 바로 앞 말("학교 갔어")에 목표 음소가 없으면, 4턴째부터 같은 낱말로 단서를 늘려 돕는다.
+    history = _said(("child", "학교 갔어"), ("hoya", "그랬구나! 제일 좋아하는 과일은 뭐야?"))
+    replies = []
+    for turn, expected in [(4, "그랬구나! 사과가 좋아, 수박이 좋아?"), (5, "그랬구나! 빨갛고 동그란 과일은 사…?"),
+                           (6, "그랬구나! 두두는 사과를 좋아해. 너도 말해 볼래?")]:
+        reply = DemoProvider().reply_sync(replace(base, child_transcript="몰라", turn_index=turn, recent_turns=history))
+        assert reply.text == expected and reply.target_words[0] == "사과"
+        history = [*history, *_said(("child", "몰라"), ("hoya", reply.text))]
+        replies.append(reply)
+    # 허용 단서가 없으면 먼저 들려주기 없이 고르기·빈칸만 쓴다.
+    no_cue = DemoProvider().reply_sync(replace(base, allowed_cue=None, child_transcript="몰라", turn_index=6, recent_turns=history[:-2]))
+    assert _help_kind(no_cue.text) == "choice"
     recast = DemoProvider().reply_sync(replace(base, evidence="TARGET_OBSERVED", strategy="CONTINUE_OR_EXPAND", child_transcript="사과 먹어"))
-    assert recast.text.startswith("맞아, 사과!")
-    for reply in [*replies, recast]:
+    assert recast.text == "맞아, 사과! 제일 좋아하는 과일은 뭐야?" and recast.target_words == ["사과"]
+    for reply in [first, *replies, no_cue, recast]:
         validate_output(reply, reply.strategy, base.target_lexicon)
         assert "정확" not in reply.text and "틀렸" not in reply.text
 
 
-def test_syllable_model_is_more_frequent_and_respects_allowed_cue():
-    base = replace(context(), level="syllable", allowed_cue="auditory_model")
-    replies = [DemoProvider().reply_sync(replace(base, turn_index=index)) for index in range(1, 5)]
-    assert sum("너도 말해 볼래?" in reply.text for reply in replies) == 2
-    for index in range(1, 5):
-        reply = DemoProvider().reply_sync(replace(base, turn_index=index, allowed_cue=None))
-        assert "너도 말해 볼래?" not in reply.text
+def test_allowed_cue_models_once_in_first_three_turns():
+    base = replace(context(strategy="ALLOWED_CUE", transcript="그네 탔어", turn=2), level="syllable", allowed_cue="auditory_model",
+                   recent_turns=_said(("child", "놀았어"), ("hoya", "그랬구나! 좋아하는 놀이가 뭐야?")))
+    model = DemoProvider().reply_sync(base)
+    assert model.text == "놀이터에서 놀았구나! 두두는 시소를 좋아해. 너도 말해 볼래?" and model.target_words == ["시소"]
+    # 바로 앞에서 이미 들려줬으면 첫 3턴 안에서는 다시 돕지 않고 자연스럽게 묻는다.
+    after = DemoProvider().reply_sync(replace(base, child_transcript="몰라", turn_index=3,
+                                              recent_turns=[*base.recent_turns, *_said(("child", "그네 탔어"), ("hoya", model.text))]))
+    assert after.text == "그랬구나! 제일 좋아하는 과일은 뭐야?" and _help_kind(after.text) is None
+    # 서버가 허용 단서를 주지 않으면(대화 전략이 ALLOWED_CUE가 아니고 목표 단서도 없으면) 먼저 들려주지 않는다.
+    for turn in range(1, 25):
+        for recent in ([], base.recent_turns):
+            reply = DemoProvider().reply_sync(replace(base, strategy="NATURAL_REELICITATION", allowed_cue=None,
+                                                      child_transcript="몰라", turn_index=turn, recent_turns=recent))
+            assert "너도 말해 볼래?" not in reply.text
+
+
+def test_recent_questions_and_topic_reactions_are_not_repeated():
+    # 같은 주제(놀이터)를 계속 말해도 최근 3번 안의 질문과 바로 앞 주제 반응은 되풀이하지 않는다. '…에서'의 /ㅅ/로 목표 관찰이라 돕지 않는다.
+    provider, recent, texts = DemoProvider(), _said(("hoya", OPENING)), []
+    for turn, said in enumerate(["놀이터에서 놀았어", "그네에서 놀았어", "미끄럼틀에서", "놀이터에서", "그네에서", "미끄럼에서"], 1):
+        reply = provider.reply_sync(replace(context(strategy="CONTINUE_OR_EXPAND", evidence="TARGET_OBSERVED", transcript=said, turn=turn),
+                                            recent_turns=recent[-10:]))
+        texts.append(reply.text)
+        recent = [*recent, *_said(("child", said), ("hoya", reply.text))]
+    assert texts[0] == "놀이터에서 놀았구나! 시소도 탔어?"
+    questions = [text.split("! ")[-1] for text in texts]
+    assert all(questions[i] not in questions[max(0, i - 3):i] for i in range(len(questions)))
+    acks = [text.split("! ")[0] for text in texts]
+    assert all(a != b or a == "그랬구나" for a, b in zip(acks, acks[1:]))
+
+
+@pytest.mark.parametrize("cue", [None, "auditory_model"])
+@pytest.mark.parametrize("lines", [["놀았어", "그네 탔어", "몰라"], ["놀이터에서 놀았어", "응 시소 탔어", "숨바꼭질 했어"],
+                                   ["학교 갔어", "몰라", "아니"]])
+def test_first_three_turns_have_no_choice_or_cloze_while_child_talks(api, cue, lines):
+    client, sessions = api
+    headers = student_auth(client)
+    if cue:
+        with sessions() as db:
+            goal = db.scalar(select(TrainingGoal).join(Child, Child.id == TrainingGoal.child_id).where(Child.play_code == "HERO01"))
+            goal.preferred_cue, goal.level = cue, "syllable"
+            db.commit()
+    started = _start(client, headers)
+    assert started["openingText"].endswith("나는 두두야. 오늘 뭐 하고 놀았어?")
+    texts = [_turn(client, headers, started["sessionId"], index, said).json()["text"] for index, said in enumerate(lines, 1)]
+    assert [_help_kind(text) for text in texts if _help_kind(text) in {"choice", "cloze"}] == []
+    # 목표 음소가 두 번 연달아 나오지 않으면 4턴째에 돕는다.
+    fourth = _turn(client, headers, started["sessionId"], 4, "몰라").json()["text"]
+    assert (_help_kind(fourth) is not None) == (lines[-1] in {"몰라", "아니"})
 
 
 @pytest.mark.parametrize("lexicon", [[], ["수박"], ["소리", "시소"], conversation_candidates("ㅅ", "medial")])
@@ -263,7 +332,7 @@ def test_late_provider_response_cannot_overwrite_stale_transition(api, monkeypat
 
 
 def test_opening_calls_hero_name_with_vocative_particle():
-    # 부르는 말은 받침에 따라 아/야(두두 음성 파일이 있는 DEMO 별명은 받침이 없다).
+    # 부르는 말은 받침에 따라 아/야(두두 음성 파일이 있는 DEMO 별명은 받침이 없다). 인사 뒤에 "오늘 뭐 하고 놀았어?"로 대화를 연다.
     from app.hoya.providers.demo_provider import opening_text
-    assert opening_text("두두친구") == "안녕~ 만나서 반가워! 두두친구야. 나는 두두야."
-    assert opening_text("튼튼곰") == "안녕~ 만나서 반가워! 튼튼곰아. 나는 두두야."
+    assert opening_text("두두친구") == "안녕~ 만나서 반가워! 두두친구야. 나는 두두야. 오늘 뭐 하고 놀았어?"
+    assert opening_text("튼튼곰") == "안녕~ 만나서 반가워! 튼튼곰아. 나는 두두야. 오늘 뭐 하고 놀았어?"

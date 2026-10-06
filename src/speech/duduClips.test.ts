@@ -49,9 +49,11 @@ describe('두두 음성 파일(VOLI 하람)', () => {
   })
 
   it('대화 첫 인사와 게임 권유도 파일로 말한다(대화 유도 문장 전체는 백엔드 test_dudu_voice_lines.py가 확인)', () => {
-    expect(clipPlan('안녕~ 만나서 반가워! 바람용사야. 나는 두두야.')).toHaveLength(3)
+    expect(clipPlan('안녕~ 만나서 반가워! 바람용사야. 나는 두두야. 오늘 뭐 하고 놀았어?')).toHaveLength(4)
     // 시연 전용 DEMO 아동(DEMO-CROSSING) 별명도 인사·도착 칭찬을 파일로 말한다.
-    expect(clipPlan('안녕~ 만나서 반가워! 두두친구야. 나는 두두야.')).toHaveLength(3)
+    expect(clipPlan('안녕~ 만나서 반가워! 두두친구야. 나는 두두야. 오늘 뭐 하고 놀았어?')).toHaveLength(4)
+    // 아이 말의 주제를 받아 /ㅅ/ 낱말이 나오기 쉬운 질문(2026-10-06 녹음)
+    expect(clipPlan('놀이터에서 놀았구나! 시소도 탔어?')).toEqual(['/assets/voice/dudu/t08.wav', '/assets/voice/dudu/q_seesaw.wav'])
     expect(clipPlan(`도착! 정말 잘했어! 역시 ${isName('두두친구')}!`)).toHaveLength(3)
     expect(clipPlan("우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?")).toHaveLength(2)
   })

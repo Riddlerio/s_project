@@ -174,7 +174,7 @@
 | 두두 3D | FUNCTIONAL_PROTOTYPE | `public/assets/dudu/dudu.glb`, `src/tiger/DuduCharacter.tsx` | Meshy로 만든 GLB(리깅·동작 포함)를 불러오고, 실패하면 절차형 모델로 돌아간다. 공식 흉장을 투영했다 | 대학 디자인 최종 검수 |
 | 대구대 건너기 | FUNCTIONAL_PROTOTYPE · HEURISTIC_BASELINE · UNVALIDATED · CLINICAL_SENSITIVE | `src/child/DaeguCrossing.tsx`, `src/game/crossing/**`, `backend/app/games/crossing.py`, `games/evaluation.py` | 3D 횡단보도와 정문, 5라운드 × 2줄. 시작 마찰·유성 구간으로 /ㅅ/를 근사 판정하고, 관찰을 치료사 타임라인에 남긴다 | 성인 1명·PC 마이크 실측값이다. 아동 음성·여러 기기 검증이 없다. 혀 위치 오류(치간음 등)·ㅅ/ㅆ은 구분하지 못해 치료사가 확인한다 |
 | 대화 → 게임 전환 | HEURISTIC_BASELINE | `backend/app/hoya/transitions.py`, `src/child/HoyaChat.tsx` | 목표 낱말 시도 10회와 2분, 또는 5분 뒤 두두가 게임을 권한다 | 시도 횟수는 정확한 발음 횟수가 아니다 |
-| 두두 목소리 | DEMO_ONLY · EXTERNAL_DEPENDENCY | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json`, `src/speech/duduClips.ts` | VOLI '하람' 음성 파일 85개를 재생하고, 없는 말은 브라우저 음성으로 말한다 | 무료 플랜이라 비상업적 사용만 가능하고 출처 표기가 필요하다. 외부 LLM 대화 문장은 파일이 없다 |
+| 두두 목소리 | DEMO_ONLY · EXTERNAL_DEPENDENCY | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json`, `src/speech/duduClips.ts` | VOLI '하람' 음성 파일 92개를 재생하고, 없는 말은 브라우저 음성으로 말한다 | 무료 플랜이라 비상업적 사용만 가능하고 출처 표기가 필요하다. 외부 LLM 대화 문장은 파일이 없다 |
 | 시연 계정·리허설 | DEMO_ONLY | `backend/app/demo_seed.py`, `backend/scripts/demo_rehearsal.py` | 전용 로컬 SQLite에만 시연 아동·치료사를 만들고, 오늘 기록만 지운다(실제 DB 거부) | 운영 배포용이 아니다 |
 | 운영 준비 | 변화 없음 | — | — | CI·브랜치 보호·Alembic은 여전히 없다(Phase 6 미착수) |
 

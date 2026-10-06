@@ -17,7 +17,7 @@
 
 | 에셋 | 위치 | 출처 | 조건 | 남은 확인 |
 |---|---|---|---|---|
-| 두두 음성 파일 85개 | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json` | VOLI 베이직 보이스 '하람'(VOLI 3, 속도 90%), 2026-10-05 생성 | **무료 플랜:** 비상업적 범위에서만 제한적으로 쓸 수 있고, 출처 표기가 필수다. 표기는 화면(`VoiceCredit`)과 `CREDITS.txt`에 있다. 베이직 보이스는 VOLI 자체 개발이다('저작권 Free'). 오픈 보이스는 쓰지 않았다 | 상업적으로 쓰려면 유료 플랜으로 다시 만든다 |
+| 두두 음성 파일 92개 | `public/assets/voice/dudu/*.wav`, `shared/dudu_voice_lines.json` | VOLI 베이직 보이스 '하람'(VOLI 3, 속도 90%), 2026-10-05 생성(10/6에 대화 질문 7개 추가) | **무료 플랜:** 비상업적 범위에서만 제한적으로 쓸 수 있고, 출처 표기가 필수다. 표기는 화면(`VoiceCredit`)과 `CREDITS.txt`에 있다. 베이직 보이스는 VOLI 자체 개발이다('저작권 Free'). 오픈 보이스는 쓰지 않았다 | 상업적으로 쓰려면 유료 플랜으로 다시 만든다 |
 | 입 모양 값 | `shared/dudu_voice_envelopes.json` | 위 음성 파일에서 계산한 소리 크기(`scripts/build-voice-envelopes.mjs`) | 음성 파일과 같은 조건이다 | — |
 
 ## 2-1. 생성 그림(2026-10-05)
