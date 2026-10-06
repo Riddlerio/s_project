@@ -1,6 +1,6 @@
 # 앞으로 할 일
 
-> **기준 시각:** 2026-10-06 아침 · main `3f6c0da`(PR #20까지 병합)
+> **기준 시각:** 2026-10-06 저녁 · main `fae2e06`(PR #27까지 병합, 1~6단계 끝)
 > 이 파일 하나로 다른 기기에서도 이어서 할 수 있게 정리했다.
 > - 지난 일과 결정: [WORK_HISTORY.md](WORK_HISTORY.md)
 > - Codex에게 번호로 시키는 일: [CODEX_TASKS.md](CODEX_TASKS.md)
@@ -9,7 +9,7 @@
 
 ## 0. 한눈에 보기
 
-데모는 **10/9**다. 남은 일은 약 **11~15시간** 분량이다. Codex와 Claude가 나눠서 **동시에** 진행한다.
+데모는 **10/9**다. 1~6단계는 끝났다. 남은 일은 7단계(아이폰 리허설)와 8단계(당일 준비), 약 **3~5시간**이며 사용자와 Claude가 함께 한다.
 
 | 단계 | 할 일 | 담당 | 상태 | 예상 시간 | 시작 조건 |
 |:-:|---|---|:-:|:-:|---|
@@ -77,12 +77,14 @@ Claude가 3단계(대화)를 먼저 하는 이유는, 대화가 부자연스럽�
 
 | 브랜치 | 내용 | 비고 |
 |---|---|---|
-| `main` | PR #18까지 병합 | 직접 push 금지 |
-| `claude/dudu-followup` | Claude 작업 브랜치 | 이 문서도 여기서 올림 |
+| `main` | PR #27까지 병합(`fae2e06`) | 직접 push 금지 |
+| `claude/dudu-followup` | 예전 Claude 작업 브랜치(PR #11~#21) | 끝남 |
 | `claude/integration-check` | 6단계(통합 점검·공용 문서·작은 수정), PR #27 | main `9f03e81`(PR #26까지)에서 시작 |
 | `claude/therapist-analytics` | 4단계(근거 패널·빠른 설정·건너기 분석 화면), PR #25 | main `e4ecc12`(PR #24까지)에서 시작 |
 | `claude/natural-dialogue` | 3단계(자연스러운 대화 대본·새 두두 음성 7문장), PR #23 | `claude/dudu-followup` `6d9b30a`(PR #21)에서 시작 |
-| `codex/therapist-fixes` | Codex 1·2번(`0c14ae3`) | `e3c25be` 기준. CI 통과, **PR 전**. main과 겹치는 파일 없음 |
+| `codex/therapist-fixes` | Codex 1·2·4번, PR #22 | `e3c25be` 기준, 끝남 |
+| `codex/crossing-analytics` | Codex 5번(건너기 집계 API), PR #24 | 끝남 |
+| `codex/therapist-walkthrough` | Codex 3번(치료사 시연 동선), PR #26 | 끝남 |
 | `lab/after-demo` | 실험실(데모 뒤로 미룬 일, 폴더 `dudu_lab`) | **데모가 끝날 때까지 main에 합치지 않음** |
 
 ### 꼭 지킬 것
@@ -96,6 +98,7 @@ Claude가 3단계(대화)를 먼저 하는 이유는, 대화가 부자연스럽�
 다른 기기에서는 새로 만들어야 한다.
 - 리허설 DB, 휴대폰용 인증서. 리허설 DB는 2026-10-06 6단계 작업 PC에도 `C:\speechhero\rehearsal.db`로 새로 만들었다(인증서는 아직 없음).
 - Meshy·VOLI 로그인 창(자동화용 Edge)
+- 6단계 자동 점검 스크립트와 점검 도구(playwright-core·axe-core). 저장소 밖 임시 폴더에만 있었다. 다시 쓰려면 새로 만든다(5장 결정).
 - 원래 폴더(`orca/s_project`)의 미커밋 파일
 - 옛 Codex 폴더(`codex_therapist_data`). 지금 Codex는 `codex_fixes` 폴더를 쓴다.
 
@@ -445,7 +448,9 @@ Codex에게 "`docs/CODEX_TASKS.md` 5번 이행하고 알려줘"라고 시킨다.
 
 ## 5. 사용자가 정할 것
 
-- [ ] Claude의 3단계(대화)와 4단계(치료사 분석) 순서. 지금은 대화 먼저로 잡았다.
+- [x] Claude의 3단계(대화)와 4단계(치료사 분석) 순서: 대화 먼저 했다(10/6 끝).
+- [ ] 시연용 '예시 자료' 그래프: 시연 아동은 샘플이라 확인 비율 선이 비어 보인다. 발표 때 채워진 그래프를 보이려면 '예시 자료'라고 표시한 미리보기를 더할 수 있다(4단계 뒤 질문).
+- [ ] 6단계 자동 점검 스크립트를 저장소에 넣을지. 넣으면 리허설 전에 다시 돌릴 수 있지만, 점검 도구를 개발용 의존성으로 더해야 한다.
 - [ ] 앱 이름 'Speech Hero' 중복 확인: 미국 실어증 앱과 이름이 같다. 포스터 전에 정한다([DECISIONS_PENDING](DECISIONS_PENDING.md)).
 - [ ] 원래 폴더 안 옛 복제본 `s_project/`를 지울지. Orca 앱 기록이 이 폴더를 가리킨다.
 - [ ] 옛 Codex 폴더 `codex_therapist_data`를 지울지. 작업은 이미 main에 들어갔다.
@@ -470,7 +475,7 @@ Codex에게 "`docs/CODEX_TASKS.md` 5번 이행하고 알려줘"라고 시킨다.
 
 ### Codex에게 (순서대로)
 
-**① 4번 — 지금**
+**① 4번 — 끝(PR #22)**
 ```
 docs/CODEX_TASKS.md 4번 이행하고 알려줘.
 - 작업 위치는 기존 작업 폴더 codex_fixes, 브랜치 codex/therapist-fixes야. 새 브랜치는 만들지 마.
@@ -480,7 +485,7 @@ docs/CODEX_TASKS.md 4번 이행하고 알려줘.
 - 병합은 하지 마. PR 번호, CI 결과, 검사 개수를 공통 규칙 8번 형식으로 보고해.
 ```
 
-**② 5번 — 4번 PR을 연 뒤(병합 전이어도 됨)**
+**② 5번 — 끝(PR #24)**
 ```
 docs/CODEX_TASKS.md 5번 이행하고 알려줘.
 - 최신 main에서 새 작업 폴더와 새 브랜치 codex/crossing-analytics를 만들어. 4번이 아직 병합 전이면 PR 설명에 그렇게 적어.
@@ -490,7 +495,7 @@ docs/CODEX_TASKS.md 5번 이행하고 알려줘.
 - 전체 검사, push, PR 열기까지 하고, 병합하지 말고 보고해.
 ```
 
-**③ 3번 — Claude 4단계(치료사 분석 화면)가 main에 병합된 뒤**
+**③ 3번 — 끝(PR #26)**
 ```
 docs/CODEX_TASKS.md 3번 이행하고 알려줘.
 - 최신 main에서 새 브랜치 codex/therapist-walkthrough를 만들어.
