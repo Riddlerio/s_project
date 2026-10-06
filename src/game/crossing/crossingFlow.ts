@@ -3,7 +3,7 @@ import type { Acoustic } from '../../shared/types'
 /*
  * '대구대 건너기' 진행 규칙(2026-10-05 데모 설계안 2절, 같은 날 사용자 피드백으로 20줄 → 10줄).
  * 실제 판정·진행은 서버가 정하고 화면은 그 결과만 따른다. 두두는 서버가 성공이라고 할 때마다 한 줄씩 건넌다.
- * 여기의 미리보기 진행·근사 판정은 개발 검토 화면(서버 없이)에서만 쓴다. 같은 규칙을 서버 지시서(CODEX_DEMO_TASK)에 적었다.
+ * 여기의 미리보기 진행·근사 판정은 개발 검토 화면(서버 없이)에서만 쓴다. 같은 규칙은 docs/ARCHITECTURE.md의 'API 약속'에 있다.
  */
 export type CrossingResult = 'success' | 'retry' | 'uncertain' | 'no_speech'
 export interface CrossingItem {
@@ -61,13 +61,14 @@ export class CrossingProgress {
 /**
  * 음향 근사 판정(ONSET_FRICATION): 소리 시작의 마찰 구간과 그 뒤 유성 구간(모음)이 기준 이상이면 성공. 정확한 발음 평가가 아니다.
  * 기준값(2026-10-05 사용자 실측 31개, docs/handoff/MIC_MEASUREMENT_2026-10-05.md):
- * - 시작 마찰 70ms 이상(20ms 프레임 4개). 바르게 낸 '사'는 79~80ms였다. 60ms(3프레임)는 'ㅊ·ㅈ'처럼 짧은 마찰도 통과시킬 수 있어 올렸다.
+ * - 시작 마찰 60ms 이상(20ms 프레임 3개). 2026-10-05에 70ms로 올렸다가, 2026-10-06 사용자 아이폰 시험에서 바르게 말한 '사과'가
+ *   자주 '다시'가 되어 한 칸 내렸다(사용자 요청 '아주 살짝'). 3프레임짜리 짧은 'ㅊ·ㅈ'이 가끔 통과할 수 있어 치료사가 확인한다.
  * - 마찰 뒤 모음 80ms 이상. 바람 소리만 길게 낸 것('스~~')은 '사'가 아니다.
  * - 소리가 잡음보다 15dB 이상 크지 않으면 판단하지 않는다(불확실). 작게 말한 것을 틀렸다고 하지 않기 위해서다.
  * - 길이 300ms 미만·8초 초과, 소리 깨짐 1% 이상도 판단하지 않는다(서버 공용 음질 검사 assess_audio_quality와 같다).
  * 서버 판정도 같은 값을 쓴다(backend/app/games/evaluation.py, HEURISTIC_REGISTER). 혀 위치 차이(치간음 등)는 이 근사로 구분할 수 없어 치료사가 확인한다.
  */
-export const ONSET_RULE = { onsetFricationMs: 70, voicedAfterMs: 80, minDurationMs: 300, maxDurationMs: 8000, maxClippingRatio: 0.01, minSnrDb: 15 }
+export const ONSET_RULE = { onsetFricationMs: 60, voicedAfterMs: 80, minDurationMs: 300, maxDurationMs: 8000, maxClippingRatio: 0.01, minSnrDb: 15 }
 /** 판정 이유. success·retry·uncertain을 정하고, '다시'일 때 두두가 줄 단서를 고른다. */
 export type OnsetReason = 'ok' | 'no_frication' | 'short_frication' | 'no_vowel' | 'quiet' | 'too_short' | 'poor_audio' | 'no_speech'
 export function onsetReason(acoustic: Partial<Acoustic>, rule = ONSET_RULE): OnsetReason {
@@ -108,7 +109,7 @@ export const RETRY_LINE = "바람 소리 '스~'를 먼저 내 볼까?"
 export function retryLine(reason: OnsetReason | null, text: string): string {
   if (reason === 'short_frication') return `바람 소리를 조금 더 길게 내 볼까? ${text}!`
   if (reason === 'no_vowel') return `바람 소리 좋아! 끝까지 이어서 말해 볼까? ${text}!`
-  return RETRY_LINE
+  return `${RETRY_LINE} ${text}!`
 }
 /** 두두가 먼저 들려주기 전에 하는 말. 이어서 박에 맞춰 낱말만 부른다(리듬, rhythm.ts). */
 export const MODEL_LEAD = '두두 따라 해 봐.'

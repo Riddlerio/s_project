@@ -31,7 +31,7 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 
 - `Therapist.password_hash`와 `password_salt`(`Account`와 중복)
 - ~~루트의 `main.py` stub(16바이트)~~ — 2026-10-04 사용자 승인으로 삭제
-- 루트의 agent 프롬프트 파일 4개 — 2026-10-04 `docs/history/prompts/`로 이동(삭제 아님): `SPEECH_HERO_TASK.md`, `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md`, `SPEECH_HERO_HOYA_ADAPTIVE_CHAT_FINAL_PROMPT.md`, `THERAPIST_WORKFLOW_PROMPT.md`
+- 루트의 agent 프롬프트 파일 4개 — 2026-10-04 `docs/history/prompts/`로 이동, 2026-10-05 저장소에서 삭제(요약은 `docs/WORK_HISTORY.md` 3절, 원문은 [정리 직전 버전](https://github.com/Riddlerio/s_project/tree/22eef9b993475537ec55859e1cca17dc15d02e73/docs/history/prompts)): `SPEECH_HERO_TASK.md`, `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md`, `SPEECH_HERO_HOYA_ADAPTIVE_CHAT_FINAL_PROMPT.md`, `THERAPIST_WORKFLOW_PROMPT.md`
 - 참조되지 않는 jpg: `20190610.010190759320001i1.jpg`
 
 ## 3. 시각 placeholder

@@ -69,7 +69,7 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 난이도 배율 1 + 0.15×(d−2), 800–3500ms 범위, d는 1–5, 시작값 2 | `games/rounds.py`의 `effective_round`, `main.py`의 `start_activity` | 난이도 조정 | UNKNOWN |
 | 성공 비율 ≥ 2/3이고 올림 < 2회면 올림. 성공 비율 ≤ 1/3이 2회면 한 번만 내림 | `games/rounds.py`의 `next_difficulty` | 난이도 규칙 | UNKNOWN |
 | 다시 듣기 ≥ 2회면 중립 건너뛰기 | `main.py`의 `activity_utterance` | 불확실 처리 | UNKNOWN |
-| 대구대 건너기 ONSET_FRICATION: 시작 마찰 ≥ 70ms이고 마찰 뒤 유성 ≥ 80ms. 잡음보다 15dB 미만이면 불확실(공용 음질 기준 8dB보다 엄격) | `games/evaluation.py`의 `ONSET_FRICATION_MS`·`VOICED_AFTER_FRICATION_MS`·`ONSET_MIN_SNR_DB`. 화면 사본 `src/game/crossing/crossingFlow.ts`의 `ONSET_RULE` | 줄 통과(음향 근사) | PRODUCT_HEURISTIC. 2026-10-05 성인 1명 PC 마이크 실측 2회(정답 확인 포함): 바른 '사' 79~99ms, '차·자' 39~59ms. 임상 검증 아님([MIC_MEASUREMENT](../handoff/MIC_MEASUREMENT_2026-10-05.md)) |
+| 대구대 건너기 ONSET_FRICATION: 시작 마찰 ≥ 60ms(2026-10-06 70→60)이고 마찰 뒤 유성 ≥ 80ms. 시작 마찰을 잴 때 앞부분 60ms(2026-10-06 40→60)·도중 20ms 꺼짐을 봐준다. 잡음보다 15dB 미만이면 불확실(공용 음질 기준 8dB보다 엄격) | `games/evaluation.py`의 `ONSET_FRICATION_MS`·`VOICED_AFTER_FRICATION_MS`·`ONSET_MIN_SNR_DB`. 화면 사본 `src/game/crossing/crossingFlow.ts`의 `ONSET_RULE` | 줄 통과(음향 근사) | PRODUCT_HEURISTIC. 2026-10-05 성인 1명 PC 마이크 실측 2회(정답 확인 포함): 바른 '사' 60~99ms, '차·자' 39~59ms. 2026-10-06 아이폰에서 바르게 말한 '사과'가 자주 '다시'가 되어 한 칸 내림(사용자 요청). 3프레임 '차·자'가 가끔 통과할 수 있음. 임상 검증 아님([MIC_MEASUREMENT](../handoff/MIC_MEASUREMENT_2026-10-05.md)) |
 | 대구대 건너기 진행: 5라운드 × 2줄, 줄당 최대 3번 시도, 불확실·무발화는 시도를 쓰지 않고 같은 줄에서 연속 3번이면 중립 이동 | `games/crossing.py` | 진행 | PRODUCT_HEURISTIC(사용자 결정 2026-10-05) |
 | 건너기 화면 발화 감지: 시작 여유 9dB, 바닥 -56dB, 앞부분 되살리기 최대 400ms, 시작 마찰 앞 40ms·도중 20ms 봐주기 | `src/game/crossing/onsetPipeline.ts` | 조용한 /ㅅ/ 감지 | PRODUCT_HEURISTIC(실측: 조용한 '스'를 놓침, 숨소리 한 프레임에 시작 마찰 0) |
 | 건너기 속도: 말풍선 접근 5000ms·말하기 창 4000ms에서 시작, 최소 2500/2500. 최근 8번 중 7번 성공이면 0.5초씩(한 번에 하나), 2번 연속 어려우면 느리게 | `src/game/crossing/crossingFlow.ts`의 `nextPace` | 속도 조절 | UNKNOWN |
@@ -131,6 +131,20 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | DEMO 유도 대본: 선택 질문·빈칸 채우기·먼저 들려주고 권하기·바르게 다시 들려주기를 돌려 쓴다(음절 단계는 먼저 들려주기를 더 자주) | `hoya/providers/demo_provider.py` | /ㅅ/ 낱말 유도 | PRODUCT_HEURISTIC |
 | 두두 음성 파일: 말의 모든 문장이 목록에 있을 때만 파일 재생(아니면 전부 브라우저 음성), 문장 사이 120ms | `src/speech/duduClips.ts`, `shared/dudu_voice_lines.json` | 목소리 일관성 | PRODUCT_HEURISTIC |
 | 입 모양 맞추기: 40ms 간격 소리 크기, 최대보다 30dB 아래는 닫힘, 0~9 단계 | `scripts/build-voice-envelopes.mjs`, `shared/dudu_voice_envelopes.json`, `src/tiger/duduFace.ts` | 말하는 입 연출(임상 무관) | PRODUCT_HEURISTIC |
+
+## 9-1. 대구대 건너기 리듬 (2026-10-05)
+
+리허설 관찰로 조정할 제품 규칙이다. 박 맞춤은 동기용 연출이고 임상 지표가 아니다.
+
+| 값 | 위치 | 용도 | 출처 |
+|---|---|---|---|
+| 카드 1장 = 4박 한 마디. 1~3박에 '똑'(90ms), 4박에 카드 착지 | `src/game/crossing/rhythm.ts`의 `bar` | 말할 때 알리기 | PRODUCT_HEURISTIC |
+| 시작 84BPM. 치료사 설정 76~100(기본 84, 빨라지기 켬) | `rhythm.ts`의 `DEFAULT_RHYTHM`·`BPM`, `backend/app/game_settings/schemas.py` | 빠르기 | PRODUCT_HEURISTIC(느리게 시작하는 원리는 DTTC·ReST, 값 자체의 근거는 없음) |
+| 최근 8번 중 7번 성공이면 +4BPM(최대 100, 빨라지기 끄면 시작값), 연속 2번 성공이 아니면 −4BPM(최소 72). 바뀌면 기록을 비움 | `rhythm.ts`의 `nextBpm` | 빠르기 맞춤 | PRODUCT_HEURISTIC |
+| 마이크 열림 = 3박 '똑' + 여운 160ms + 출력 지연(최대 400ms). 착지보다 늦지 않음 | `rhythm.ts`의 `bar` | 박 소리가 마이크에 잡히지 않게 | TECHNICAL_LIMIT |
+| 듣기 창 = 착지 + 4박(말이 시작됐으면 최대 4초) | `rhythm.ts`의 `WINDOW_BEATS` | 대답 시간 | PRODUCT_HEURISTIC |
+| '딱 맞았어!' = 착지 앞 300ms~뒤 400ms. 화면에만 보이고 저장하지 않음 | `rhythm.ts`의 `PERFECT_EARLY_MS`·`PERFECT_LATE_MS` | 동기 | PRODUCT_HEURISTIC |
+| 두두 부르기: 음성 파일을 착지 − 모음 시작('사!'는 200ms) − 40ms에 재생 | `rhythm.ts`의 `beatLeadMs` | 시범을 박에 맞춤 | PRODUCT_HEURISTIC |
 
 ## 10. 변경할 때의 규칙
 

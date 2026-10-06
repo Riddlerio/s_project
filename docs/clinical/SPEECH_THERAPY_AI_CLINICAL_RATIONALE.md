@@ -13,7 +13,7 @@ Speech Hero는 **AI 기반 아동 발음·말소리 훈련 및 언어재활사 �
 
 ### 현재 부분 구현
 
-게임의 세부 장면·단서 단계·상호작용은 제한적이다. Conversation Quest의 호야 응답은 [고정된 DEMO 규칙](../../backend/app/games/conversation.py)이며 실제 대화 모델이나 문맥 기억이 아니다. 실물 마이크·Android 브라우저·3D 렌더·HTTPS 배포 조합은 수동 확인이 남았다. [기존 검증 기록](VALIDATION_REPORT.md)도 이 범위를 구분한다.
+게임의 세부 장면·단서 단계·상호작용은 제한적이다. Conversation Quest의 호야 응답은 [고정된 DEMO 규칙](../../backend/app/games/conversation.py)이며 실제 대화 모델이나 문맥 기억이 아니다. 실물 마이크·Android 브라우저·3D 렌더·HTTPS 배포 조합은 수동 확인이 남았다. [기존 검증 기록(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/v2/VALIDATION_REPORT.md)도 이 범위를 구분한다.
 
 ### 향후 연구/검증 필요
 
@@ -63,7 +63,7 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 
 ## 4. 아동 경험, 단서와 독립성
 
-`LOW`·`UNCERTAIN`은 [관찰 생성기](../../backend/app/clinical/observation_builder.py)의 근거 강도 표시이고 `NO_SPEECH`는 발화가 검출되지 않았다는 상태다. 모두 아동의 실패 판정과 다르다. 음질 불량이나 불확실한 인식은 `LISTEN_AGAIN`으로, 반복 불확실은 `UNCERTAIN_SKIP`과 `NEUTRAL_CONTINUE` 성격의 다음 항목 진행으로 처리한다. `NO_SPEECH`는 성공/재시도 분모에 넣지 않는다. V2의 `TARGET_RETRY`는 부드러운 단서(`gentle`)를 실어 보내고, 기존 모험 정책은 재시도·`HINT_REQUIRED`·단계 하향·항목 건너뛰기를 제공한다. [정책](../../backend/app/training/policy.py), [V2 처리](../../backend/app/main.py), [아동 화면](../../src/child/ActivitySession.tsx).
+`LOW`·`UNCERTAIN`은 [관찰 생성기](../../backend/app/clinical/observation_builder.py)의 근거 강도 표시이고 `NO_SPEECH`는 발화가 검출되지 않았다는 상태다. 모두 아동의 실패 판정과 다르다. 음질 불량이나 불확실한 인식은 `LISTEN_AGAIN`으로, 반복 불확실은 `UNCERTAIN_SKIP`과 `NEUTRAL_CONTINUE` 성격의 다음 항목 진행으로 처리한다. `NO_SPEECH`는 성공/재시도 분모에 넣지 않는다. V2의 `TARGET_RETRY`는 부드러운 단서(`gentle`)를 실어 보내고, 기존 모험 정책은 재시도·`HINT_REQUIRED`·단계 하향·항목 건너뛰기를 제공한다. [정책(2026-10-04 삭제 전 원문)](https://github.com/Riddlerio/s_project/blob/8e086b28062b37ba88ac9f8a7cff133f63cd15c7/backend/app/training/policy.py), [V2 처리](../../backend/app/main.py), [아동 화면](../../src/child/ActivitySession.tsx).
 
 현재 별도의 정교한 휴식 프로토콜이나 대체 응답 방식의 완성된 단계별 UI는 확인되지 않았다. 이를 이미 제공하는 기능으로 표시하지 않는다. 아동 화면은 놀이 피드백을, 치료사 화면은 불확실·무발화·DEMO와 평가 가능 표본을 분리한 근거를 보여 준다.
 
@@ -196,4 +196,4 @@ R1 선택형 단어, R2 그림/열린 질문, R3 문장 틀을 이용한 구, R4
 - AI-Hub. [한국어 아동 음성 데이터](https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=540) 및 [데이터 이용정책](https://aihub.or.kr/intrcn/guid/usagepolicy.do?currMenu=151&topMenu=105). 후보 데이터 내용과 접근 조건.
 - [The Korean Children Speech Sound Disorder (SSD) Dataset 연구](https://www.eksss.org/archive/view_article?pid=pss-16-3-87). *Phonetics and Speech Sciences*, 16(3), 2024. 한국어 아동 단어 음성 연구 후보; 원자료 허가는 별도 확인 필요.
 - K-Univ. [Speech Database of Typically Developing and Speech-Impaired Children](https://huggingface.co/datasets/K-Univ/Pathological-child-voice). 공개 배포 페이지에 기재된 내용과 이용 조건만 후보 판단에 사용.
-- 저장소 근거: [게임 정의·평가](../../backend/app/games/rounds.py), [음향·발화 분석](../../backend/app/speech/pipeline.py), [관찰·검증](../../backend/app/clinical/observation_builder.py), [브라우저 VAD](../../src/speech/vad.ts), [R4 마이크 fixture](../../shared/re_onset_mic_cases.json), [검증 기록](VALIDATION_REPORT.md).
+- 저장소 근거: [게임 정의·평가](../../backend/app/games/rounds.py), [음향·발화 분석](../../backend/app/speech/pipeline.py), [관찰·검증](../../backend/app/clinical/observation_builder.py), [브라우저 VAD](../../src/speech/vad.ts), [R4 마이크 fixture](../../shared/re_onset_mic_cases.json), [검증 기록(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/v2/VALIDATION_REPORT.md).

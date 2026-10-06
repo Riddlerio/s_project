@@ -48,6 +48,8 @@ function Street({ crossed }: { crossed: number }) {
   const trees = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ x: -3 + i * 2.6, z: -4.2 - (i % 3) * 0.7, size: 0.95 + (i % 4) * 0.12 })), [])
   // 길 건너편(정문 쪽 아님) 인도 뒤 덤불: 횡단보도 양옆 잔디에 띄엄띄엄
   const bushes = useMemo(() => Array.from({ length: 9 }, (_, i) => ({ x: -2.6 + i * 1.7, z: (i % 2 ? -2.05 : 2.05) + (i % 3) * 0.12 })), [])
+  // 세로로 긴 화면(휴대폰)은 옆 시야가 좁아 신호등이 가장자리에서 잘린다: 조금 안쪽·뒤로 옮긴다.
+  const narrow = useThree(state => state.size.width < state.size.height * 0.9)
   return <group>
     {/* 도로·인도·잔디 */}
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[12, -0.01, 0]}><planeGeometry args={[60, 30]} /><meshStandardMaterial color="#a9d59b" roughness={1} /></mesh>
@@ -58,7 +60,7 @@ function Street({ crossed }: { crossed: number }) {
     {Array.from({ length: STRIPES }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[stripeX(i + 1), 0.012, 0]}><planeGeometry args={[0.62, 2.8]} />
       {i < crossed ? <meshStandardMaterial color="#ffeeb0" emissive="#ffd66b" emissiveIntensity={0.28} roughness={0.6} /> : <meshStandardMaterial color="#f7f7f2" roughness={0.7} />}</mesh>)}
     {/* 출발 쪽 초록 신호등 */}
-    <group position={[-1.8, 0, -1.5]}>
+    <group position={narrow ? [-1.25, 0, -2.6] : [-1.8, 0, -1.5]}>
       <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.06, 0.06, 2.2, 10]} /><meshStandardMaterial color="#3d4447" /></mesh>
       <mesh position={[0, 2.35, 0]}><boxGeometry args={[0.36, 0.6, 0.28]} /><meshStandardMaterial color="#2c3133" /></mesh>
       <mesh position={[0, 2.22, 0.15]}><circleGeometry args={[0.11, 20]} /><meshStandardMaterial color="#47e07a" emissive="#2fbf5d" emissiveIntensity={0.9} /></mesh>
