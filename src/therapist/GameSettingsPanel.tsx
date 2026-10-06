@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { childGameSettings, saveChildGameSettings } from '../api/therapist'
 import type { DaeguCrossingGameSettings, DaeguCrossingSettingsInput } from '../api/therapist'
+import RATIONALE from '../../shared/daegu_crossing_rationale.json'
 import { formatDateTime } from './formatTime'
 import './crossingTherapist.css'
 
@@ -8,6 +9,8 @@ const TEMPO_OPTIONS = [
   { bpm: 76, name: '느리게' }, { bpm: 84, name: '보통' },
   { bpm: 92, name: '조금 빠르게' }, { bpm: 100, name: '빠르게' },
 ]
+/** 대상별 빠른 설정(근거 패널의 권장값). 누르면 값만 바꾸고, 저장은 치료사가 '설정 저장'으로 한다. */
+export const CROSSING_PRESETS = RATIONALE.presets
 
 export function GameSettingsView({ saved, values, busy, loading, error, message, onChange, onSave, onRetry }: {
   saved: DaeguCrossingGameSettings | null; values: DaeguCrossingSettingsInput
@@ -15,7 +18,7 @@ export function GameSettingsView({ saved, values, busy, loading, error, message,
   onChange(values: DaeguCrossingSettingsInput): void; onSave(): void; onRetry(): void
 }) {
   const changed = !!saved && (!saved.updatedAt || values.startBpm !== saved.startBpm || values.allowFaster !== saved.allowFaster)
-  return <section className="card crossing-settings" aria-label="대구대 건너기 설정">
+  return <section className="card crossing-settings" id="crossing-settings" aria-label="대구대 건너기 설정">
     <div className="crossing-panel-heading"><h2>대구대 건너기 설정</h2><span className="crossing-setting-badge">다음 게임 시작부터 적용</span></div>
     <p>아동이 편안하게 말할 수 있는 박자를 치료사가 정합니다. 현재 진행 중인 게임과 지난 회기 기록은 바뀌지 않습니다.</p>
     {loading && <p role="status">박자 설정을 불러오는 중입니다.</p>}
@@ -23,6 +26,16 @@ export function GameSettingsView({ saved, values, busy, loading, error, message,
     <form onSubmit={event => { event.preventDefault(); if (!busy && !loading && changed) onSave() }}>
       <fieldset disabled={loading || busy || !saved}>
         <legend className="crossing-visually-hidden">대구대 건너기 박자</legend>
+        <div className="crossing-presets" role="group" aria-labelledby="crossing-presets-title">
+          <p id="crossing-presets-title"><strong>빠른 설정</strong> <span className="small">설계 근거의 대상별 권장값입니다. 고른 뒤 '설정 저장'을 눌러야 적용됩니다.</span></p>
+          <ul>{CROSSING_PRESETS.map(preset => <li key={preset.id}>
+            <button type="button" className="crossing-preset" aria-describedby={`crossing-preset-${preset.id}`}
+              onClick={() => onChange({ startBpm: preset.startBpm, allowFaster: preset.allowFaster })}>
+              <strong>{preset.label}</strong><span>{preset.startBpm} BPM · 빨라지기 {preset.allowFaster ? '켬' : '끔'}</span>
+            </button>
+            <p id={`crossing-preset-${preset.id}`} className="small">{preset.basis}</p>
+          </li>)}</ul>
+        </div>
         <label className="crossing-tempo-label">시작 박자
           <select value={values.startBpm} onChange={event => onChange({ ...values, startBpm: Number(event.target.value) })}>
             {!TEMPO_OPTIONS.some(option => option.bpm === values.startBpm) && <option value={values.startBpm}>현재 설정 · {values.startBpm} BPM</option>}

@@ -140,6 +140,7 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 값 | 위치 | 용도 | 출처 |
 |---|---|---|---|
 | 카드 1장 = 4박 한 마디. 1~3박에 '똑'(90ms), 4박에 카드 착지 | `src/game/crossing/rhythm.ts`의 `bar` | 말할 때 알리기 | PRODUCT_HEURISTIC |
+| 대상별 빠른 설정(치료사가 눌러 값만 채우고 저장은 따로): 기능적 조음음운장애 84·켬, 발달지연·지적장애 76·켬, 아동기 말실행증·말더듬·마비말장애 76·끔 | `shared/daegu_crossing_rationale.json`의 `presets`, `src/therapist/GameSettingsPanel.tsx` | 치료사 설정 도움 | PRODUCT_HEURISTIC(근거 문서 2절의 권장. 임상 검증 아님) |
 | 시작 84BPM. 치료사 설정 76~100(기본 84, 빨라지기 켬) | `rhythm.ts`의 `DEFAULT_RHYTHM`·`BPM`, `backend/app/game_settings/schemas.py` | 빠르기 | PRODUCT_HEURISTIC(느리게 시작하는 원리는 DTTC·ReST, 값 자체의 근거는 없음) |
 | 최근 8번 중 7번 성공이면 +4BPM(최대 100, 빨라지기 끄면 시작값), 연속 2번 성공이 아니면 −4BPM(최소 72). 바뀌면 기록을 비움 | `rhythm.ts`의 `nextBpm` | 빠르기 맞춤 | PRODUCT_HEURISTIC |
 | 마이크 열림 = 3박 '똑' + 여운 160ms + 출력 지연(최대 400ms). 착지보다 늦지 않음 | `rhythm.ts`의 `bar` | 박 소리가 마이크에 잡히지 않게 | TECHNICAL_LIMIT |
