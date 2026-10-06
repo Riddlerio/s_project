@@ -127,8 +127,9 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 같은 UNCERTAIN이 반복되면 SIMPLIFY. TARGET_NOT_OBSERVED가 반복되면 단서 허용 | `hoya/policy.py` | 전략 | UNKNOWN |
 | "음..." 지연 750ms | `src/child/hoyaChatController.ts`의 `HOYA_THINKING_FILLER_DELAY_MS` | UX | UNKNOWN |
 | 게임 전환: 목표 관찰(TARGET_OBSERVED) 턴 ≥ 10이고 서버 시간 ≥ 120초, 또는 ≥ 300초, 또는 무발화 연속 4턴(3턴째에 쉬운 질문 먼저). 관찰 횟수는 발음 정확도가 아니다 | `hoya/transitions.py` | 대화 → 대구대 건너기 안내 | PRODUCT_HEURISTIC(사용자 데모 흐름 승인 2026-10-05: 약 10번·약 5분) |
-| 시작 문구 "안녕~ 만나서 반가워! {별명}아/야. 나는 두두야."(받침에 따라 아/야), 전환 문구 "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?" | `hoya/providers/demo_provider.py`의 `opening_text`, `hoya/transitions.py`의 `TRANSITION_TEXT` | 대본 | PRODUCT_HEURISTIC |
-| DEMO 유도 대본: 선택 질문·빈칸 채우기·먼저 들려주고 권하기·바르게 다시 들려주기를 돌려 쓴다(음절 단계는 먼저 들려주기를 더 자주) | `hoya/providers/demo_provider.py` | /ㅅ/ 낱말 유도 | PRODUCT_HEURISTIC |
+| 시작 문구 "안녕~ 만나서 반가워! {별명}아/야. 나는 두두야. 오늘 뭐 하고 놀았어?"(받침에 따라 아/야), 전환 문구 "우리 게임 해 볼까? 아래 '대구대 건너기'를 눌러 볼래?" | `hoya/providers/demo_provider.py`의 `opening_text`, `hoya/transitions.py`의 `TRANSITION_TEXT` | 대본 | PRODUCT_HEURISTIC |
+| DEMO /ㅅ/ 대본(2026-10-06): 아이 말의 주제에 반응한 뒤 /ㅅ/ 낱말이 나오기 쉬운 질문을 한다. 순서는 주제 질문 → 같은 주제로 이어 가는 질문 → 어디에나 맞는 질문이고, 최근 3번 안에 한 질문과 아이가 방금 말한 낱말을 묻는 질문은 건너뛴다. 같은 주제 반응은 연달아 하지 않는다. 목표 관찰이면 알려진 낱말을 바르게 다시 들려준다("맞아, 사과!") | `hoya/providers/demo_provider.py`의 `TOPICS`·`S_FOLLOW_UPS`·`S_ANYWHERE`·`RECENT_QUESTIONS` | 자연스러운 /ㅅ/ 유도 | PRODUCT_HEURISTIC(사용자 지적: 대놓고 고르게 하는 질문은 부자연스럽다, 2026-10-05·아이폰 시험 2026-10-06) |
+| DEMO 돕기: 이번 말과 바로 앞 말에 목표 음소가 없을 때(서버 대화 근거와 같은 규칙) 4턴째부터 돕는다. 같은 낱말로 고르기 → 빈칸 → 먼저 들려주기(치료사 허용 시) 순서로 단서를 늘린다. 첫 3턴에는 서버가 ALLOWED_CUE를 줄 때 먼저 들려주기만 한 번 한다. 낱말은 지금 주제·바로 앞 질문과 이어지는 것을 먼저 고르고, '소리'는 문장이 어색해 돕는 낱말에서 뺀다. 무발화 3번(그림 고르기)·불확실 2번(고르기)은 정책(SIMPLIFY) 그대로라 첫 3턴에도 나올 수 있다 | `hoya/providers/demo_provider.py`의 `HELP_FROM_TURN`·`S_HINTS`·`HELP_SKIP` | 도움이 필요할 때만 단서 | PRODUCT_HEURISTIC |
 | 두두 음성 파일: 말의 모든 문장이 목록에 있을 때만 파일 재생(아니면 전부 브라우저 음성), 문장 사이 120ms | `src/speech/duduClips.ts`, `shared/dudu_voice_lines.json` | 목소리 일관성 | PRODUCT_HEURISTIC |
 | 입 모양 맞추기: 40ms 간격 소리 크기, 최대보다 30dB 아래는 닫힘, 0~9 단계 | `scripts/build-voice-envelopes.mjs`, `shared/dudu_voice_envelopes.json`, `src/tiger/duduFace.ts` | 말하는 입 연출(임상 무관) | PRODUCT_HEURISTIC |
 
