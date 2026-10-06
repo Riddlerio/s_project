@@ -18,7 +18,7 @@
 | 3 | 자연스러운 대화 대본 + 새 두두 음성 | Claude + 사용자(VOLI 로그인) | ✅ | 2~3시간 | PR #23 병합 확인 |
 | 4 | 치료사 근거 패널 + 분석 그래프 화면 + 전문 정보 | Claude | ✅ | 2~3시간 | PR #25 병합 확인 |
 | 5 | 치료사 화면 시연 동선 점검 (CODEX_TASKS **3번**) | Codex | ✅ | 1시간 | PR #26 병합 |
-| 6 | 통합 점검(휴대폰 폭 전체 흐름)·문서 | Claude | ✅ | 1~2시간 | PR 병합 확인 |
+| 6 | 통합 점검(휴대폰 폭 전체 흐름)·문서 | Claude | ✅ | 1~2시간 | PR #27 병합 확인 |
 | 7 | 아이폰 리허설과 수정 | 사용자 + Claude | ⬜ | 2~3시간 | "리허설 할게" |
 | 8 | 데모 당일 준비: 핫스팟 연결·백업 영상·체크리스트·시연 버전 태그 | 사용자 + Claude | ⬜ | 1~2시간 | 7단계 뒤 |
 
@@ -45,7 +45,7 @@
 |:-:|---|---|
 | 1 | 자연스러운 대화 대본 + 새 두두 음성(3단계) ✅ | 10/6 끝. 브랜치 `claude/natural-dialogue`, PR #23 병합 확인 |
 | 2 | 치료사 근거 패널 + 분석 그래프 화면 + 전문 정보(4단계) ✅ | 10/6 끝. 브랜치 `claude/therapist-analytics`, PR #25 병합 확인 |
-| 3 | 통합 점검·문서(6단계) ✅ | 10/6 끝. 브랜치 `claude/integration-check`, PR 병합 확인 |
+| 3 | 통합 점검·문서(6단계) ✅ | 10/6 끝. 브랜치 `claude/integration-check`, PR #27 병합 확인 |
 | 4 | 리허설 결과 수정(7단계) | 리허설 때 |
 | 5 | 데모 당일 준비 돕기: 체크리스트, 시연 버전 태그(8단계) | 리허설 뒤 |
 
@@ -79,7 +79,7 @@ Claude가 3단계(대화)를 먼저 하는 이유는, 대화가 부자연스럽�
 |---|---|---|
 | `main` | PR #18까지 병합 | 직접 push 금지 |
 | `claude/dudu-followup` | Claude 작업 브랜치 | 이 문서도 여기서 올림 |
-| `claude/integration-check` | 6단계(통합 점검·공용 문서·작은 수정) | main `9f03e81`(PR #26까지)에서 시작 |
+| `claude/integration-check` | 6단계(통합 점검·공용 문서·작은 수정), PR #27 | main `9f03e81`(PR #26까지)에서 시작 |
 | `claude/therapist-analytics` | 4단계(근거 패널·빠른 설정·건너기 분석 화면), PR #25 | main `e4ecc12`(PR #24까지)에서 시작 |
 | `claude/natural-dialogue` | 3단계(자연스러운 대화 대본·새 두두 음성 7문장), PR #23 | `claude/dudu-followup` `6d9b30a`(PR #21)에서 시작 |
 | `codex/therapist-fixes` | Codex 1·2번(`0c14ae3`) | `e3c25be` 기준. CI 통과, **PR 전**. main과 겹치는 파일 없음 |
@@ -323,7 +323,7 @@ Codex에게 "`docs/CODEX_TASKS.md` 5번 이행하고 알려줘"라고 시킨다.
 ### 5단계. Codex 3번 — 치료사 화면 시연 동선 점검 ✅ (Codex, PR #26)
 [CODEX_TASKS.md](CODEX_TASKS.md) 3번 그대로다. 4단계가 main에 들어간 뒤 Codex에게 "3번 이행하고 알려줘"라고 한다.
 
-### 6단계. 통합 점검·문서 ✅ (Claude, 10/6)
+### 6단계. 통합 점검·문서 ✅ (Claude, 10/6, PR #27)
 
 **한 것(브랜치 `claude/integration-check`)**
 - **휴대폰 폭(390px) 전체 흐름 자동 점검**
