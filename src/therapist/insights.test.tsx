@@ -23,6 +23,9 @@ describe('치료사 읽기 화면', () => {
     expect(html).toContain('aria-pressed="true"')
     for (const kind of ['SYSTEM', 'AI', 'THERAPIST']) expect(html).toContain(`data-provenance="${kind}"`)
     expect(html).toContain('Tab 키와 Enter')
+    // 접근성 이름은 버튼에 보이는 번호로 시작한다(WCAG 2.5.3 보이는 글자가 이름에 포함, axe label-content-name-mismatch).
+    for (const [, label, visible] of html.matchAll(/aria-label="([^"]*)"[^>]*>(?:<svg[\s\S]*?<\/svg>)<span>(\d+)<\/span>/g)) expect(label.startsWith(`${visible} · `), label).toBe(true)
+    expect(html.match(/aria-label="\d+ · \d라운드 관찰/g)).toHaveLength(3)
   })
 
   it('원 AI 결과와 치료사 결과를 구분하고 품질 제외를 실패라고 하지 않는다', () => {
