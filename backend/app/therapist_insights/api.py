@@ -5,9 +5,17 @@ from ..auth import owned_child, require_therapist
 from ..db import get_db
 from ..models import Therapist, TrainingSession
 from .conversation import conversation_insights
+from .crossing_analytics import crossing_analytics
 from .service import goal_trends, session_insights
 
 router = APIRouter(prefix="/api", tags=["therapist-insights"])
+
+
+@router.get("/therapist/children/{child_id}/crossing-analytics")
+def read_crossing_analytics(child_id: str, db: Session = Depends(get_db),
+                            therapist: Therapist = Depends(require_therapist)):
+    child = owned_child(db, child_id, therapist)
+    return crossing_analytics(db, child)
 
 
 @router.get("/children/{child_id}/goal-trends")

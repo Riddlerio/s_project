@@ -147,6 +147,16 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | '딱 맞았어!' = 착지 앞 300ms~뒤 400ms. 화면에만 보이고 저장하지 않음 | `rhythm.ts`의 `PERFECT_EARLY_MS`·`PERFECT_LATE_MS` | 동기 | PRODUCT_HEURISTIC |
 | 두두 부르기: 음성 파일을 착지 − 모음 시작('사!'는 200ms) − 40ms에 재생 | `rhythm.ts`의 `beatLeadMs` | 시범을 박에 맞춤 | PRODUCT_HEURISTIC |
 
+## 9-2. 대구대 건너기 확인 비율·숙달 표시 (2026-10-06)
+
+| 값 | 위치 | 용도 | 출처 |
+|---|---|---|---|
+| 확인 비율 ≥ 0.8(80%)인 최신 REAL·비샘플 건너기 회기가 연속 3개일 때만 표시 | `backend/app/therapist_insights/crossing_analytics.py`의 `MASTERY_THRESHOLD`·`MASTERY_CONSECUTIVE_SESSIONS` | 읽기 전용 그래프의 숙달 기준 충족 표시 | PRODUCT_HEURISTIC(사용자 요청·CODEX_TASKS 5번, 임상적으로 검증된 숙달 판정이 아님) |
+
+- 분모는 기존 회기 계획 근거와 동일하게 마지막 결정이 확인·교정인 기록 중 결과가 `success/retry`이고 음질이 `POOR`가 아닌 수다. 교정 결과를 반영하고 DEMO·seed 아동·seed 회기는 제외한다.
+- 최신 REAL 회기의 확인 비율이 `null`이거나 기준 미달이면 표시하지 않는다. 자료가 없는 회기를 건너뛰거나 과거 달성을 계속 유지하지 않는다. 자료 없음은 실패가 아니다.
+- 비율은 0~1이며 비교 전에 반올림하지 않는다. 이 표시는 목표·치료사 결정·게임 난이도를 자동으로 바꾸지 않는다.
+
 ## 10. 변경할 때의 규칙
 
 - 값을 바꾸면 이 표를 함께 고친다. 출처를 RESEARCH_SUPPORTED로 올리려면 근거 문서의 해당 절을 인용해야 한다.

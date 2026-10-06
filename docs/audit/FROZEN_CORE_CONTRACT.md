@@ -187,3 +187,15 @@ npm.cmd audit
 - `backend/app/therapist_insights/conversation.py`는 완료된 턴이 0개이고 `status != "active"`인 대화를 치료사 목록에서만 숨긴다. 진행 중인 0턴 대화는 유지한다.
 - DB의 회기·대화·턴 기록은 삭제하거나 변경하지 않는다. 숨긴 개수는 기존 응답에 추가한 `hiddenEmptyN`으로 전달한다.
 - 화면은 숨긴 기록이 있을 때만 '대화 없이 끝난 기록 N건은 숨겼습니다.'라고 안내한다. 기존 응답 필드, 소유권·CSRF 규칙과 임상 집계 기준은 유지한다.
+
+## 12. 대구대 건너기 읽기 전용 집계 (2026-10-06, Codex)
+
+**승인:** 사용자가 `docs/CODEX_TASKS.md` 5번의 집계 API·프런트 타입·숙달 기준 등록을 요청했다.
+
+- 새 경로 `GET /api/therapist/children/{child_id}/crossing-analytics`는 `require_therapist`와 `owned_child`를 거친다. 다른 치료사의 아동은 404다. 기존 경로·응답·인증 규칙은 유지한다.
+- 기존 회기·관찰·마지막 치료사 결정을 조회만 한다. 새 표·열·마이그레이션은 없고, 저장된 관찰·결정·게임 설정을 변경하지 않는다.
+- `reviewedN`은 REAL·비seed 회기에서 마지막 결정이 확인·교정인 관찰 중 결과가 `success/retry`이고 음질이 `POOR`가 아닌 수다. `confirmedSuccessN`은 그중 교정을 반영한 성공 수다. `confirmedRate`는 둘의 0~1 비율이며 분모가 없으면 `null`이다. 기존 회기 계획 근거 필터를 재사용한다.
+- DEMO·SAMPLE은 출처를 표시하고 임상 비율·숙달 계산에서 제외한다. `deferredN`은 기존 회기 요약처럼 원래 자동 결과가 `uncertain/no_speech`인 수다.
+- `autoReasons`는 판정 모듈의 상수를 읽어 시작 마찰 없음 → 짧은 마찰 → 뒤 모음 부족 → 기준 충족 순서로 설명한다. 보류·음질 불량·측정 누락을 실패로 분류하거나 저장 판정을 다시 쓰지 않는다. 자동 설명은 임상 판단이 아니다.
+- `rhythm`은 회기 시작 당시의 유효한 스냅숏만 쓰며 없거나 잘못된 값이면 `null`이다. 시각은 기존 응답 형식을 유지한다. 목록은 시작 시각·회기 id 순서로 오래된 것부터 보낸다.
+- 숙달 표시는 최신 REAL·비seed 건너기 3회기의 확인 비율이 각각 80% 이상인 제품 규칙이다. [HEURISTIC_REGISTER.md](HEURISTIC_REGISTER.md) 9-2절에 등록했으며 치료사 결정이나 목표를 자동으로 바꾸지 않는다.
