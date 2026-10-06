@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { GameSettingsView } from './GameSettingsPanel'
+import { CROSSING_PRESETS, GameSettingsView } from './GameSettingsPanel'
 import { CrossingSessionSummary, ObservationEvidence } from './ClinicalTimeline'
 import { childGameSettings, saveChildGameSettings } from '../api/therapist'
 import type { DaeguCrossingGameSettings } from '../api/therapist'
@@ -105,5 +105,24 @@ describe('대구대 건너기 치료사 근거', () => {
     const missing = renderToStaticMarkup(<ObservationEvidence row={row} />)
     expect(missing).toContain('저장된 근거 설명이 없습니다')
     expect(missing).not.toContain('기준 70ms')
+  })
+})
+
+describe('대상별 빠른 설정(근거 패널의 권장값)', () => {
+  it('근거 데이터의 대상별 박자를 버튼으로 보이고, 저장은 따로 누르게 안내한다', () => {
+    const html = renderToStaticMarkup(<GameSettingsView {...props} />)
+    expect(html).toContain('id="crossing-settings"')
+    for (const preset of CROSSING_PRESETS) {
+      expect(html).toContain(`<strong>${preset.label}</strong><span>${preset.startBpm} BPM · 빨라지기 ${preset.allowFaster ? '켬' : '끔'}</span>`)
+      expect(html).toContain(preset.basis)
+    }
+    expect(html.match(/class="crossing-preset"/g)).toHaveLength(CROSSING_PRESETS.length)
+    expect(html.match(/<button type="button" class="crossing-preset"/g)).toHaveLength(CROSSING_PRESETS.length)
+    expect(html).toContain('고른 뒤 &#x27;설정 저장&#x27;을 눌러야 적용됩니다')
+  })
+
+  it('설정을 불러오는 중이거나 저장 중에는 빠른 설정도 막힌다', () => {
+    const html = renderToStaticMarkup(<GameSettingsView {...props} saved={null} loading />)
+    expect(html).toMatch(/<fieldset disabled="">[\s\S]*class="crossing-preset"/)
   })
 })

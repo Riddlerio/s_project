@@ -47,7 +47,7 @@ a.card p { color: var(--muted); font-size: .9rem; }
 .therapist-login-demo button:hover:not(:disabled) { background: var(--color-palette-neutral-l92); color: var(--forest-deep); }
 .chart-wrap { width: 100%; height: 300px; }
 .workspace-tabs { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1.5rem 0 1.8rem; border-bottom: 1px solid var(--line); }
-.workspace-tabs button { margin: 0; padding: .85rem .25rem; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none; color: var(--color-palette-neutral-l45); font-size: .9rem; font-weight: 800; cursor: pointer; }
+.workspace-tabs button { margin: 0; padding: .85rem .25rem; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none; color: var(--muted); font-size: .9rem; font-weight: 800; cursor: pointer; }
 .workspace-tabs button:hover:not(:disabled) { transform: none; background: transparent; color: var(--forest); box-shadow: none; }
 .workspace-tabs button.active { border-bottom-color: var(--forest); color: var(--forest); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .3rem 1rem; }
