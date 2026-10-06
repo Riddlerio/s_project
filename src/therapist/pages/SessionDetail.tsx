@@ -20,7 +20,9 @@ export default function SessionDetail() {
     catch (cause) { setError(String(cause)) }
   }
   const v2 = Boolean(data?.session?.activityGame)
-  return <main className="therapist-screen"><Link to="/therapist">← 아동 현황</Link><h1>세션 상세</h1>
+  return <main className="therapist-screen"><Link to="/therapist">← 아동 현황</Link>
+    {data?.session?.id === id && data?.goal?.child_id && <p><Link to={`/therapist/children/${data.goal.child_id}`}>이 아동의 치료 목표·기록 보기 →</Link></p>}
+    <h1>세션 상세</h1>
     <p>{data?.session ? `${sessionSourceText(data.session)} 회기 · ${sessionStatusText(data.session.status)}` : ''}</p>
     <p>목표 v{data?.goal?.version} · /{data?.goal?.target_phoneme}/ · {LEVEL_LABELS[data?.goal?.level] || data?.goal?.level}</p>
     {error && <p role="alert">{error}</p>}
