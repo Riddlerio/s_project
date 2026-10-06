@@ -34,6 +34,27 @@ export const childConversationInsights = (childId: string) =>
 export const gameChildConversationInsights = (sessionId: string) =>
   api<ConversationInsightsData>(`/sessions/${sessionId}/conversation-insights`)
 
+/** REAL 회기의 적격 확인 기록만 비율에 포함하며, 해당 기록이 없으면 null이다. */
+export type CrossingAnalytics = {
+  sessions: {
+    sessionId: string
+    startedAt: string
+    source: 'REAL' | 'DEMO' | 'SAMPLE'
+    rhythm: { startBpm: number; allowFaster: boolean } | null
+    attemptN: number
+    deferredN: number
+    reviewedN: number
+    confirmedSuccessN: number
+    confirmedRate: number | null
+    byLevel: Record<string, { reviewedN: number; confirmedSuccessN: number }>
+    autoReasons: { ok: number; noFrication: number; shortFrication: number; noVowel: number }
+  }[]
+  mastery: { threshold: number; consecutiveSessions: number; met: boolean }
+  notes: string[]
+}
+export const childCrossingAnalytics = (childId: string) =>
+  api<CrossingAnalytics>(`/therapist/children/${childId}/crossing-analytics`)
+
 /** 박자 설정은 다음 게임 시작에 적용되며 지난 회기 값은 바뀌지 않는다. */
 export interface DaeguCrossingGameSettings {
   startBpm: number
