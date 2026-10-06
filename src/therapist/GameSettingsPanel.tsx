@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { childGameSettings, saveChildGameSettings } from '../api/therapist'
 import type { DaeguCrossingGameSettings, DaeguCrossingSettingsInput } from '../api/therapist'
+import { formatDateTime } from './formatTime'
 import './crossingTherapist.css'
 
 const TEMPO_OPTIONS = [
@@ -35,7 +36,7 @@ export function GameSettingsView({ saved, values, busy, loading, error, message,
         <p id="crossing-faster-guidance" className="small">말더듬·마비말장애 아동은 이 기능을 꺼두는 것을 권합니다. 아동의 반응을 살펴 치료사가 조절해 주세요.</p>
       </fieldset>
       <div className="crossing-settings-actions"><button type="submit" disabled={loading || busy || !changed}>{busy ? '저장 중…' : '설정 저장'}</button>
-        <p className="small">{saved?.updatedAt ? `최근 저장: ${new Date(saved.updatedAt).toLocaleString('ko-KR')}${saved.updatedBy ? ` · ${saved.updatedBy}` : ''}` : saved ? '아직 저장한 설정이 없어 기본값을 사용합니다.' : '설정을 불러온 뒤 저장할 수 있습니다.'}</p>
+        <p className="small">{saved?.updatedAt ? `최근 저장: ${formatDateTime(saved.updatedAt)}${saved.updatedBy ? ` · ${saved.updatedBy}` : ''}` : saved ? '아직 저장한 설정이 없어 기본값을 사용합니다.' : '설정을 불러온 뒤 저장할 수 있습니다.'}</p>
       </div>
       {message && <p role="status" className="crossing-save-message">{message}</p>}
     </form>
