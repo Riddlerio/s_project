@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { decideMagicBeam, getMagicBeamGrant, type SkillEvidence, type SkillStatus } from '../api/adventure'
+import { formatDateTime } from './formatTime'
 
 const evidenceNames: Record<SkillEvidence, string> = { APP_OBSERVATION: '앱 관찰 검토', DIRECT_OBSERVATION: '치료실 직접 관찰' }
 
@@ -13,7 +14,7 @@ export function SkillGrantView({ status, busy, evidence, note, onEvidence, onNot
     <p className="small">연습 게임의 빛의 마법, 회기 계획 승인과 별도로 결정합니다. 점수·자동 판정·게임 완료로 자동 승인되지 않습니다.</p>
     <p className="small">승인은 바로 쓸 수 있고, 철회는 아이가 진행 중인 라운드를 마친 뒤 다음 라운드부터 적용됩니다.</p>
     <p aria-live="polite">{status ? status.granted ? '현재 승인됨' : '현재 승인되지 않음' : '권한을 불러오는 중…'}</p>
-    {status?.granted && <p className="small">승인자: {status.therapistName} · 승인 시각: {status.grantedAt ? new Date(status.grantedAt).toLocaleString('ko-KR') : '기록 없음'}</p>}
+    {status?.granted && <p className="small">승인자: {status.therapistName} · 승인 시각: {formatDateTime(status.grantedAt)}</p>}
     <label>결정 근거<select value={evidence} onChange={event => onEvidence(event.target.value as SkillEvidence | '')} disabled={busy}>
       <option value="">근거 유형 선택</option><option value="APP_OBSERVATION">앱 관찰 검토</option><option value="DIRECT_OBSERVATION">치료실 직접 관찰</option>
     </select></label>
@@ -21,7 +22,7 @@ export function SkillGrantView({ status, busy, evidence, note, onEvidence, onNot
     <button disabled={busy || !status || !evidence || status.granted} onClick={() => onDecision('grant')}>매직빔 승인</button>
     <button className="quiet" disabled={busy || !status?.granted || !evidence} onClick={() => onDecision('revoke')}>승인 철회</button>
     {!!status?.history.length && <details><summary>스킬 결정 이력</summary><ul>{status.history.map((row, index) => <li key={`${row.at}-${index}`}>
-      {row.action === 'GRANT' ? '승인' : '철회'} · {row.therapistName} · {new Date(row.at).toLocaleString('ko-KR')} · {evidenceNames[row.evidenceKind]}{row.note && ` · ${row.note}`}
+      {row.action === 'GRANT' ? '승인' : '철회'} · {row.therapistName} · {formatDateTime(row.at)} · {evidenceNames[row.evidenceKind]}{row.note && ` · ${row.note}`}
     </li>)}</ul></details>}
   </section>
 }

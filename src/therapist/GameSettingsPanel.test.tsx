@@ -19,6 +19,11 @@ const row: InsightObservation = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('아동별 대구대 건너기 설정', () => {
+  it.each(['2026-10-05T09:42:00', '2026-10-05T09:42:00Z', '2026-10-05T09:42:00+00:00'])('최근 저장 시각 %s를 서울 시각으로 보여 준다', updatedAt => {
+    const html = renderToStaticMarkup(<GameSettingsView {...props} saved={{ ...saved, updatedAt }} />)
+    expect(html).toMatch(/최근 저장: 2026\.\s*10\.\s*5\.\s*오후\s*6:42 · 두두 치료사/)
+  })
+
   it('서버가 보낸 임의 정수 박자를 보존하고 네 가지 선택과 적용 시점을 안내한다', () => {
     const html = renderToStaticMarkup(<GameSettingsView {...props} values={{ startBpm: 87, allowFaster: false }} />)
     for (const bpm of [76, 84, 92, 100]) expect(html).toContain(`value="${bpm}"`)
