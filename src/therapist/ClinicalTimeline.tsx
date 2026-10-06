@@ -24,7 +24,7 @@ export function RoundTimeline({ rows, selectedId, onSelect }: { rows: InsightObs
     {rounds.map(round => <div className="round-band" key={round}><strong>{round}라운드</strong><div className="round-attempts">
       {rows.filter(row => row.roundIndex === round).map((row, index) => <button key={row.id} type="button"
         aria-pressed={selectedId === row.id} aria-controls="selected-observation"
-        aria-label={`${round}라운드 ${index + 1}번째 관찰 · ${row.targetText} · ${PROVENANCE_LABELS[row.provenance]} · ${row.included ? '비교 포함' : '분모 제외'}`}
+        aria-label={`${index + 1} · ${round}라운드 관찰 · ${row.targetText} · ${PROVENANCE_LABELS[row.provenance]} · ${row.included ? '비교 포함' : '분모 제외'}`}
         className={`attempt-point ${row.included ? '' : 'excluded'}`} onClick={() => onSelect(row.id)}>
         <EvidenceSymbol kind={row.provenance} /><span>{index + 1}</span>
       </button>)}

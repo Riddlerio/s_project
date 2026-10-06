@@ -4,6 +4,8 @@ Speech Hero는 만 4~7세 아동이 음성으로 두두와 대화하고 게임�
 
 **2026-10-05 5일 데모(10/5~10/9) 진행 중:** 로그인 → 두두 인사·/ㅅ/ 유도 대화 → 리듬게임 '대구대 건너기' → 칭찬·마무리 → 치료사 기록 확인 흐름입니다. 지금까지 한 일과 중요한 결정은 [작업 기록](docs/WORK_HISTORY.md), 다른 기기에서 이어 하는 방법과 앞으로 할 일은 [앞으로 할 일](docs/NEXT_STEPS.md), Codex에게 번호로 시키는 일은 [작업 순서](docs/CODEX_TASKS.md), 시연 순서·계정·초기화·리허설 확인 목록은 [시연 진행표](docs/handoff/DEMO_RUNSHEET_2026-10-05.md)에 있습니다. 두두는 Meshy GLB를 로드하며, 모델 로딩이 실패하면 절차형 시제품으로 돌아갑니다. 3D 제작·보정 과정은 [3D 제작 자료](assets/dudu3d/README.md), 남은 Phase와 역할 분담은 [로드맵](docs/ROADMAP.md)을 확인합니다. 이전 검사 수치는 당시 기록이며 현재 브랜치의 최종 결과와 구분합니다.
 
+**2026-10-06:** 자연스러운 대화 대본·새 두두 음성(PR #23), 치료사 건너기 분석 화면(PR #24·#25), 치료사 화면 시각·빈 대화·시연 동선 수정(PR #22·#26)을 병합했습니다. 휴대폰 폭(390px)으로 전체 흐름을 자동 점검했고(가짜 마이크, 2026-10-06), 실제 아이폰 리허설이 남았습니다.
+
 ## 현재 상태
 
 | 항목 | 상태 |
@@ -11,7 +13,7 @@ Speech Hero는 만 4~7세 아동이 음성으로 두두와 대화하고 게임�
 | M1 (음성 입력·두두 시제품·Magic Beam 경로) | PARTIAL |
 | M2 (네 게임 5라운드·임상 관찰·치료사 검증) | PARTIAL |
 | M3 (추천·대화·운영 준비) | PARTIAL |
-| 5일 데모(2026-10-05 main 병합) | CI 통과 · **실제 마이크·아이폰·실제 LLM 미확인**(리허설 예정) |
+| 5일 데모(2026-10-05~06 main 병합, PR #11~#26) | CI 통과 · 휴대폰 폭 전체 흐름 자동 점검 통과(2026-10-06, 가짜 마이크) · **실제 마이크·아이폰·실제 LLM 미확인**(리허설 예정) |
 | Production Ready | **NO** |
 
 PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 자동 테스트로 확인한 범위는 [V2 검증 기록(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/v2/VALIDATION_REPORT.md)에 있습니다. 실물 마이크·Android 브라우저·3D 렌더·HTTPS 배포의 수동 확인, 라벨링된 아동 음성으로 하는 발음 정확도·임상 검증이 아직 남았다는 뜻입니다.
@@ -20,7 +22,7 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 
 ## 주요 기능
 
-- 5일 데모 흐름(2026-10-05): 로그인하면 두두가 점프하며 인사하고, /ㅅ/ 낱말이 나오게 이끄는 대화를 합니다. 목표 낱말 시도 10회와 2분, 또는 5분이 지나면 두두가 아래 '대구대 건너기'를 권합니다. 게임은 리듬게임입니다. '하나·둘·셋·넷' 뒤 낱말 카드가 4박 한 마디마다 한 장씩 내려오고(1~3박에 '똑', 4박에 착지), 아이는 카드가 내려앉을 때 말합니다. 서버 판정이 성공이면 두두가 횡단보도 흰 줄을 하나 건넙니다(총 10줄, 5라운드 × 2줄). 빠르기는 84BPM에서 시작해 잘하면 조금씩 빨라지고, 치료사가 아동별로 시작 박자(76~100)와 빨라지기를 정합니다. 정문에 도착하면 "역시 ○○야!"라고 칭찬하고 대화로 돌아가 마무리 인사를 합니다. 아이템·보상은 쓰지 않습니다.
+- 5일 데모 흐름(2026-10-05): 로그인하면 두두가 점프하며 인사하고 "오늘 뭐 하고 놀았어?"로 대화를 엽니다. 아이가 말한 주제에서 /ㅅ/ 낱말이 나오기 쉬운 질문을 하고(예: 놀이터 → "시소도 탔어?"), 목표 소리가 두 번 연달아 없을 때만 그림 고르기·빈칸·먼저 들려주기로 돕습니다. 목표 낱말 시도 10회와 2분, 또는 5분이 지나면 두두가 아래 '대구대 건너기'를 권합니다. 게임은 리듬게임입니다. '하나·둘·셋·넷' 뒤 낱말 카드가 4박 한 마디마다 한 장씩 내려오고(1~3박에 '똑', 4박에 착지), 아이는 카드가 내려앉을 때 말합니다. 서버 판정이 성공이면 두두가 횡단보도 흰 줄을 하나 건넙니다(총 10줄, 5라운드 × 2줄). 빠르기는 84BPM에서 시작해 잘하면 조금씩 빨라지고, 치료사가 아동별로 시작 박자(76~100)와 빨라지기를 정합니다. 정문에 도착하면 "역시 ○○야!"라고 칭찬하고 대화로 돌아가 마무리 인사를 합니다. 아이템·보상은 쓰지 않습니다.
 - '네 차례' 신호(2026-10-05 Phase 4): 아이가 말할 차례마다 대화·대구대 건너기·게임 4종이 같은 신호를 씁니다. 두두 귀가 쫑긋 서고 짧은 차임이 울린 뒤, 차임이 다 들리면(약 0.5초) 마이크가 듣기 시작하고 화면 가장자리 빛과 '네 차례!'가 켜집니다. 차임이 아이 말로 잡히지 않게 듣기 전에만 울립니다. 움직임 줄이기 설정이면 두두와 효과가 멈춰 보입니다([작업 기록](docs/WORK_HISTORY.md)).
 - 두두 목소리: VOLI 베이직 보이스 '하람'(소년)으로 미리 만든 음성 파일 92개를 재생합니다. 파일이 없는 말은 브라우저 음성으로 말합니다. **무료 플랜이라 비상업적 사용만 가능하고, 두두가 말하는 화면에 출처 문구를 표시합니다**([음성 기록](docs/handoff/DUDU_VOICE_VOLI_2026-10-05.md)).
 - 아동: 계정 로그인, 두두 시제품 홈, 네 게임의 5라운드, 두두와 대화하기(자유대화), DEMO 또는 실제 음성 입력, XP·뱃지·카드 확인
@@ -47,10 +49,10 @@ PARTIAL은 기능이 동작하지 않는다는 뜻이 아닙니다. 코드와 �
 - 흐름: "대화 시작"을 한 번 누르면 호야 말하기 → 듣기 → (발화 끝) 생각하기(THINKING) → 말하기 → 듣기가 자동으로 이어집니다. 응답이 750ms보다 늦을 때만 "음..."을 한 turn에 한 번 말합니다(`HOYA_THINKING_FILLER_DELAY_MS`, `src/child/hoyaChatController.ts`). 호야가 말하거나 생각하는 동안에는 마이크 소리를 아동 발화로 보내지 않습니다. 호야의 표정·동작(THINKING·TALKING·LISTENING)은 이 대화 상태가 정하며, 대화 제공자(LLM)는 동작을 정하지 않습니다.
 - 재시도와 중복 방지: 브라우저는 발화 1회마다 임의의 요청 ID(`clientRequestId`, UUID)를 만들고, 같은 발화의 재시도에는 같은 ID만 씁니다. 서버는 제공자를 부르기 전에 turn을 `PROCESSING`으로 먼저 저장하고(같은 turn·같은 ID는 한 요청만 성공), 같은 ID가 다시 오면 저장된 답을 돌려주거나 처리 중이면 202를 돌려줍니다. 같은 ID는 내용이 정확히 같은 요청(turn 번호·인식 문장·대체 후보·인식기·음향 요약의 SHA-256 fingerprint가 같음)에만 쓸 수 있고, 다르면 `409 REQUEST_ID_REUSED`입니다. 그래서 응답만 유실돼도 같은 답을 복구하고, 같은 발화로 외부 LLM을 두 번 부르지 않습니다. 응답을 못 받으면 브라우저는 `RECOVERING`이 되어 새 발화를 받지 않고(마이크 입력도 보내지 않음) 같은 ID로만 다시 묻습니다. 복구한 호야 답을 실제로 말한 뒤에만 다시 듣고, 여러 번 실패하면 인사하고 대화를 끝냅니다. 그래서 서버에 저장된 대화와 아이가 실제로 들은 대화가 같습니다. fingerprint는 인식 문장에서 나온 값이므로 보존 기간이 지나면 문장과 함께 비웁니다. 서버 중단 등으로 `HOYA_CHAT_STALE_SEC`(기본 30초, 제공자 timeout보다 김)가 지나도 `PROCESSING`인 turn은 외부 제공자를 다시 부르지 않고 DEMO 응답으로 마무리합니다.
 - 대화 끝: 마지막 허용 turn(`HOYA_CHAT_MAX_TURNS`, 기본 30)을 저장하는 순간 서버가 대화를 끝냅니다. "대화 끝내기"(`/complete`)는 여러 번 불러도 안전합니다.
-- 제공자: 기본은 LLM 없이 동작하는 DEMO 제공자입니다. `HOYA_CHAT_ENABLED=true`, `HOYA_CHAT_PROVIDER=openai`, `HOYA_CHAT_MODEL`(모델 이름, 코드에 고정하지 않음), `OPENAI_API_KEY`를 모두 넣으면 OpenAI Responses API를 씁니다. key가 없거나 시간 초과(`HOYA_CHAT_TIMEOUT_SEC`, 기본 8초)·서버 오류·형식이 틀린 응답·검증 실패가 나면 DEMO 응답으로 대신하고 대화는 계속됩니다.
+- 제공자: 기본은 LLM 없이 동작하는 DEMO 제공자입니다. `HOYA_CHAT_ENABLED=true`, `HOYA_CHAT_PROVIDER=openai`, `HOYA_CHAT_MODEL`(모델 이름, 코드에 고정하지 않음), `OPENAI_API_KEY`를 모두 넣으면 OpenAI Responses API를 씁니다. key가 없거나 시간 초과(`HOYA_CHAT_TIMEOUT_SEC`, 기본 8초)·서버 오류·형식이 틀린 응답·검증 실패가 나면 DEMO 응답으로 대신하고 대화는 계속됩니다. DEMO 대본의 질문 순서·돕는 규칙은 [기준값 목록](docs/audit/HEURISTIC_REGISTER.md) 9절에 있고, 두두가 하는 DEMO 문장은 모두 녹음 파일이 있습니다(`backend/tests/test_dudu_voice_lines.py`).
 - 안전: 서버가 응답의 형식·전략·목표 단어(훈련 단어 목록 안)·금지 표현(교정·진단·치료 기법·개인정보 요청·지시문 노출)을 검사합니다. 아동 발화는 신뢰하지 않는 내용으로 서버 지시와 따로 보냅니다. LLM에는 도구를 주지 않습니다.
 - 개인정보: 외부 LLM을 켜면 아동 발화의 인식 문장과 최근 대화 몇 turn, 목표 음소·단어·연령대가 설정한 제공자에게 전송됩니다. 이름·계정·play code·원본 음성은 보내지 않습니다. 보호자 동의가 있는 아동만 대화를 시작할 수 있습니다. 대화 문장은 `HoyaChatTurn`에 저장되고, 보존 기간(`TRANSCRIPT_RETENTION_DAYS`)이 지나면 아동 발화와 호야 응답 문장을 비웁니다. 치료사의 음성 자료 삭제는 대화 기록도 지웁니다.
-- 임상 분리: 대화 기록은 진행 지표·임상 요약·활동 제안·임상 관찰에 들어가지 않습니다. 치료사 화면의 대화 보기는 아직 없습니다. 실제 OpenAI 호출은 자동 테스트하지 않았습니다(가짜 transport만 사용).
+- 임상 분리: 대화 기록은 진행 지표·임상 요약·활동 제안·임상 관찰에 들어가지 않습니다. 치료사는 '경과 · 기록' 탭에서 대화 회기 기록을 읽기 전용으로 봅니다(대화 없이 끝난 기록은 숨김). 실제 OpenAI 호출은 자동 테스트하지 않았습니다(가짜 transport만 사용).
 
 API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST /api/hoya/chat/sessions/{id}/turns`, `POST /api/hoya/chat/sessions/{id}/complete`입니다. turn 요청에는 `turnIndex`와 `clientRequestId`가 필요합니다. 기존 쿠키 인증·CSRF·Origin 검사를 그대로 쓰고, 아동은 로그인한 계정의 자기 대화만 쓸 수 있습니다. PR #4 초기 버전으로 만든 로컬 개발 DB의 `hoya_chat_turns` 표는 서버 시작 때 자료를 보존한 채 현재 구조로 옮깁니다(`app/hoya/schema_compat.py`).
 
@@ -64,7 +66,9 @@ API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST
 - 세션 노트는 서버 집계만으로 만든 복사 가능한 초안입니다. LLM과 원음 재생은 사용하지 않습니다. 치료사가 검토한 뒤 기록지에 붙여 넣으세요.
 - 다음 회기와 활동 제안의 펼치기 영역에서 입력·규칙·한계를 확인할 수 있습니다. 수락·저장·승인은 여전히 치료사가 직접 선택합니다.
 
-읽기 API는 `GET /api/children/{id}/goal-trends`, `GET /api/sessions/{id}/insights`입니다. 두 경로 모두 담당 아동 소유권을 확인합니다. 기존 `/progress` API·진행 그래프·`recharts` 의존성은 제거했습니다. 자료 없음은 0점이나 실패가 아니며, 회기 간 변화는 치료 효과의 증명이 아닙니다.
+같은 탭 맨 위의 **대구대 건너기 분석**(2026-10-06)은 치료사 확인 비율 추이와 숙달선(80%·최근 실제 3회기), 단계 × 위치 표, 자동 추정 오류 유형(의심), 시작 박자, 전문 정보(/ㅅ/ 발달 시기·오류와 자동 추정·단서·서버 계산 다음 회기 제안), 가정 연습·회기 기록(SOAP) 초안 복사를 보여 줍니다. 새 라이브러리 없이 SVG로 그리고, DEMO·샘플 회기는 자리만 보이며 비율에 넣지 않습니다. '치료 목표' 탭에는 설계 근거 패널과 대상별 빠른 설정(시작 박자·빨라지기)이 있습니다.
+
+읽기 API는 `GET /api/children/{id}/goal-trends`, `GET /api/sessions/{id}/insights`, `GET /api/therapist/children/{id}/crossing-analytics`입니다. 두 경로 모두 담당 아동 소유권을 확인합니다. 기존 `/progress` API·진행 그래프·`recharts` 의존성은 제거했습니다. 자료 없음은 0점이나 실패가 아니며, 회기 간 변화는 치료 효과의 증명이 아닙니다.
 
 당시 작업 요약은 [작업 기록](docs/WORK_HISTORY.md)에 있습니다.
 
@@ -97,7 +101,7 @@ API는 `POST /api/hoya/chat/sessions`, `GET /api/hoya/chat/sessions/{id}`, `POST
 ## 사전 요구사항
 
 - Node.js 22.12 이상과 npm
-- Python 3.11 이상 및 `pip`
+- Python 3.11 이상 및 `pip`(CI는 Python 3.14)
 - 실제 음성 모드에는 마이크 권한과 보안 컨텍스트(HTTPS 또는 localhost)가 필요합니다. Magic Beam·Sky Climb·대구대 건너기는 마이크와 Web Audio만 있으면 됩니다. Monster Adventure·Conversation Quest는 Web Speech API 음성 인식도 필요합니다. 지원하지 않는 게임은 실제 음성 버튼이 꺼지고 DEMO로 할 수 있습니다.
 
 ## 설치 방법
@@ -176,7 +180,7 @@ $env:FRONTEND_DIST = "..\dist"; $env:SEED_DEMO_DATA = "false"; $env:COOKIE_SECUR
 
 - `src/child`, `src/speech`: 아동 화면과 음성 입력
 - `src/game`, `src/tiger`: 게임 장면과 두두 3D 캐릭터
-- `src/therapist`: 치료사 화면
+- `src/therapist`: 치료사 화면(`analytics/`는 대구대 건너기 분석·설계 근거 패널)
 - `backend/app/games`, `backend/app/training`, `backend/app/speech`, `backend/app/analysis`: 5라운드 규칙, 단어 목록·보상, 발화 분석, 진행 지표
 - `backend/app/main.py`: API 및 세션 흐름
 - `backend/tests`: 정책과 독립 테스트 DB를 쓰는 API 테스트
@@ -188,6 +192,7 @@ $env:FRONTEND_DIST = "..\dist"; $env:SEED_DEMO_DATA = "false"; $env:COOKIE_SECUR
 - 실제 음성 인식을 지원하지 않는 브라우저에서는 DEMO 모드를 사용합니다.
 - 포트가 사용 중이면 백엔드 포트와 `vite.config.ts`의 프록시 주소를 함께 변경합니다.
 - 로컬 DB를 초기화하려면 앱을 중지한 뒤 `backend/speech_hero.db`를 삭제하고 재시작합니다. 이 작업은 저장된 세션을 지웁니다.
+- Windows에서 백엔드 테스트가 `DLL load failed … 애플리케이션 제어 정책에서 이 파일을 차단했습니다`로 멈추면 SQLAlchemy C 확장(.pyd)이 막힌 것입니다. 보안 정책은 끄지 말고, 같은 버전의 순수 Python 휠(`py3-none-any`)로 다시 설치합니다: `.venv\Scripts\python.exe -m pip download --only-binary=:all: --platform any --implementation py --abi none --no-deps sqlalchemy==<버전> -d <빈 폴더>` 뒤 그 휠을 `pip install --force-reinstall --no-deps`로 설치합니다.
 
 ## 개인정보와 알려진 한계
 
