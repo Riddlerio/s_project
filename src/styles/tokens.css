@@ -179,6 +179,9 @@
   --color-alpha-white-a80: #ffffffcc;
   --color-alpha-white-a85: #ffffffd9;
   --color-alpha-white-a90: #ffffffe6;
+  --color-alpha-dawn-a30: #ffd9a84d;
+  --color-alpha-dusk-a45: #3d3a8a73;
+  --color-alpha-sunset-a30: #ff9a5c4d;
   --font-family-base: Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --font-family-display: NanumSquareRound, Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --radius-sm: 12px;
