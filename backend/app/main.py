@@ -651,6 +651,33 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
             "dialogue": quest_reply(definition.index, body.transcript) if state["activityGame"] == "conversation_quest" and analysis.result in {"target_observed", "not_target_attempt"} else None}
 
 
+@app.post("/api/activities/{session_id}/laps")
+@state_guard
+def next_crossing_lap(session_id: str, db: Session = Depends(get_db), account: Account = Depends(require_student),
+                      x_activity_lease: str | None = Header(default=None)):
+    """대구대 건너기: 한 판을 마친 같은 회기에서 첫 줄부터 한 판 더 건넌다(최대 crossing.MAX_LAPS판)."""
+    adventure_service.serialize_child(db, account.child_id)
+    session = play_session(db, session_id, account)
+    state = activity_state(session)
+    if session.status != "active" or state["activityGame"] != crossing.GAME:
+        raise HTTPException(409, "활성 건너기 게임이 아닙니다")
+    if not state.get("roundsComplete"):
+        raise HTTPException(409, "이번 판을 아직 다 건너지 않았습니다")
+    if state.get("lap", 1) >= crossing.MAX_LAPS:
+        raise HTTPException(409, "오늘은 여기까지 건넜어요")
+    adventure_service.check_lease(db, session, x_activity_lease)
+    goal = db.get(TrainingGoal, session.goal_id)
+    plan = db.get(TrainingPlan, session.plan_id)
+    # 새 판은 항목 id를 새로 만든다. 지난 판의 관찰·발화는 이미 저장되어 있어 계획을 바꿔도 남는다.
+    stages = crossing.build_stages(goal)
+    plan.plan_json = {**plan.plan_json, "stages": stages}
+    drafts = crossing.next_lap(state, stages, now())
+    session.runtime_state = state
+    events = save_events(db, session, drafts, item=state["currentItem"], goal=goal)
+    db.commit()
+    return {**adventure_service.activity_payload(db, session), "events": events}
+
+
 @app.get("/api/dashboard/overview")
 def overview(db: Session = Depends(get_db), therapist: Therapist = Depends(therapist_auth)):
     children = db.scalars(select(Child).where(Child.therapist_id == therapist.id)).all()

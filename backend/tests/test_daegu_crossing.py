@@ -246,7 +246,7 @@ def test_early_completion_rejected_even_without_lease(api):
     assert client.post(f"/api/play/sessions/{current['sessionId']}/complete", headers=headers, json={}).status_code == 409
 
 
-@pytest.mark.parametrize("field,value", [("itemIndexInRound", 3), ("stripeIndex", 11), ("stripeIndex", 2)])
+@pytest.mark.parametrize("field,value", [("itemIndexInRound", 3), ("stripeIndex", 11), ("stripeIndex", 2), ("lap", 4), ("lap", 0)])
 def test_corrupted_crossing_cursor_rejected(api, field, value):
     client, sessions = api
     headers = student_auth(client)
@@ -347,9 +347,85 @@ def test_event_texts_for_crossing_are_korean_without_zero_score():
     goal = NS(target_phoneme="ㅅ")
     assert therapist_text("ROUND_START", {"index": 2}) == "2라운드 시작"
     assert therapist_text("ROUND_CLEAR", {"index": 5}) == "5라운드 마침"
+    assert therapist_text("LAP_START", {"lap": 2}) == "2판째 시작(같은 회기에서 한 판 더)"
+    assert therapist_text("SESSION_COMPLETE", {"totalAttempts": 20, "lap": 2}) == "2판 완료"
+    assert therapist_text("SESSION_COMPLETE", {"totalXp": 0}) == "세션 완료"
     assert therapist_text("ITEM_ADVANCE", {}) == "다음 항목으로"
     assert "실패 아님" in therapist_text("LISTEN_AGAIN", {})
     assert therapist_text("TARGET_PRESENTED", {"item": {"displayText": "사", "level": "syllable"}}) == "제시: 사 (음절)"
     # 음향 근사 게임은 점수가 0이라 점수를 적지 않는다. 점수가 있는 게임은 그대로 적는다.
     assert therapist_text("TARGET_SUCCESS", {}, {"displayText": "사"}, goal, NS(score=0)) == "목표 /ㅅ/ 성공 — 사"
     assert therapist_text("TARGET_SUCCESS", {}, {"displayText": "사과"}, goal, NS(score=92)) == "목표 /ㅅ/ 성공 — 사과 (점수 92)"
+
+
+def finish_lap(client, headers, sid, current):
+    for _ in range(10):
+        current = send(client, headers, sid, current)
+    assert current["sessionComplete"] and current["nextItem"] is None
+    return current
+
+
+def open_lap(client, headers, sid):
+    return client.post(f"/api/activities/{sid}/laps", headers=headers)
+
+
+def test_three_laps_stay_in_one_session_and_count_every_attempt(api):
+    client, sessions = api
+    headers = student_auth(client)
+    current = start(client, headers)
+    sid = current["sessionId"]
+    assert (current["lap"], current["maxLaps"]) == (1, 3)
+    # 판을 끝까지 건너기 전에는 다음 판을 열 수 없다.
+    assert open_lap(client, headers, sid).status_code == 409
+    current = finish_lap(client, headers, sid, current)
+    assert [event["payload"] for event in current["events"] if event["type"] == "SESSION_COMPLETE"] == [{"totalAttempts": 10, "lap": 1}]
+    with sessions() as db:
+        first_ids = {row.item_id for row in db.scalars(select(Utterance).where(Utterance.session_id == sid)).all()}
+        child_id = db.get(TrainingSession, sid).child_id
+        before = {row.id for row in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child_id)).all()}
+    for lap in (2, 3):
+        response = open_lap(client, headers, sid)
+        assert response.status_code == 200, response.text
+        current = response.json()
+        assert_public(current)
+        assert (current["lap"], current["roundIndex"], current["itemIndexInRound"], current["stripeIndex"],
+                current["triesLeft"], current["modelCue"], current["sessionComplete"]) == (lap, 1, 1, 1, 3, True, False)
+        assert current["firstItem"]["itemId"] not in first_ids and current["nextAttemptIndex"] == 1
+        assert [event["type"] for event in current["events"]] == ["LAP_START", "ROUND_START", "TARGET_PRESENTED"]
+        current = finish_lap(client, headers, sid, current)
+    # 세 판을 다 건너면 더 열지 않는다.
+    assert open_lap(client, headers, sid).status_code == 409
+    completed = client.post(f"/api/play/sessions/{sid}/complete", headers=headers, json={"elapsedSec": 600})
+    assert completed.json() == {"totalAttempts": 30, "durationSec": 600, "sessionComplete": True}
+    with sessions() as db:
+        # 판마다 새 회기를 만들지 않는다(치료사 화면의 회기·숙달 계산이 판 수만큼 늘지 않게).
+        assert {row.id for row in db.scalars(select(TrainingSession).where(TrainingSession.child_id == child_id)).all()} == before
+        assert len(db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == sid)).all()) == 30
+        texts = {row.therapist_text for row in db.scalars(select(GameEvent).where(GameEvent.session_id == sid)).all()}
+        assert {"2판째 시작(같은 회기에서 한 판 더)", "3판째 시작(같은 회기에서 한 판 더)", "1판 완료", "3판 완료"} <= texts
+
+
+def test_stopping_after_a_lap_closes_the_session_and_blocks_more_laps(api):
+    client, _ = api
+    headers = student_auth(client)
+    current = start(client, headers)
+    sid = current["sessionId"]
+    finish_lap(client, headers, sid, current)
+    completed = client.post(f"/api/play/sessions/{sid}/complete", headers=headers, json={"elapsedSec": 200})
+    assert completed.json()["totalAttempts"] == 10
+    assert open_lap(client, headers, sid).status_code == 409
+    # 다른 아동은 이 회기의 판을 열 수 없다(있는지도 알리지 않음).
+    other, _ = real_child_auth(client)
+    assert open_lap(client, other, sid).status_code == 404
+
+
+def test_lap_limits_match_and_completed_lap_count_for_therapists():
+    from app.games.crossing import MAX_LAPS
+    from app.session_state import CrossingState
+    from app.therapist_insights.crossing_evidence import crossing_summary
+    bounds = {type(rule).__name__: rule for rule in CrossingState.model_fields["lap"].metadata}
+    assert (bounds["Ge"].ge, bounds["Le"].le) == (1, MAX_LAPS)
+    laps = [crossing_summary([], SimpleNamespace(runtime_state=state))["lapN"] for state in
+            ({"lap": 2, "roundsComplete": True}, {"lap": 3, "roundsComplete": False}, {"roundsComplete": True}, {}, {"lap": "x"})]
+    # 끝까지 건넌 판만 센다. 도중에 멈춘 판의 시도는 시도 수에만 들어간다.
+    assert laps == [2, 2, 1, 0, 0]

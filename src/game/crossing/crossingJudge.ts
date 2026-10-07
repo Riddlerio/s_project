@@ -1,5 +1,5 @@
 import { api } from '../../api/client'
-import { sendActivityUtterance, startActivity, type ActivityItem, type ActivityResponse, type ActivityRound, type ActivityStart } from '../../api/activities'
+import { nextCrossingLap, sendActivityUtterance, startActivity, type ActivityItem, type ActivityResponse, type ActivityRound, type ActivityStart } from '../../api/activities'
 import type { Acoustic } from '../../shared/types'
 import { CrossingProgress, ITEMS_PER_ROUND, MAX_QUIET, MAX_TRIES, judgeOnset, previewPlan, resultFromEvents, type CrossingItem, type CrossingResult } from './crossingFlow'
 import { DEFAULT_RHYTHM, rhythmSetting, type RhythmSetting } from './rhythm'
@@ -14,12 +14,14 @@ export interface CrossingJudge {
   /** rhythm: 치료사가 정한 박자(시작·이어받기 응답의 선택 필드). 없으면 기본값(84BPM, 빨라지기 허용). */
   start(): Promise<{ first: CrossingItem; heroName: string; rhythm: RhythmSetting }>
   submit(item: CrossingItem, attempt: { transcript: string | null; acoustic: Acoustic }): Promise<CrossingTurn>
+  /** 한 판(10줄)을 마친 뒤 같은 회기에서 첫 줄부터 한 판 더. 최대 판 수는 서버가 막는다. */
+  nextLap(): Promise<{ first: CrossingItem }>
   finish(elapsedSec: number): Promise<void>
 }
 
 export function previewJudge(level: 'syllable' | 'word' = 'syllable', heroName = '두두친구'): CrossingJudge {
   const plan = previewPlan(level)
-  const progress = new CrossingProgress(plan)
+  let progress = new CrossingProgress(plan)
   return {
     kind: 'preview',
     start: async () => ({ first: plan[0], heroName, rhythm: DEFAULT_RHYTHM }),
@@ -28,6 +30,7 @@ export function previewJudge(level: 'syllable' | 'word' = 'syllable', heroName =
       const { next } = progress.record(result)
       return { result, next, complete: next === null }
     },
+    nextLap: async () => { progress = new CrossingProgress(plan); return { first: plan[0] } },
     finish: async () => undefined,
   }
 }
@@ -72,6 +75,16 @@ export function serverJudge(mode: 'real' | 'demo'): CrossingJudge {
       if (response.nextItem) activityItem = response.nextItem
       const next = response.sessionComplete || !response.nextItem || !round ? null : toItem(response.nextItem, round, extra)
       return { result, next, complete: response.sessionComplete }
+    },
+    async nextLap() {
+      if (!session) throw new Error('CROSSING_NOT_STARTED')
+      const lap = await nextCrossingLap(session)
+      // 새 판은 서버가 준 첫 항목·시도 번호로 처음부터 센다(줄 번호도 1부터).
+      round = lap.currentRound
+      activityItem = lap.firstItem
+      attemptIndex = lap.nextAttemptIndex ?? 1
+      stripe = 1; tries = 0; quiet = 0
+      return { first: toItem(lap.firstItem, lap.currentRound, lap as Extra) }
     },
     async finish(elapsedSec) {
       if (!session) return

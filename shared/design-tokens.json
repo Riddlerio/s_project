@@ -524,6 +524,22 @@
     "$type": "color",
     "$value": "#e2f4fd"
    },
+   "peach-l90": {
+    "$type": "color",
+    "$value": "#ffe2c8"
+   },
+   "peach-l80": {
+    "$type": "color",
+    "$value": "#ffc79f"
+   },
+   "dusk-l66": {
+    "$type": "color",
+    "$value": "#a89bd6"
+   },
+   "dusk-l42": {
+    "$type": "color",
+    "$value": "#5e5aa0"
+   },
    "yellow-l62": {
     "$type": "color",
     "$value": "#ffd23f"

@@ -19,6 +19,9 @@ export interface DaeguCrossingProgress {
   triesLeft: number
   modelCue: boolean
   sessionComplete: boolean
+  /** 같은 회기에서 몇 번째 판인지(1~maxLaps). 판을 마친 뒤 POST /activities/{id}/laps로 다음 판을 연다(2026-10-07). */
+  lap?: number
+  maxLaps?: number
 }
 export interface DaeguCrossingItem {
   itemId: string

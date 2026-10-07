@@ -57,7 +57,9 @@ def test_summary_counts_original_estimates_and_latest_review_separately(api, mod
     assert body["source"] == source
     assert body["crossingSummary"] == {"attemptN": 6, "autoSuccessN": 2, "deferredN": 2,
                                         "confirmedN": 3, "reviewTotalN": 6,
-                                        "rhythm": {"startBpm": 92, "allowFaster": False}}
+                                        "rhythm": {"startBpm": 92, "allowFaster": False},
+                                        # 끝까지 건넌 판이 없는 진행 중 회기는 0판이다(판 반복, 2026-10-07).
+                                        "lapN": 0}
     corrected = next(row for row in body["observations"] if row["verification"].endswith("CORRECTED"))
     assert corrected["aiResult"] == "retry" and corrected["result"] == "success"
     assert all(row["automaticEvidence"] for row in body["observations"])
@@ -79,7 +81,7 @@ def test_missing_or_invalid_historical_rhythm_is_not_replaced_with_current_defau
     make_crossing(sessions, sid, stored)
     body = client.get(f"/api/sessions/{sid}/insights").json()
     assert body["crossingSummary"] == {"attemptN": 0, "autoSuccessN": 0, "deferredN": 0,
-                                        "confirmedN": 0, "reviewTotalN": 0, "rhythm": None}
+                                        "confirmedN": 0, "reviewTotalN": 0, "rhythm": None, "lapN": 0}
 
 
 def test_other_games_keep_their_existing_response(api):

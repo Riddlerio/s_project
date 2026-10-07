@@ -88,6 +88,8 @@ class CrossingState(ActivityState):
     stripeIndex: StrictInt = Field(ge=1, le=10)
     itemAttemptsUsed: StrictInt = Field(ge=0, le=3)
     modelCue: StrictBool
+    # 같은 회기에서 몇 번째 판인지(games/crossing.py MAX_LAPS). 판 기능 전의 회기는 값이 없어 1이다.
+    lap: StrictInt = Field(default=1, ge=1, le=3)
 
     @model_validator(mode="after")
     def consistent_cursor(self):

@@ -85,6 +85,13 @@ describe('대구대 건너기 치료사 근거', () => {
     expect(html).toContain('빨라지기: 꺼짐')
     expect(html).not.toContain('50%')
     expect(html).toContain('게임의 박자 효과는 임상 근거가 아닙니다')
+    // 판 수는 서버가 보낼 때만 보인다(이전 응답에는 없음). 여러 판의 시도는 합친다고 안내한다.
+    expect(html).not.toContain('끝까지 건넌 판')
+    expect(html).toContain('모든 판의 시도를 합칩니다')
+    const laps = renderToStaticMarkup(<CrossingSessionSummary summary={{ attemptN: 30, autoSuccessN: 24, deferredN: 2,
+      confirmedN: 0, reviewTotalN: 30, rhythm: null, lapN: 3 }} />)
+    expect(laps).toContain('끝까지 건넌 판')
+    expect(laps).toContain('3판')
   })
 
   it('이전 회기에 박자 기록이 없으면 기본값을 지어내지 않는다', () => {
