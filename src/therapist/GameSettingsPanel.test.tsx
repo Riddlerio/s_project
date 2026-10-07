@@ -100,6 +100,7 @@ describe('대구대 건너기 치료사 근거', () => {
     expect(html).toContain('자동 추정 근거')
     for (const line of evidence) expect(html).toContain(line)
     expect(html).toContain('발음의 정오를 확정할 수 없습니다')
+    expect(html).toContain('혀 짧은 소리')
     const legacy = renderToStaticMarkup(<ObservationEvidence row={{ ...row, activity: 'sky_climb', automaticEvidence: evidence }} />)
     expect(legacy).not.toContain('자동 추정 근거')
     const missing = renderToStaticMarkup(<ObservationEvidence row={row} />)
