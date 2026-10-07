@@ -24,6 +24,12 @@ def therapist_text(event_type, payload, item=None, goal=None, analysis=None):
         return f"{payload['index']}라운드 시작" if payload.get("index") else "라운드 시작"
     if event_type == "LAP_START":
         return f"{payload.get('lap', '')}판째 시작(같은 회기에서 한 판 더)"
+    if event_type == "PROBE_START":
+        return f"새 낱말 확인 시작({payload.get('wordN', 0)}개, 피드백 없음)"
+    if event_type == "PROBE_RECORDED":
+        return f"새 낱말 확인 기록 — {label}(피드백 없음)"
+    if event_type == "PROBE_COMPLETE":
+        return "새 낱말 확인 마침(피드백 없음)"
     if event_type == "SESSION_COMPLETE" and payload.get("lap"):
         return f"{payload['lap']}판 완료"
     if event_type == "ROUND_CLEAR":

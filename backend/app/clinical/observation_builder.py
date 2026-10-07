@@ -24,7 +24,9 @@ def build_observation(session, utterance, goal, analysis, acoustic: dict, state:
                   **({"itemSource": "TRAINING_BANK", "itemIndexInRound": state["itemIndexInRound"],
                       "stripeIndex": state["stripeIndex"],
                       "assessmentMethod": "ONSET_FRICATION_ACOUSTIC_APPROXIMATION"}
-                     if utterance.game == "daegu_crossing" else {})},
+                     if utterance.game == "daegu_crossing" else {}),
+                  **({"probe": True, "probeIndex": state["probeIndex"], "itemSource": "UNPRACTICED_BANK"}
+                     if state.get("probeStarted") and not state.get("probeComplete") else {})},
         provenance={"acoustic": "CLIENT_REPORTED", "target": "SYSTEM_MEASURED",
                     "aiResult": "AI_ESTIMATED", "cue": "SYSTEM_MEASURED"},
     )

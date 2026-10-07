@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { callWord, CrossingProgress, judgeOnset, LAP_START_LINES, LAP_TIMES, lapTime, LISTEN_AGAIN_LEAD, listenAgainLine, MAX_LAPS, MODEL_LEAD, modelLine, onsetReason, praiseLine, previewPlan, resultFromEvents, RETRY_LINE, retryLine, STRIPES } from './crossingFlow'
+import { callWord, CrossingProbeProgress, CrossingProgress, judgeOnset, LAP_START_LINES, LAP_TIMES, lapTime, LISTEN_AGAIN_LEAD, listenAgainLine, MAX_LAPS, MAX_PROBE_ATTEMPTS, MAX_PROBE_WORDS, MODEL_LEAD, modelLine, onsetReason, praiseLine, previewPlan, previewProbePlan, PROBE_THANKS, resultFromEvents, RETRY_LINE, retryLine, STRIPES } from './crossingFlow'
 
 describe('대구대 건너기 진행', () => {
   it('판은 최대 3판이고 아침 → 점심 → 저녁 순서로 바뀌며, 범위 밖 값은 가장 가까운 판으로 본다', () => {
@@ -36,6 +36,34 @@ describe('대구대 건너기 진행', () => {
     const progress = new CrossingProgress(previewPlan())
     for (let i = 0; i < 9; i++) progress.record('success')
     expect(progress.record('success')).toEqual({ advanced: true, next: null })
+  })
+})
+
+describe(' 새 낱말 확인의 중립 흐름', () => {
+  it('확인 카드는 최대 3개이고 시범 없이 아이 마디만 쓴다', () => {
+    const plan = previewProbePlan(['사자', '사탕', '소풍', '수건'])
+    expect(plan.map(item => item.text)).toEqual(['사자', '사탕', '소풍'])
+    expect(plan).toHaveLength(MAX_PROBE_WORDS)
+    expect(plan.every(item => item.probe && !item.modelCue && item.level === 'word')).toBe(true)
+    expect(plan.map(item => item.probeIndex)).toEqual([1, 2, 3])
+    expect(previewProbePlan([])).toEqual([])
+  })
+
+  it.each(['success', 'retry'] as const)('%s여도 정오·칭찬을 내보내지 않고 바로 다음 카드로 간다', result => {
+    const progress = new CrossingProbeProgress(previewProbePlan())
+    const turn = progress.record(result)
+    expect(turn).toMatchObject({ probe: true, complete: false, next: { text: '사탕', modelCue: false } })
+    expect(turn).not.toHaveProperty('result')
+    expect(PROBE_THANKS).toBe('들려줘서 고마워!')
+  })
+
+  it.each(['uncertain', 'no_speech'] as const)('%s는 같은 카드를 한 번만 더 듣고 두 번째에는 중립적으로 넘어간다', result => {
+    const progress = new CrossingProbeProgress(previewProbePlan())
+    expect(MAX_PROBE_ATTEMPTS).toBe(2)
+    expect(progress.record(result)).toMatchObject({ probe: true, next: { text: '사자', probeIndex: 1 } })
+    expect(progress.record(result)).toMatchObject({ probe: true, next: { text: '사탕', probeIndex: 2 } })
+    progress.record('retry')
+    expect(progress.record('success')).toEqual({ probe: true, next: null, complete: true })
   })
 })
 

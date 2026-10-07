@@ -5,6 +5,7 @@ from math import isfinite
 from sqlalchemy import select
 
 from ..models import ClinicalObservation, TrainingSession
+from ..games.crossing import is_probe_observation
 from ..pronunciation.audio_quality import assess_audio_quality
 from ..therapist_planning.evidence import filter_verified, latest_decisions, normalize_level
 from .crossing_evidence import automatic_evidence, crossing_summary
@@ -64,6 +65,7 @@ def observation_view(row, decision, session, child):
     }
     if row.activity == "daegu_crossing":
         view["automaticEvidence"] = automatic_evidence(row, source)
+        view["isProbe"] = is_probe_observation(row)
     return view
 
 
@@ -93,7 +95,7 @@ def goal_trends(db, child):
     rows = load_views(db, child, sessions)
     groups = defaultdict(list)
     for row in rows:
-        if row["source"] == "REAL":
+        if row["source"] == "REAL" and not row.get("isProbe"):
             groups[(row["targetPhoneme"], row["wordPosition"], row["level"], row["activity"])].append(row)
     trends = []
     for (phoneme, position, level, activity), group in sorted(groups.items()):
@@ -119,9 +121,10 @@ def goal_trends(db, child):
 
 def session_insights(db, child, session):
     rows = load_views(db, child, [session])
-    total = stats(rows)
-    rounds = [{"roundIndex": index, **stats([row for row in rows if row["roundIndex"] == index])}
-              for index in sorted(set(range(1, 6)) | {row["roundIndex"] for row in rows})]
+    practice = [row for row in rows if not row.get("isProbe")]
+    total = stats(practice)
+    rounds = [{"roundIndex": index, **stats([row for row in practice if row["roundIndex"] == index])}
+              for index in sorted(set(range(1, 6)) | {row["roundIndex"] for row in practice})]
     source = source_of(session, child)
     source_label = {"REAL": "실제", "DEMO": "DEMO", "SAMPLE": "샘플"}[source]
     rate = f"{total['successRate']}%" if total["successRate"] is not None else "자료 없음"

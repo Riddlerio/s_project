@@ -53,6 +53,10 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 | 발화 요청 | 기존 `POST /api/activities/{sessionId}/utterances`. `roundIndex, itemId, attemptIndex, transcript, acoustic, recognizer, attack:"basic"`. lease가 있으면 `X-Activity-Lease` 헤더 |
 | 발화 응답 | 타입 `DaeguCrossingResponse`: `result: "success"\|"retry"\|"uncertain"\|"no_speech"`, `events, nextItem, nextAttemptIndex, currentRound`와 진행 필드 |
 | 다음 판 | `POST /api/activities/{sessionId}/laps`(요청 본문 없음, lease가 있으면 `X-Activity-Lease`). 판을 마친 같은 회기에서 첫 줄부터 다시 시작하고 시작 응답과 같은 형식 + `events`(`LAP_START, ROUND_START, TARGET_PRESENTED`)를 준다. 판을 다 건너지 않았거나 3판을 넘거나 끝난 회기면 409 |
+| 새 낱말 확인 시작 | `POST /api/activities/{sessionId}/probes`(본문 없음, 같은 lease·소유·상태 검사). 판 완료 뒤 한 번만 시작한다. 다른 아동 404, 진행 중·중복·끝난 회기 409. 이후 `/laps`는 409. 시작 응답과 같은 모양이지만 낱말 없으면 `firstItem/currentRound=null` |
+| 확인 진행 필드 | `probeStarted`, `probeComplete`, `probeIndex`(시작 전·낱말 없음 0, 그 외 1~3), `probeTotal`(0~3). 확인 중 `modelCue=false`, 연습 위치 5/2/10 보존, `sessionComplete=false`; 확인 완료·낱말 없음은 `sessionComplete=true`. 상태에는 `probeItems`·`probeAttemptsUsed`도 저장 |
+| 확인 발화 응답 | 같은 `/utterances`·음향 규칙·저장 경로. 확인 중에는 `result`가 없고 중립 `PROBE_RECORDED`·마지막 `PROBE_COMPLETE`만 반환. 시작은 `PROBE_START`(`wordN`), 불확실·무발화 최대 2번 뒤 다음 카드. 회기 완료는 확인 여부와 무관하게 가능 |
+| 치료사 확인 기록·집계 | 관찰 `isProbe`, `crossingSummary.probeN`(기록한 고유 낱말)·`probeAttemptN`(발화 수). 회기별 분석 `probe:{reviewedN,confirmedSuccessN,confirmedRate}`. REAL·비샘플·치료사 확인 필터, 자료 없음 `null`. 연습 비율·숙달·라운드 집계에서 분리. 기존 evidence JSON 표시, 새 DB 표·열 없음 |
 | 항목 | 타입 `DaeguCrossingItem`: `itemId, displayText, level, game:"daegu_crossing", pictureKey` |
 | 라운드 | 타입 `DaeguCrossingRound`: `index, id, childTitle, childPrompt`. 임상 메타는 아동 응답에 포함하지 않음 |
 
@@ -62,6 +66,7 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 - 완료 시 번호는 5/2/10에 머무르고 `nextItem=null, currentRound=null, triesLeft=0, modelCue=false, sessionComplete=true`다.
 - 음질 보류·무발화는 평가 시도를 소모하지 않는다. 같은 줄에서 연속 세 번이면 중립적으로 다음 줄로 이동한다.
 - 점수·정확도·판정 근거는 새 아동 응답에 넣지 않는다. 관찰은 기존 치료사 API에서만 검토한다.
+- 일반화 확인은 은행에서 연습·제외 낱말을 뺀 첫 3개(기본 사자·사탕·소풍), 그림 카드와 아이 마디만 쓴다. 자막 '들려줘서 고마워!' 외에 시도 결과에 대한 피드백을 주지 않고 마무리의 연습 목록에서 뺀다. 확인 단계에는 두두 음성·브라우저 음성이 없다.
 - 대화 전환은 목표 관찰 시도 10회 이상+서버 시간 120초 이상, 또는 300초 이상이다. 연속 무발화 3회에는 쉬운 질문을 먼저 하고, 그 다음에도 무발화면 전환한다.
 - 판정 기준(2026-10-05 실측 반영, `docs/handoff/MIC_MEASUREMENT_2026-10-05.md`): 시작 마찰 60ms(2026-10-06 70→60)·이후 유성 80ms 이상이면 success. 잡음보다 15dB 미만이면 uncertain. 성인 1명 PC 마이크 측정값이며 임상 검증이 아니다.
 

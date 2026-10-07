@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { childCrossingAnalytics, sessionPlanProposal } from '../../api/therapist'
-import type { CrossingAnalytics } from '../../api/therapist'
+import { sessionPlanProposal } from '../../api/therapist'
 import { formatDate } from '../formatTime'
 import ProfessionalInfo, { LEVEL_UP } from './ProfessionalInfo'
 import type { ProposalState } from './ProfessionalInfo'
 import ReasonBars from './ReasonBars'
 import TempoChart from './TempoChart'
 import TrendChart from './TrendChart'
-import { isReal, LEVEL_TEXT, levelTotals, masteryWindow, percent, realSessions, sessionLabel, SOURCE_TEXT } from './crossingAnalytics'
-import type { CrossingGoal, CrossingSession } from './crossingAnalytics'
+import { childCrossingAnalyticsWithProbe, isReal, LEVEL_TEXT, levelTotals, masteryWindow, percent, realSessions, sessionLabel, SOURCE_TEXT } from './crossingAnalytics'
+import type { CrossingAnalytics, CrossingGoal, CrossingSession } from './crossingAnalytics'
 import './analytics.css'
 
 type ViewProps = {
@@ -58,22 +57,26 @@ export function CrossingAnalyticsView({ data, goal, selectedId, onSelect, propos
   return <section className="card crossing-analytics" aria-labelledby="ca-title">
     <div className="crossing-panel-heading"><h2 id="ca-title">대구대 건너기 분석</h2><span className="crossing-setting-badge">읽기 전용 · 서버 집계</span></div>
     <p>확인 비율과 숙달 표시는 치료사가 확인·교정한 <strong>실제 회기</strong> 기록만 씁니다. 자동 추정은 '의심'이고 임상 판단이 아닙니다. <strong>회기 간 변화는 치료 효과의 증명이 아닙니다.</strong></p>
+    <p className="small">연습하지 않은 낱말로 일반화를 보는 값이며, 치료사가 확인한 기록만 셉니다</p>
     {!latest ? <p className="ca-empty-state">대구대 건너기 기록이 아직 없습니다. 아동 화면에서 게임을 하면 여기에 쌓입니다.</p> : <>
       <dl className="ca-summary">
         <div><dt>실제 회기</dt><dd><strong>{real.length}회</strong>
           <span className="small">{excludedN ? `DEMO·샘플 ${excludedN}회는 비교 제외` : '비교에서 뺀 회기 없음'}</span></dd></div>
-        <div><dt>최근 실제 회기 확인 비율</dt><dd><strong>{latestReal ? percent(latestReal.confirmedRate) : '자료 없음'}</strong>
+        <div><dt>최근 실제 회기 확인 비율(연습)</dt><dd><strong>{latestReal ? percent(latestReal.confirmedRate) : '자료 없음'}</strong>
           <span className="small">{latestReal ? `${formatDate(latestReal.startedAt)} · 확인 ${latestReal.reviewedN}건` : '실제 회기가 아직 없습니다'}</span></dd></div>
+        <div><dt>새 낱말 확인 비율</dt><dd><strong>{latestReal ? percent(latestReal.probe?.confirmedRate) : '자료 없음'}</strong>
+          <span className="small">{latestReal ? `${formatDate(latestReal.startedAt)} · 확인 ${latestReal.probe?.reviewedN ?? 0}건 · 피드백 없음` : '실제 회기가 아직 없습니다'}</span></dd></div>
         <div><dt>숙달 표시 · 제품 규칙</dt><dd><strong>{data.mastery.met ? '기준 충족' : '아직 아님'} <MasteryDots data={data} /></strong>
           <span className="small">최근 실제 {data.mastery.consecutiveSessions}회기 각 {percent(data.mastery.threshold)} 이상{window.length ? ` · ${window.map(item => percent(item.confirmedRate)).join(' → ')}` : ''}</span></dd></div>
         <div><dt>최근 시작 박자</dt><dd><strong>{latest.rhythm ? `${latest.rhythm.startBpm} BPM` : '기록 없음'}</strong>
           <span className="small">{latest.rhythm ? `잘하면 빨라지기 ${latest.rhythm.allowFaster ? '켬' : '끔'}` : '박자 스냅숏이 없는 회기'}</span></dd></div>
       </dl>
 
-      <h3>회기별 확인 비율과 숙달선</h3>
+      <h3>회기별 연습·새 낱말 확인 비율</h3>
+      <p className="small">새 낱말 확인은 연습·숙달 집계에서 따로 셉니다. DEMO·샘플은 비교에서 제외하며 불확실·무발화·목표 관찰·음질 불량은 분모에서 뺍니다. 확인 자료가 없으면 ‘자료 없음’으로 표시합니다.</p>
       <TrendChart data={data} />
       <p className="small ca-scroll-hint" aria-hidden="true">← 그래프는 옆으로 넘겨 볼 수 있습니다 →</p>
-      <p className="small ca-legend"><span className="ca-key ca-key-point" aria-hidden="true" /> 실제 회기 확인 비율 <span className="ca-key ca-key-threshold" aria-hidden="true" /> 숙달선 <span className="ca-key ca-key-window" aria-hidden="true" /> 숙달 판단 범위(최근 실제 {data.mastery.consecutiveSessions}회기) <span className="ca-key ca-key-excluded" aria-hidden="true" /> DEMO·샘플(비교 제외)</p>
+      <p className="small ca-legend"><span className="ca-key ca-key-point" aria-hidden="true" /> 실제 회기 연습 확인 비율 <span className="ca-key ca-key-probe" aria-hidden="true" /> 새 낱말 확인 비율(피드백 없음) <span className="ca-key ca-key-threshold" aria-hidden="true" /> 연습 숙달선 <span className="ca-key ca-key-window" aria-hidden="true" /> 숙달 판단 범위(최근 실제 {data.mastery.consecutiveSessions}회기) <span className="ca-key ca-key-excluded" aria-hidden="true" /> DEMO·샘플(비교 제외)</p>
 
       <div className="ca-two-col">
         <section aria-labelledby="ca-level-title">
@@ -103,10 +106,11 @@ export function CrossingAnalyticsView({ data, goal, selectedId, onSelect, propos
       <details className="ca-table-details">
         <summary>회기별 수치 표({sessions.length}회기)</summary>
         <table className="ca-session-table">
-          <thead><tr><th scope="col">회기</th><th scope="col">확인 비율</th><th scope="col">시도·보류</th><th scope="col">시작 박자</th></tr></thead>
+          <thead><tr><th scope="col">회기</th><th scope="col">연습 확인 비율</th><th scope="col">새 낱말 확인 비율</th><th scope="col">연습 시도·보류</th><th scope="col">시작 박자</th></tr></thead>
           <tbody>{[...sessions].reverse().map(session => <tr key={session.sessionId}>
             <th scope="row"><Link to={`/therapist/sessions/${session.sessionId}`}>{formatDate(session.startedAt)}</Link> <span className="small">{SOURCE_TEXT[session.source]}</span></th>
             <td>{isReal(session) ? <>{percent(session.confirmedRate)} <span className="small">{session.confirmedSuccessN}/{session.reviewedN}</span></> : <span className="small">비교 제외</span>}</td>
+            <td>{isReal(session) ? <>{percent(session.probe?.confirmedRate)} <span className="small">{session.probe?.confirmedSuccessN ?? 0}/{session.probe?.reviewedN ?? 0}</span></> : <span className="small">비교 제외</span>}</td>
             <td>{session.attemptN} · {session.deferredN}</td>
             <td>{session.rhythm ? `${session.rhythm.startBpm}${session.rhythm.allowFaster ? '↑' : ''}` : '—'}</td>
           </tr>)}</tbody>
@@ -132,7 +136,7 @@ function ChildCrossingAnalytics({ childId, goal }: { childId: string; goal: Cros
   useEffect(() => {
     let active = true
     setError('')
-    void childCrossingAnalytics(childId).then(result => { if (active) setData(result) })
+    void childCrossingAnalyticsWithProbe(childId).then(result => { if (active) setData(result) })
       .catch(() => { if (active) setError('건너기 분석 자료를 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.') })
     return () => { active = false }
   }, [childId, reload])

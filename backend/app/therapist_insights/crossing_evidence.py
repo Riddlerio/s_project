@@ -70,7 +70,8 @@ def automatic_evidence(row, source):
 
 def crossing_summary(rows, session):
     """검토 진행은 DEMO도 세되 임상 성공률과 섞지 않는다. 박자는 해당 회기 저장값만 읽는다."""
-    observations = [row for row in rows if row["activity"] == "daegu_crossing"]
+    probes = [row for row in rows if row["activity"] == "daegu_crossing" and row.get("isProbe")]
+    observations = [row for row in rows if row["activity"] == "daegu_crossing" and not row.get("isProbe")]
     stored = (session.runtime_state or {}).get("rhythm")
     try:
         rhythm = DaeguCrossingRhythm.model_validate(stored).model_dump()
@@ -85,6 +86,8 @@ def crossing_summary(rows, session):
         "reviewTotalN": len(observations),
         "rhythm": rhythm,
         "lapN": _completed_laps(session.runtime_state or {}),
+        "probeN": len({row["targetText"] for row in probes}),
+        "probeAttemptN": len(probes),
     }
 
 

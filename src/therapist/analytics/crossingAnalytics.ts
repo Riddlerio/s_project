@@ -4,12 +4,17 @@
  * - DEMO·샘플 회기는 확인 비율과 숙달 계산에서 빠진다(서버와 같은 규칙). 화면은 '비교 제외'로만 보인다.
  * - 자동 추정 이유는 음향 기준에 따른 '의심'이며 발음의 정오나 임상 판단이 아니다.
  */
-import type { CrossingAnalytics } from '../../api/therapist'
+import { childCrossingAnalytics } from '../../api/therapist'
+import type { CrossingAnalytics as ApiCrossingAnalytics } from '../../api/therapist'
 import { hasFinalConsonant } from '../../child/koreanText'
 import RATIONALE from '../../../shared/daegu_crossing_rationale.json'
 import { formatDate, formatDateTime } from '../formatTime'
 
-export type CrossingSession = CrossingAnalytics['sessions'][number]
+export interface ProbeMetrics { reviewedN: number; confirmedSuccessN: number; confirmedRate: number | null }
+/** 새 확인 값은 선택 필드로 받아 과거 응답도 그대로 읽는다. */
+export type CrossingSession = ApiCrossingAnalytics['sessions'][number] & { probe?: ProbeMetrics }
+export type CrossingAnalytics = Omit<ApiCrossingAnalytics, 'sessions'> & { sessions: CrossingSession[] }
+export const childCrossingAnalyticsWithProbe = (childId: string): Promise<CrossingAnalytics> => childCrossingAnalytics(childId)
 export type CrossingSource = CrossingSession['source']
 export type CrossingLevel = 'syllable' | 'word'
 /** 목표에서 쓰는 값만(목표 단계·제외 낱말·단서). */
@@ -90,6 +95,11 @@ export function soapDraft(session: CrossingSession | null, data: CrossingAnalyti
       ? `치료사 확인 ${session.reviewedN}회 중 성공 ${session.confirmedSuccessN}회(${percent(session.confirmedRate)}) · 단계별 ${levels}.`
       : '치료사가 확인한 평가 가능 기록이 아직 없다.')
   } else observed.push(`${SOURCE_TEXT[session.source]} 회기라 확인 비율과 숙달 계산에서 뺐다.`)
+  if (session.probe) {
+    observed.push(isReal(session) && session.probe.confirmedRate !== null
+      ? `새 낱말 확인(피드백 없음): 치료사 확인 ${session.probe.reviewedN}회 중 성공 ${session.probe.confirmedSuccessN}회(${percent(session.probe.confirmedRate)}), 연습 집계에서 제외.`
+      : `새 낱말 확인(피드백 없음): ${isReal(session) ? '치료사 확인 자료 없음' : 'DEMO·샘플 비교 제외'}.`)
+  }
   observed.push(`자동 추정(의심, 임상 판단 아님): ${REASONS.map(reason => `${reason.label} ${session.autoReasons[reason.key]}`).join(' · ')}.`)
   observed.push(`${rhythmText(session)}.`)
   const window = masteryWindow(data)

@@ -12,6 +12,8 @@
 .crossing-save-message { color: var(--forest); }
 .crossing-summary { margin: 1.25rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--color-palette-neutral-l98-3); }
 .crossing-summary h3 { margin-top: 0; }
+.probe-timeline { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--color-palette-orange-l91); }
+.probe-timeline h4 { margin-top: 0; }
 .crossing-summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; margin: .75rem 0; }
 .crossing-summary-metrics div { background: var(--color-surface-white); padding: .8rem; border: 1px solid var(--line); border-radius: .5rem; }
 .crossing-summary-metrics dt { font-size: .85rem; color: var(--muted); }

@@ -17,19 +17,27 @@ export function EvidenceSymbol({ kind }: { kind: Provenance }) {
 }
 
 export function RoundTimeline({ rows, selectedId, onSelect }: { rows: InsightObservation[]; selectedId: string; onSelect: (id: string) => void }) {
-  const rounds = [...new Set([1, 2, 3, 4, 5, ...rows.map(row => row.roundIndex)])].sort((left, right) => left - right)
+  const practice = rows.filter(row => !row.isProbe)
+  const probes = rows.filter(row => row.isProbe)
+  const rounds = [...new Set([1, 2, 3, 4, 5, ...practice.map(row => row.roundIndex)])].sort((left, right) => left - right)
+  const points = (observations: InsightObservation[], label: string) => observations.map((row, index) => <button key={row.id} type="button"
+    aria-pressed={selectedId === row.id} aria-controls="selected-observation"
+    aria-label={`${index + 1} · ${label} · ${row.targetText} · ${PROVENANCE_LABELS[row.provenance]} · ${row.included ? '비교 포함' : '분모 제외'}`}
+    className={`attempt-point ${row.included ? '' : 'excluded'}`} onClick={() => onSelect(row.id)}>
+    <EvidenceSymbol kind={row.provenance} /><span>{index + 1}</span>
+  </button>)
   return <div className="round-timeline">
     <p className="timeline-legend">{(['SYSTEM', 'AI', 'THERAPIST'] as const).map(kind => <span key={kind}><EvidenceSymbol kind={kind} /> {PROVENANCE_LABELS[kind]}</span>)}</p>
     <p className="small">시도 하나가 점 하나입니다. 좌우 순서는 관찰 기록 순서이며 간격은 시간 길이가 아닙니다. Tab 키와 Enter로도 선택할 수 있습니다.</p>
     {rounds.map(round => <div className="round-band" key={round}><strong>{round}라운드</strong><div className="round-attempts">
-      {rows.filter(row => row.roundIndex === round).map((row, index) => <button key={row.id} type="button"
-        aria-pressed={selectedId === row.id} aria-controls="selected-observation"
-        aria-label={`${index + 1} · ${round}라운드 관찰 · ${row.targetText} · ${PROVENANCE_LABELS[row.provenance]} · ${row.included ? '비교 포함' : '분모 제외'}`}
-        className={`attempt-point ${row.included ? '' : 'excluded'}`} onClick={() => onSelect(row.id)}>
-        <EvidenceSymbol kind={row.provenance} /><span>{index + 1}</span>
-      </button>)}
-      {!rows.some(row => row.roundIndex === round) && <span className="muted">관찰 없음</span>}
+      {points(practice.filter(row => row.roundIndex === round), `${round}라운드 관찰`)}
+      {!practice.some(row => row.roundIndex === round) && <span className="muted">관찰 없음</span>}
     </div></div>)}
+    {probes.length > 0 && <section className="probe-timeline" aria-label="새 낱말 확인(피드백 없음)">
+      <h4>새 낱말 확인(피드백 없음)</h4>
+      <p className="small">연습하지 않은 낱말의 관찰입니다. 1~5라운드 연습 집계에 포함하지 않습니다.</p>
+      <div className="round-attempts">{points(probes, '새 낱말 확인(피드백 없음)')}</div>
+    </section>}
   </div>
 }
 
@@ -37,13 +45,15 @@ export function CrossingSessionSummary({ summary }: { summary: CrossingSummary }
   return <section className="crossing-summary" aria-label="대구대 건너기 회기 요약">
     <h3>대구대 건너기 회기 요약</h3>
     <dl className="crossing-summary-metrics">
-      <div><dt>시도 수</dt><dd>{summary.attemptN}회</dd></div>
+      <div><dt>연습 시도 수</dt><dd>{summary.attemptN}회</dd></div>
       <div><dt>자동 추정 ‘성공’</dt><dd>{summary.autoSuccessN}회</dd></div>
       <div><dt>판단 보류</dt><dd>{summary.deferredN}회</dd></div>
       <div><dt>치료사 확인</dt><dd>{summary.confirmedN} / {summary.reviewTotalN}</dd></div>
       {summary.lapN !== undefined && <div><dt>끝까지 건넌 판</dt><dd>{summary.lapN}판</dd></div>}
+      {summary.probeN !== undefined && <div><dt>새 낱말 확인</dt><dd>{summary.probeN}개{summary.probeAttemptN !== undefined && ` · 발화 ${summary.probeAttemptN}회`}</dd></div>}
     </dl>
     <p className="small">판단 보류는 불확실·무발화 기록이며 실패가 아닙니다. 시도 수에는 보류된 기록도 포함합니다. 같은 회기에서 여러 판을 건넜으면 모든 판의 시도를 합칩니다.</p>
+    {summary.probeN !== undefined && <p className="small">새 낱말 확인은 피드백 없이 진행하며, 위 연습 시도·자동 추정·보류·치료사 확인 수와 1~5라운드 집계에서 따로 셉니다.</p>}
     <p>{summary.rhythm
       ? `이 회기의 시작 박자: ${summary.rhythm.startBpm} BPM · 잘하면 조금씩 빨라지기: ${summary.rhythm.allowFaster ? '켜짐' : '꺼짐'}`
       : '이 회기의 박자 설정: 기록 없음. 현재 설정으로 대신 표시하지 않습니다.'}</p>
@@ -53,7 +63,8 @@ export function CrossingSessionSummary({ summary }: { summary: CrossingSummary }
 
 export function ObservationEvidence({ row }: { row: InsightObservation }) {
   return <>
-    <h3>{ACTIVITY_LABELS[row.activity as keyof typeof ACTIVITY_LABELS] || row.activity} · {row.targetText} · {row.roundIndex}라운드 · 시도 {row.attemptNumber}</h3>
+    <h3>{ACTIVITY_LABELS[row.activity as keyof typeof ACTIVITY_LABELS] || row.activity} · {row.targetText} · {row.isProbe ? '새 낱말 확인(피드백 없음)' : `${row.roundIndex}라운드`} · 시도 {row.attemptNumber}</h3>
+    {row.isProbe && <p className="notice">연습하지 않은 낱말을 피드백 없이 확인한 기록입니다. 연습 비율과 1~5라운드 집계에서 제외하고 새 낱말 확인 비율로 따로 봅니다.</p>}
     <p><strong>{SOURCE_LABELS[row.source]} · {PROVENANCE_LABELS[row.provenance]}</strong> · {verificationText(row.verification)}</p>
     {row.source !== 'REAL' && <p className="notice">실제 음성 임상 자료가 아닙니다. 검토해도 임상 비교에서는 제외됩니다.</p>}
     <p>목표 /{row.targetPhoneme}/ · {POSITION_LABELS[row.wordPosition] || row.wordPosition} · {LEVEL_LABELS[row.level] || row.level}</p>
@@ -69,7 +80,7 @@ export function ObservationEvidence({ row }: { row: InsightObservation }) {
     </section>}
     <p>음질 {QUALITY_LABELS[row.audioQuality] || row.audioQuality} · 음향 출처 {MEASUREMENT_SOURCE_LABELS[row.measurementSource] || row.measurementSource}</p>
     <div className="quality-flags">{row.qualityFlags.map(flag => <span key={flag}>{FLAG_LABELS[flag] || flag}</span>)}</div>
-    <p className={row.included ? '' : 'notice'}>{row.included ? '확인된 성공률 분모에 포함' : `성공률 분모 제외: ${row.excludedReasons.map(reason => FLAG_LABELS[reason] || reason).join(' · ')}. 제외는 실패가 아닙니다.`}</p>
+    <p className={row.included ? '' : 'notice'}>{row.included ? (row.isProbe ? '새 낱말 확인 비율의 분모에 포함' : '확인된 성공률 분모에 포함') : `${row.isProbe ? '새 낱말 확인 비율' : '성공률'} 분모 제외: ${row.excludedReasons.map(reason => FLAG_LABELS[reason] || reason).join(' · ')}. 제외는 실패가 아닙니다.`}</p>
     {row.reviewNote && <p>최근 검토 메모: {row.reviewNote}</p>}
     <details><summary>저장된 측정 요약</summary><pre>{JSON.stringify(row.acoustic, null, 2)}</pre><p>브라우저에서 보고한 요약이며 원음 재생은 제공하지 않습니다.</p></details>
   </>
@@ -104,7 +115,7 @@ export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">관찰을 불러오는 중입니다.</p>}
     {data && <>
-      <p><strong>{SOURCE_LABELS[data.source]} 회기</strong> · 관찰 {data.summary.observedN}건 · 평가 가능 {data.summary.evaluableN}건 · 분모 제외 {data.summary.excludedN}건</p>
+      <p><strong>{SOURCE_LABELS[data.source]} 회기</strong> · {data.crossingSummary ? '연습 관찰' : '관찰'} {data.summary.observedN}건 · 평가 가능 {data.summary.evaluableN}건 · 분모 제외 {data.summary.excludedN}건</p>
       {data.crossingSummary && <CrossingSessionSummary summary={data.crossingSummary} />}
       <RoundTimeline rows={data.observations} selectedId={selectedId} onSelect={setSelectedId} />
       {data.observations.length === 0 && <p>관찰 자료가 없습니다.</p>}
@@ -116,7 +127,8 @@ export default function ClinicalTimeline({ sessionId }: { sessionId: string }) {
           <button disabled={busy} onClick={() => { void decide(row.id, 'correct') }}>교정</button>
           <button disabled={busy || !notes[row.id]?.trim()} onClick={() => { void decide(row.id, 'reject') }}>사유를 기록하고 거부</button></div>
       </article>}
-      <details><summary>라운드별 집계와 제외 기준</summary>
+      <details><summary>{data.crossingSummary ? '라운드별 연습 집계와 제외 기준' : '라운드별 집계와 제외 기준'}</summary>
+        {data.observations.some(item => item.isProbe) && <p className="small">새 낱말 확인은 아래 1~5라운드 연습 집계에서 제외됩니다.</p>}
         <table><thead><tr><th>라운드</th><th>전체 관찰</th><th>평가 가능</th><th>분모 제외</th><th>확인된 성공</th></tr></thead><tbody>{data.rounds.map(round => <tr key={round.roundIndex}><td>{round.roundIndex}</td><td>{round.observedN}</td><td>{round.evaluableN}</td><td>{round.excludedN}</td><td>{insightRate(round)}</td></tr>)}</tbody></table>
         <ul>{data.limitations.map(item => <li key={item}>{item}</li>)}</ul>
       </details>

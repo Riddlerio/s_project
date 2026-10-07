@@ -14,6 +14,10 @@ MAX_NEUTRAL_STREAK = 3
 # 한 판(5라운드 10줄)을 마치면 같은 회기에서 처음부터 한 판 더 건널 수 있다(제품 규칙, 연습량 늘리기).
 # 판마다 새 회기를 만들지 않으므로 치료사 화면의 회기·숙달 계산은 판 수만큼 늘지 않는다.
 MAX_LAPS = 3
+# 피드백 없는 확인 낱말은 은행 순서로 최대 세 개, 보류일 때만 같은 카드를 한 번 더 듣는다.
+MAX_PROBE_WORDS = 3
+MAX_PROBE_TRIES = 2
+PRACTICE_WORDS = frozenset({"사과", "수박", "시소", "소리"})
 
 
 def build_stages(goal):
@@ -50,6 +54,12 @@ def build_stages(goal):
 
 def definition_for_item(state):
     definition = GAME_ROUNDS[GAME][state["roundIndex"] - 1]
+    if probe_active(state):
+        return replace(definition, id=f"{GAME}.probe", child_title="새 낱말 확인",
+                       child_prompt="그림의 이름을 들려줘!", generalization_level="WORD",
+                       clinical_focus="연습하지 않은 낱말의 일반화 확인 · 피드백 없음",
+                       elicitation_type="GENERALIZATION_PROBE", prompt_type="PICTURE_PROMPT",
+                       attempts=MAX_PROBE_TRIES, item_source="UNPRACTICED_BANK")
     return replace(definition, generalization_level=state["currentItem"]["level"].upper())
 
 
@@ -67,17 +77,69 @@ def update_cue(state, *, model):
 def child_round(definition):
     # 기존 4게임의 payload는 유지하고 이 게임에서는 임상 근거·판정 기준을 내보내지 않는다.
     return {"index": definition.index, "id": definition.id, "childTitle": definition.child_title,
-            "childPrompt": definition.child_prompt, "attempts": MAX_TRIES,
+            "childPrompt": definition.child_prompt,
+            "attempts": MAX_PROBE_TRIES if definition.elicitation_type == "GENERALIZATION_PROBE" else MAX_TRIES,
             "targetMs": 0, "endHoldMs": definition.end_hold_ms}
 
 
 def cursor(state):
-    complete = bool(state.get("roundsComplete"))
+    active_probe = probe_active(state)
+    complete = bool(state.get("roundsComplete")) and not active_probe
     return {"roundIndex": state["roundIndex"], "itemIndexInRound": state["itemIndexInRound"],
             "stripeIndex": state["stripeIndex"],
-            "triesLeft": 0 if complete else MAX_TRIES - state["itemAttemptsUsed"],
-            "modelCue": False if complete else state["modelCue"], "sessionComplete": complete,
-            "lap": state.get("lap", 1), "maxLaps": MAX_LAPS}
+            "triesLeft": MAX_PROBE_TRIES - state.get("probeAttemptsUsed", 0) if active_probe else
+            0 if complete else MAX_TRIES - state["itemAttemptsUsed"],
+            "modelCue": False if complete or active_probe else state["modelCue"], "sessionComplete": complete,
+            "lap": state.get("lap", 1), "maxLaps": MAX_LAPS,
+            "probeStarted": state.get("probeStarted", False), "probeComplete": state.get("probeComplete", False),
+            "probeIndex": state.get("probeIndex", 0), "probeTotal": len(state.get("probeItems", []))}
+
+
+def probe_active(state):
+    return bool(state.get("probeStarted")) and not state.get("probeComplete", False)
+
+
+def is_probe_observation(row):
+    evidence = row.evidence if isinstance(row.evidence, dict) else {}
+    return evidence.get("probe") is True or evidence.get("elicitationType") == "GENERALIZATION_PROBE"
+
+
+def build_probes(goal, stages):
+    # 고정 연습 낱말 전체와 제외 설정 때문에 대체되어 실제 연습한 낱말도 모두 뺀다.
+    practiced = PRACTICE_WORDS | {row["displayText"] for stage in stages for row in stage["items"]}
+    excluded = set(goal.excluded_words or ())
+    candidates = [row for row in items("ㅅ", "word") if row["displayText"] not in practiced | excluded]
+    return [{**row, "itemId": secrets.token_hex(8), "game": GAME} for row in candidates[:MAX_PROBE_WORDS]]
+
+
+def start_probes(state, selected):
+    state.update(probeStarted=True, probeComplete=not selected, probeItems=selected,
+                 probeIndex=1 if selected else 0, probeAttemptsUsed=0, modelCue=False, roundAttempt=1)
+    drafts = [{"type": "PROBE_START", "payload": {"wordN": len(selected)}}]
+    if selected:
+        state["currentItem"] = selected[0]
+        update_cue(state, model=False)
+    else:
+        drafts.append({"type": "PROBE_COMPLETE", "payload": {}})
+    return drafts
+
+
+def advance_probe(state, result):
+    """정오는 저장에만 쓴다. 공개 이벤트는 중립이며 보류일 때만 한 번 더 듣는다."""
+    state["probeAttemptsUsed"] += 1
+    drafts = [{"type": "PROBE_RECORDED", "payload": {}}]
+    if result in {"uncertain", "no_speech"} and state["probeAttemptsUsed"] < MAX_PROBE_TRIES:
+        state["roundAttempt"] += 1
+        return drafts
+    if state["probeIndex"] == len(state["probeItems"]):
+        state["probeComplete"] = True
+        drafts.append({"type": "PROBE_COMPLETE", "payload": {}})
+    else:
+        state["probeIndex"] += 1
+        state.update(currentItem=state["probeItems"][state["probeIndex"] - 1],
+                     probeAttemptsUsed=0, roundAttempt=1)
+        update_cue(state, model=False)
+    return drafts
 
 
 def advance(state, result, stages, at):

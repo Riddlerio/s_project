@@ -26,6 +26,9 @@
 .ca-line { stroke: var(--forest); stroke-width: 2.5; fill: none; }
 .ca-point { fill: var(--forest); stroke: var(--color-surface-white); stroke-width: 2; }
 .ca-value { font-size: 12px; font-weight: 800; fill: var(--forest-deep); }
+.ca-probe-line { stroke: var(--color-palette-orange-l24); stroke-width: 2.5; stroke-dasharray: 4 3; }
+.ca-probe-point { fill: var(--color-palette-orange-l24); stroke: var(--color-surface-white); stroke-width: 2; }
+.ca-probe-value { font-size: 12px; font-weight: 800; fill: var(--color-palette-orange-l24); }
 .ca-excluded { stroke: var(--color-palette-neutral-l52); stroke-width: 2; stroke-dasharray: 3 5; }
 .ca-empty { font-size: 13px; fill: var(--muted); }
 .ca-tempo { fill: var(--color-surface-white); stroke: var(--forest); stroke-width: 2.5; }
@@ -36,6 +39,7 @@
 .ca-key { display: inline-block; width: .9rem; height: .9rem; margin: 0 .25rem 0 .6rem; vertical-align: -2px; border-radius: 3px; }
 .ca-legend .ca-key:first-child { margin-left: 0; }
 .ca-key-point, .ca-key-faster { border-radius: 50%; background: var(--forest); }
+.ca-key-probe { background: var(--color-palette-orange-l24); transform: rotate(45deg); width: .7rem; height: .7rem; }
 .ca-key-steady { border: 2px solid var(--forest); border-radius: 50%; background: var(--color-surface-white); }
 .ca-key-threshold { width: 1.2rem; height: 0; border-top: 2px dashed var(--color-palette-orange-l33); border-radius: 0; vertical-align: 3px; }
 .ca-key-window { border: 1px solid var(--color-palette-green-l80-4); background: var(--color-palette-green-l91); }

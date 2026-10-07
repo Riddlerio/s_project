@@ -535,7 +535,7 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
     adventure_service.serialize_child(db, account.child_id)
     session = play_session(db, session_id, account)
     state = activity_state(session)
-    if session.status != "active" or state.get("roundsComplete"):
+    if session.status != "active" or (state.get("roundsComplete") and not crossing.probe_active(state)):
         raise HTTPException(409, "활성 게임이 아닙니다")
     lease = adventure_service.check_lease(db, session, x_activity_lease)
     adventure_service.check_attack(db, session, state, body.attack)
@@ -566,12 +566,13 @@ def activity_utterance(session_id: str, body: UtteranceInput, db: Session = Depe
         db.add(build_observation(session, utterance, goal, analysis, acoustic, state))
     if state["activityGame"] == crossing.GAME:
         stages = db.get(TrainingPlan, session.plan_id).plan_json["stages"]
-        drafts = crossing.advance(state, analysis.result, stages, now())
+        is_probe = crossing.probe_active(state)
+        drafts = crossing.advance_probe(state, analysis.result) if is_probe else crossing.advance(state, analysis.result, stages, now())
         session.runtime_state = state
         events = save_events(db, session, drafts, utterance.id, item, goal, analysis)
         db.commit()
-        finished = bool(state.get("roundsComplete"))
-        return {"events": events, "result": analysis.result,
+        finished = bool(state.get("roundsComplete")) and not crossing.probe_active(state)
+        return {"events": events, **({} if is_probe else {"result": analysis.result}),
                 "nextItem": None if finished else state["currentItem"],
                 "nextAttemptIndex": state["roundAttempt"],
                 "currentRound": None if finished else crossing.child_round(crossing.definition_for_item(state)),
@@ -661,6 +662,8 @@ def next_crossing_lap(session_id: str, db: Session = Depends(get_db), account: A
     state = activity_state(session)
     if session.status != "active" or state["activityGame"] != crossing.GAME:
         raise HTTPException(409, "활성 건너기 게임이 아닙니다")
+    if state.get("probeStarted"):
+        raise HTTPException(409, "새 낱말 확인을 시작한 뒤에는 다음 판을 시작할 수 없습니다")
     if not state.get("roundsComplete"):
         raise HTTPException(409, "이번 판을 아직 다 건너지 않았습니다")
     if state.get("lap", 1) >= crossing.MAX_LAPS:
@@ -674,6 +677,29 @@ def next_crossing_lap(session_id: str, db: Session = Depends(get_db), account: A
     drafts = crossing.next_lap(state, stages, now())
     session.runtime_state = state
     events = save_events(db, session, drafts, item=state["currentItem"], goal=goal)
+    db.commit()
+    return {**adventure_service.activity_payload(db, session), "events": events}
+
+
+@app.post("/api/activities/{session_id}/probes")
+@state_guard
+def start_crossing_probes(session_id: str, db: Session = Depends(get_db), account: Account = Depends(require_student),
+                          x_activity_lease: str | None = Header(default=None)):
+    """끝까지 건넌 판 뒤 연습하지 않은 낱말을 피드백 없이 확인한다."""
+    adventure_service.serialize_child(db, account.child_id)
+    session = play_session(db, session_id, account)
+    state = activity_state(session)
+    if session.status != "active" or state["activityGame"] != crossing.GAME:
+        raise HTTPException(409, "활성 건너기 게임이 아닙니다")
+    if not state.get("roundsComplete") or state.get("probeStarted"):
+        raise HTTPException(409, "판을 끝까지 건넌 뒤 새 낱말을 한 번만 확인할 수 있습니다")
+    adventure_service.check_lease(db, session, x_activity_lease)
+    goal = db.get(TrainingGoal, session.goal_id)
+    stages = db.get(TrainingPlan, session.plan_id).plan_json["stages"]
+    selected = crossing.build_probes(goal, stages)
+    drafts = crossing.start_probes(state, selected)
+    session.runtime_state = state
+    events = save_events(db, session, drafts, goal=goal)
     db.commit()
     return {**adventure_service.activity_payload(db, session), "events": events}
 
@@ -790,7 +816,7 @@ def clinical_summary(session_id: str, db: Session = Depends(get_db), therapist: 
     observations = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == session_id)).all()
     rows = []
     for definition in definitions:
-        all_round = [row for row in observations if row.round_index == definition.index]
+        all_round = [row for row in observations if row.round_index == definition.index and not crossing.is_probe_observation(row)]
         sample = all_round if clinical_eligible(session) else []
         verified = 0
         verified_evaluated = 0

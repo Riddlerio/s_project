@@ -128,7 +128,7 @@ def check_lease(db, session, token, *, allow_paused=False):
 
 
 def accrue_active_time(lease, session, at):
-    if lease.paused_at is None and not session.runtime_state.get("roundsComplete"):
+    if lease.paused_at is None and (not session.runtime_state.get("roundsComplete") or crossing.probe_active(session.runtime_state)):
         elapsed = (utc(at) - utc(lease.heartbeat_at)).total_seconds()
         if 0 <= elapsed < LEASE_TIMEOUT_SEC:
             lease.active_elapsed_sec = (lease.active_elapsed_sec or 0.0) + elapsed
@@ -138,7 +138,7 @@ def activity_payload(db, session):
     state = activity_state(session)
     game = state["activityGame"]
     child = db.get(Child, session.child_id)
-    complete = bool(state.get("roundsComplete"))
+    complete = bool(state.get("roundsComplete")) and not crossing.probe_active(state)
     if game == crossing.GAME:
         return {"sessionId": session.id, "game": game, "mode": session.mode,
                 "heroName": child.hero_name,
@@ -146,7 +146,7 @@ def activity_payload(db, session):
                 "currentRound": None if complete else crossing.child_round(crossing.definition_for_item(state)),
                 "firstItem": None if complete else state["currentItem"],
                 "nextAttemptIndex": state["roundAttempt"],
-                "completedRounds": list(range(1, 6 if complete else state["roundIndex"])),
+                "completedRounds": list(range(1, 6 if state.get("roundsComplete") else state["roundIndex"])),
                 **({"rhythm": state["rhythm"]} if state.get("rhythm") is not None else {}),
                 **crossing.cursor(state)}
     return {"sessionId": session.id, "game": game, "mode": session.mode,
