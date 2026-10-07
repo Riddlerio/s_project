@@ -64,6 +64,7 @@ export function ObservationEvidence({ row }: { row: InsightObservation }) {
       {row.automaticEvidence?.length ? <ul>{row.automaticEvidence.map((evidence, index) => <li key={`${index}-${evidence}`}>{evidence}</li>)}</ul>
         : <p>이 시도에 저장된 근거 설명이 없습니다.</p>}
       <p className="small">이 근거만으로 발음의 정오를 확정할 수 없습니다. 녹음 환경과 실제 발음을 함께 확인해 주세요.</p>
+      <p className="small">자동 추정은 바람 소리와 모음의 길이만 잽니다. 혀 위치 때문에 생기는 왜곡(혀 짧은 소리)과 ㅅ·ㅆ 구분은 가르지 못하니, 직접 들은 발음으로 판단해 주세요.</p>
     </section>}
     <p>음질 {QUALITY_LABELS[row.audioQuality] || row.audioQuality} · 음향 출처 {MEASUREMENT_SOURCE_LABELS[row.measurementSource] || row.measurementSource}</p>
     <div className="quality-flags">{row.qualityFlags.map(flag => <span key={flag}>{FLAG_LABELS[flag] || flag}</span>)}</div>
