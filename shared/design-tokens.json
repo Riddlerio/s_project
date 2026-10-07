@@ -760,6 +760,21 @@
     "$type": "color",
     "$value": "#ffffffe6",
     "$description": "{color.surface.white} 투명도 90%"
+   },
+   "dawn-a30": {
+    "$type": "color",
+    "$value": "#ffd9a84d",
+    "$description": "건너기 아침 하늘빛(살구) 투명도 30%"
+   },
+   "dusk-a45": {
+    "$type": "color",
+    "$value": "#3d3a8a73",
+    "$description": "건너기 저녁 하늘(남보라) 투명도 45%"
+   },
+   "sunset-a30": {
+    "$type": "color",
+    "$value": "#ff9a5c4d",
+    "$description": "건너기 저녁 노을(주황) 투명도 30%"
    }
   }
  },

@@ -88,8 +88,28 @@
 @keyframes praise-spark { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; transform: scale(1.25) rotate(30deg); } 100% { opacity: 0; transform: translateY(-18px) scale(.6) rotate(90deg); } }
 .crossing-caption::before { content: ''; position: absolute; left: 50%; top: -10px; width: 20px; height: 20px; margin-left: -10px; background: var(--color-surface-white); transform: rotate(45deg); border-radius: 4px; }
 /* 판마다 시간이 바뀐다: 아침(1판) → 점심(2판, 기본 하늘) → 저녁(3판). 3D 빛은 CrossingScene이 함께 바꾼다. */
-.crossing-screen.time-morning .crossing-stage { background: linear-gradient(var(--color-palette-sky-l87) 0%, var(--color-palette-peach-l90) 58%, var(--color-palette-yellow-l94) 78%); }
-.crossing-screen.time-evening .crossing-stage { background: linear-gradient(var(--color-palette-dusk-l42) 0%, var(--color-palette-dusk-l66) 42%, var(--color-palette-peach-l80) 74%); }
+/* 아침: 왼쪽 위에 떠오르는 해. 저녁: 오른쪽 위의 달과 작은 별. 움직이지 않아 '움직임 줄이기'에도 그대로다. */
+.crossing-screen.time-morning .crossing-stage { background:
+  radial-gradient(circle at 16% 17%, var(--color-palette-yellow-l92) 0 34px, var(--color-alpha-dawn-a30) 36px, transparent 120px),
+  linear-gradient(var(--color-palette-sky-l87) 0%, var(--color-palette-peach-l90) 58%, var(--color-palette-yellow-l94) 78%); }
+.crossing-screen.time-evening .crossing-stage { background:
+  radial-gradient(circle at 82% 15%, var(--color-palette-yellow-l94) 0 22px, var(--color-alpha-white-a80) 24px, transparent 70px),
+  radial-gradient(circle at 14% 10%, var(--color-alpha-white-a90) 0 2px, transparent 3px),
+  radial-gradient(circle at 31% 20%, var(--color-alpha-white-a90) 0 1.5px, transparent 2.5px),
+  radial-gradient(circle at 47% 8%, var(--color-alpha-white-a90) 0 2px, transparent 3px),
+  radial-gradient(circle at 63% 22%, var(--color-alpha-white-a90) 0 1.5px, transparent 2.5px),
+  radial-gradient(circle at 92% 30%, var(--color-alpha-white-a90) 0 1.5px, transparent 2.5px),
+  radial-gradient(circle at 6% 26%, var(--color-alpha-white-a90) 0 1.5px, transparent 2.5px),
+  linear-gradient(var(--color-palette-dusk-l42) 0%, var(--color-palette-dusk-l66) 42%, var(--color-palette-peach-l80) 74%); }
+/* 무대 밖 하늘 그림도 판마다 얇게 물든다(그림 위·글자 아래 층). 제목은 흰 외곽선이 있고, 저녁의 작은 글씨는 흰 바탕을 깐다. */
+.crossing-screen.dudu-sky.time-morning::after, .crossing-screen.dudu-sky.time-evening::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+.crossing-screen.dudu-sky.time-morning::after { background: radial-gradient(circle at 10% 6%, var(--color-alpha-dawn-a30) 0, transparent 46%), linear-gradient(180deg, var(--color-alpha-dawn-a30) 0%, transparent 55%); }
+.crossing-screen.dudu-sky.time-evening::after { background: linear-gradient(180deg, var(--color-alpha-dusk-a45) 0%, var(--color-alpha-sunset-a30) 52%, transparent 82%); }
+.crossing-screen.time-evening .crossing-top .eyebrow { display: inline-block; padding: .1rem .6rem; border-radius: 999px; background: var(--color-alpha-white-a80); }
+/* 성공 효과도 시간대를 따른다: 아침은 햇빛 고리, 저녁은 달빛 고리와 별빛 조각. */
+.crossing-screen.time-morning .pop-ring { border-color: var(--color-palette-yellow-l62); }
+.crossing-screen.time-evening .pop-ring { border-color: var(--color-palette-yellow-l94); box-shadow: 0 0 18px var(--color-alpha-white-a80); }
+.crossing-screen.time-evening .pop-burst i, .crossing-screen.time-evening .praise-spark { --c: var(--color-palette-yellow-l92) !important; filter: drop-shadow(0 0 4px var(--color-alpha-white-a80)); }
 .crossing-controls { display: flex; justify-content: center; align-items: center; gap: .7rem; flex-wrap: wrap; }
 .crossing-lap-choice button { font-size: 1.1rem; padding: .9rem 1.6rem; border-radius: 16px; }
 .crossing-controls > .small { flex-basis: 100%; text-align: center; color: var(--muted); }
