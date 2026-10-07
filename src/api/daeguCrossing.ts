@@ -22,6 +22,11 @@ export interface DaeguCrossingProgress {
   /** 같은 회기에서 몇 번째 판인지(1~maxLaps). 판을 마친 뒤 POST /activities/{id}/laps로 다음 판을 연다(2026-10-07). */
   lap?: number
   maxLaps?: number
+  /** 연습을 마친 뒤 하는 새 낱말 확인. 확인 중에는 정오·점수를 보내지 않는다. */
+  probeStarted?: boolean
+  probeComplete?: boolean
+  probeIndex?: number
+  probeTotal?: number
 }
 export interface DaeguCrossingItem {
   itemId: string
@@ -51,7 +56,7 @@ export interface DaeguCrossingStart extends DaeguCrossingSnapshot {
 export type DaeguCrossingResult = 'success' | 'retry' | 'uncertain' | 'no_speech'
 export interface DaeguCrossingResponse extends DaeguCrossingProgress {
   /** 방금 제출한 항목의 음향 근사 결과. 번호는 다음 항목 기준. */
-  result: DaeguCrossingResult
+  result?: DaeguCrossingResult
   events: { type: string; payload: Record<string, unknown> }[]
   nextItem: DaeguCrossingItem | null
   nextAttemptIndex: number
@@ -62,6 +67,12 @@ export const startDaeguCrossing = (mode: 'real' | 'demo') =>
 
 export const getDaeguCrossing = (sessionId: string) =>
   api<DaeguCrossingSnapshot>(`/activities/${sessionId}`)
+
+/** 확인 낱말이 없으면 firstItem/currentRound는 null이고 그대로 마무리한다. */
+export const startDaeguCrossingProbes = (session: Pick<DaeguCrossingSnapshot, 'sessionId' | 'leaseToken'>) =>
+  api<DaeguCrossingSnapshot & { events: DaeguCrossingResponse['events'] }>(`/activities/${session.sessionId}/probes`, {
+    method: 'POST', ...(session.leaseToken ? { headers: { 'X-Activity-Lease': session.leaseToken } } : {}),
+  })
 
 export const sendDaeguCrossingUtterance = (
   session: Pick<DaeguCrossingSnapshot, 'sessionId' | 'mode' | 'leaseToken'>, item: DaeguCrossingItem, roundIndex: number, attemptIndex: number,

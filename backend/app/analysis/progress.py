@@ -1,7 +1,8 @@
 from sqlalchemy import select, delete
 from math import isfinite
 
-from ..models import Utterance, SpeechAnalysis, TrainingDecision, ProgressMetric
+from ..models import Utterance, SpeechAnalysis, TrainingDecision, ProgressMetric, ClinicalObservation
+from ..games.crossing import is_probe_observation
 
 
 def _num(acoustic: dict, key: str) -> float:
@@ -12,6 +13,12 @@ def _num(acoustic: dict, key: str) -> float:
 def recompute(db, session, goal, elapsed_sec=0):
     db.execute(delete(ProgressMetric).where(ProgressMetric.session_id == session.id))
     rows = db.execute(select(Utterance, SpeechAnalysis).join(SpeechAnalysis, SpeechAnalysis.utterance_id == Utterance.id).where(Utterance.session_id == session.id)).all()
+    # 확인 낱말의 자동 결과를 기존 연습 지표에 섞지 않는다. 발화·관찰 원본은 그대로 남긴다.
+    if session.runtime_state.get("activityGame") == "daegu_crossing":
+        observations = db.scalars(select(ClinicalObservation).where(ClinicalObservation.session_id == session.id,
+                                                                  ClinicalObservation.child_id == session.child_id)).all()
+        probe_utterances = {row.utterance_id for row in observations if is_probe_observation(row)}
+        rows = [(u, a) for u, a in rows if u.id not in probe_utterances]
     decisions = db.scalars(select(TrainingDecision).where(TrainingDecision.session_id == session.id)).all()
     counts = {"success": 0, "retry": 0, "no_speech": 0, "uncertain": 0}
     for _, a in rows:

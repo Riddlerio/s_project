@@ -211,3 +211,19 @@ npm.cmd audit
 - 이벤트 `LAP_START`를 더했고, 판 끝의 `SESSION_COMPLETE` 내용에 `lap`을 더했다. 치료사 기록 문구는 'N판째 시작(같은 회기에서 한 판 더)', 'N판 완료'다.
 - 치료사 회기 요약(`crossingSummary`)에 `lapN`(끝까지 건넌 판 수)을 더했다. 도중에 멈춘 판의 시도는 시도 수에만 들어간다.
 - 아동 화면: 판을 마치면 "한 번 더 건너 볼까?"를 글로 묻고 '한 번 더 건널래!'/'오늘은 그만할래'를 고른다. 이 문장은 두두 녹음이 없어 소리 없이 보인다(브라우저 음성과 섞지 않음). 판마다 하늘과 빛이 아침 → 점심 → 저녁으로 바뀐다(연출이며 저장하지 않음).
+
+## 14. 대구대 건너기 일반화 확인 낱말 (2026-10-07, Codex)
+
+**승인:** 사용자가 CODEX_TASKS 6번으로 새 경로·상태·중립 이벤트·집계 분리를 명시적으로 요청했다. PR #29·#30 병합 뒤 main `a478934`에서 시작했다.
+
+- 새 경로 `POST /api/activities/{session_id}/probes`는 `/laps`와 같은 `require_student`·아동 소유 확인·`state_guard`·lease 검사를 쓴다. 다른 아동은 404, 판 진행 중·중복 시작·끝난 회기·다른 게임은 409다. `roundsComplete=true`인 판 뒤 한 번 시작하고, 확인 시작 뒤 `/laps`는 409다. 회기 완료 API는 확인 시작·마침 여부와 관계없이 기존처럼 쓸 수 있다.
+- 시작·재개·발화 응답의 진행 필드에 `probeStarted`, `probeComplete`, `probeIndex`(시작 전 또는 낱말 없음 0, 진행 중 1~3), `probeTotal`(0~3)을 더한다. 확인 중에는 연습 위치 5/2/10과 `roundsComplete`를 보존하고, 공개 `sessionComplete=false`, `modelCue=false`로 다음 확인 카드를 준다. 확인을 마치면 `sessionComplete=true`, 다음 항목·라운드는 `null`이다. 확인 응답 라운드는 제목 '새 낱말 확인'과 그림 안내를 쓰며 번호는 저장된 연습 위치를 유지한다.
+- `CrossingState`에 `probeStarted`, `probeComplete`, `probeItems`, `probeIndex`, `probeAttemptsUsed`를 더해 범위와 단계 간 일관성을 검증한다. 이전 회기는 필드가 없어도 기본값으로 읽는다. 낱말 없음은 시작·완료 상태를 한 번 저장하고 바로 건너뛴다.
+- `/utterances`의 음향 판단과 발화·분석·관찰 저장은 기존 경로를 쓴다. 확인 발화의 아동 응답에는 `result`·점수·정오 근거가 없다. 공개 이벤트는 `PROBE_START`(`wordN`), `PROBE_RECORDED`(빈 payload), `PROBE_COMPLETE`(빈 payload)뿐이다. 보류·무발화는 최대 2번 듣고 중립적으로 다음 카드로 간다.
+- 새 DB 표·열·마이그레이션은 없다. 기존 관찰 `evidence` JSON에 `probe=true`, `elicitationType="GENERALIZATION_PROBE"`, `probeIndex`, `itemSource="UNPRACTICED_BANK"`를 남긴다. 치료사 관찰 응답에 `isProbe`를 더한다. `crossingSummary.probeN`은 기록한 고유 확인 낱말 수, `probeAttemptN`은 확인 발화 수다. 기존 연습 수치·라운드 1~5·경과 지표에서 확인 관찰을 뺀다.
+- 건너기 분석의 회기마다 `probe: {reviewedN, confirmedSuccessN, confirmedRate}`를 더한다. REAL·비샘플·마지막 확인/교정·평가 가능·음질 POOR 제외 필터는 연습과 같다. 분모 없음은 `null`이며 DEMO·샘플도 비율에서 뺀다. 확인은 연습 비율·단계별 비율·자동 이유 집계·80% 연속 3회기 숙달 계산에 섞이지 않는다.
+- 아동 화면은 최대 3장 그림 카드, 기존 아이 마디·'네 차례'만 쓴다. 두두 시범·음성·브라우저 합성 음성·정오 피드백·칭찬·입 모양 도움말·점프·효과는 없고 매 시도 뒤 자막 '들려줘서 고마워!'만 보인다. 기존 `/play/goodbye`의 연습 낱말·시도 수에서 확인을 뺀다. 확인 낱말 수·선택·최대 시도 수는 휴리스틱 9-3절에 기록한다.
+
+**회귀(2026-10-07):** typecheck·build(배포 파일 자격 증명 검사 포함), 프런트 343개, 백엔드 574개, DEMO API smoke 3항목, diff 검사 통과. npm audit 취약점 0개. 백엔드는 Windows 정책을 변경하지 않고 uv 기본 Python 3.14와 기존 설치 의존성의 PYTHONPATH로 검사했다. 실제 마이크·아이폰·스피커·LLM·임상 타당성 검증은 미실행이다.
+
+**브라우저 확인:** 새 시연 DB와 별도 포트 8003·5175에서 Edge 헤드리스 1280px·390px 각각 연습 10카드 → 그만 → 확인 3카드 → 마무리 → 치료사 상세·분석을 점검하고 스크린샷을 확인했다. 확인 단계의 음성·정오·칭찬은 없고 연습 집계·마무리 낱말에 섞이지 않았다. 가로 넘침·화면/API 오류 0, 기존 favicon 404만 관측했다. 이 검사는 실제 기기·마이크 확인을 대신하지 않는다.

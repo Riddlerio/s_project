@@ -4,9 +4,9 @@ import { hasPicture, picturedWords, PICTURE_WORDS, WordPicture } from './WordPic
 
 describe('목표 낱말 그림', () => {
   it('대화·건너기에 나오는 /ㅅ/ 낱말마다 그림이 있다', () => {
-    for (const word of ['사과', '수박', '사자', '시소', '소리', '소풍']) expect(hasPicture(word)).toBe(true)
+    for (const word of ['사과', '수박', '사자', '사탕', '수건', '시소', '소리', '소풍']) expect(hasPicture(word)).toBe(true)
     expect(hasPicture('사')).toBe(false)
-    expect(PICTURE_WORDS.length).toBe(6)
+    expect(PICTURE_WORDS.length).toBe(8)
   })
 
   it('두두 말에 나온 순서대로 고르고 최대 3개', () => {
@@ -18,6 +18,11 @@ describe('목표 낱말 그림', () => {
 
   it('그림은 읽기 도구에 낱말 이름으로 알리고, 그림이 없으면 그리지 않는다', () => {
     expect(renderToStaticMarkup(<WordPicture word="사과" />)).toContain('aria-label="사과 그림"')
+    for (const word of ['사탕', '수건']) {
+      const markup = renderToStaticMarkup(<WordPicture word={word} />)
+      expect(markup).toContain(`aria-label="${word} 그림"`)
+      expect(markup).toContain('<path')
+    }
     expect(renderToStaticMarkup(<WordPicture word="사" />)).toBe('')
   })
 })

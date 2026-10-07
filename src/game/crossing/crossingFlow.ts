@@ -11,6 +11,9 @@ export interface CrossingItem {
   roundIndex: number; itemIndexInRound: number; stripeIndex: number
   /** 두두가 먼저 들려주는 줄(1라운드). */
   modelCue: boolean
+  /** 새 낱말 확인은 시범·정오 피드백 없이 아이 마디만 쓴다. */
+  probe?: boolean
+  probeIndex?: number
 }
 
 export const STRIPES = 10
@@ -20,6 +23,9 @@ export const MAX_TRIES = 3
 export const MAX_QUIET = 3
 /** 한 회기에서 건널 수 있는 판 수(서버 games/crossing.py MAX_LAPS와 같음). 판은 같은 회기 안에서 이어진다. */
 export const MAX_LAPS = 3
+export const MAX_PROBE_WORDS = 3
+export const MAX_PROBE_ATTEMPTS = 2
+export const PROBE_THANKS = '들려줘서 고마워!'
 /** 판마다 하늘과 빛이 아침(1판) → 점심(2판) → 저녁(3판)으로 바뀐다(반복해도 새로워 보이게). */
 export type TimeOfDay = 'morning' | 'noon' | 'evening'
 export const LAP_TIMES: readonly TimeOfDay[] = ['morning', 'noon', 'evening']
@@ -67,6 +73,29 @@ export class CrossingProgress {
     return ++this.quiet >= MAX_QUIET ? this.advance() : { advanced: false, next: this.current }
   }
   private advance() { this.index++; this.tries = 0; this.quiet = 0; return { advanced: true, next: this.current } }
+}
+
+/** 개발 미리보기 전용. 실제 확인 낱말은 서버가 은행에서 연습·제외 낱말을 뺀 뒤 정한다. */
+export function previewProbePlan(words: readonly string[] = ['사자', '사탕', '소풍']): CrossingItem[] {
+  return words.slice(0, MAX_PROBE_WORDS).map((text, index) => ({
+    itemId: `preview-probe-${index + 1}`, text, level: 'word', roundIndex: 5, itemIndexInRound: 2,
+    stripeIndex: STRIPES, modelCue: false, probe: true, probeIndex: index + 1,
+  }))
+}
+
+/** 확인은 정오를 내보내지 않는다. 불확실·무발화만 같은 카드를 한 번 더 듣고 넘어간다. */
+export class CrossingProbeProgress {
+  private index = 0
+  private attempts = 0
+  constructor(private readonly items: readonly CrossingItem[]) {}
+  get current(): CrossingItem | null { return this.items[this.index] ?? null }
+  record(result: CrossingResult): { next: CrossingItem | null; complete: boolean; probe: true } {
+    this.attempts++
+    if ((result !== 'uncertain' && result !== 'no_speech') || this.attempts >= MAX_PROBE_ATTEMPTS) {
+      this.index++; this.attempts = 0
+    }
+    return { next: this.current, complete: this.current === null, probe: true }
+  }
 }
 
 /**

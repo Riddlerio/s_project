@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from ..game_settings.schemas import DaeguCrossingRhythm
 from ..games.evaluation import ONSET_FRICATION_MS, ONSET_MIN_SNR_DB, VOICED_AFTER_FRICATION_MS
+from ..games.crossing import is_probe_observation
 from ..models import ClinicalObservation, TrainingSession
 from ..pronunciation.audio_quality import assess_audio_quality
 from ..therapist_planning.evidence import filter_verified, latest_decisions
@@ -66,9 +67,14 @@ def _auto_reason(row):
 
 def _session_point(session, child, rows, decisions):
     source = source_of(session, child)
+    probes = [row for row in rows if is_probe_observation(row)]
+    rows = [row for row in rows if not is_probe_observation(row)]
     verified, _ = filter_verified(rows, decisions) if source == "REAL" else ([], {})
     evaluable = [row for row in verified if row["result"] in {"success", "retry"} and row["audioQuality"] != "POOR"]
     successes = sum(row["result"] == "success" for row in evaluable)
+    probe_verified, _ = filter_verified(probes, decisions) if source == "REAL" else ([], {})
+    probe_evaluable = [row for row in probe_verified if row["result"] in {"success", "retry"} and row["audioQuality"] != "POOR"]
+    probe_successes = sum(row["result"] == "success" for row in probe_evaluable)
     by_level = {level: {"reviewedN": 0, "confirmedSuccessN": 0} for level in ("syllable", "word")}
     for row in evaluable:
         counts = by_level.setdefault(row["level"], {"reviewedN": 0, "confirmedSuccessN": 0})
@@ -92,6 +98,8 @@ def _session_point(session, child, rows, decisions):
         "reviewedN": len(evaluable), "confirmedSuccessN": successes,
         "confirmedRate": successes / len(evaluable) if evaluable else None,
         "byLevel": by_level, "autoReasons": reasons,
+        "probe": {"reviewedN": len(probe_evaluable), "confirmedSuccessN": probe_successes,
+                  "confirmedRate": probe_successes / len(probe_evaluable) if probe_evaluable else None},
     }
 
 

@@ -4,7 +4,7 @@ import type { HoyaAction } from '../control/speechGameSignal'
 import { ARRIVAL_STRIPE, CrossingScene, type BeatGrid } from '../game/crossing/CrossingScene'
 import {
   callWord, LAP_QUESTION, LAP_START_LINES, lapTime, LISTEN_AGAIN_LEAD, MAX_LAPS, MISS_LINE, MODEL_LEAD, onsetReason, praiseLine, retryLine,
-  ROUND_TITLES, STRIPES, type CrossingItem, type PaceEvent,
+  PROBE_THANKS, ROUND_TITLES, STRIPES, type CrossingItem, type PaceEvent,
 } from '../game/crossing/crossingFlow'
 import { previewJudge, serverJudge, type CrossingJudge, type CrossingTurn } from '../game/crossing/crossingJudge'
 import { OnsetPipeline } from '../game/crossing/onsetPipeline'
@@ -24,6 +24,7 @@ import { MISS_TIP, retryTip, type RetryTip } from '../game/crossing/retryTips'
 import { isName } from './koreanText'
 import { hasPicture, WordPicture } from './WordPicture'
 import './duduDemo.css'
+import './crossingProbe.css'
 
 /*
  * '대구대 건너기'(2026-10-05 데모, 같은 날 사용자 결정으로 박자가 있는 리듬게임으로 바꿈). 박자 규칙은 game/crossing/rhythm.ts에 있다.
@@ -65,7 +66,9 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = supportsRealMode('daegu_crossing', capabilities)
   // choice: 한 판을 마치고 한 판 더 할지 고르는 때(최대 MAX_LAPS판, 같은 회기).
-  const [phase, setPhase] = useState<'intro' | 'play' | 'arrive' | 'choice'>('intro')
+  const [phase, setPhase] = useState<'intro' | 'play' | 'arrive' | 'choice' | 'probe'>('intro')
+  const [probeTotal, setProbeTotal] = useState(0)
+  const probeActive = useRef(false)
   const [lap, setLap] = useState(1)
   const lapRef = useRef(1)
   const [mode, setMode] = useState<'real' | 'demo'>('demo')
@@ -229,8 +232,9 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     if (pausedRef.current) return
     setItem(next); setCardKey(key => key + 1); setCard('away'); setWindowOpen(false); setTurn(null); setBeat(0)
     setAction('IDLE'); setCaption('')
-    if (next.level === 'word' && firstWord.current === null) firstWord.current = next.text
-    if (!practiced.current.includes(next.text)) practiced.current.push(next.text)
+    if (!next.probe && next.level === 'word' && firstWord.current === null) firstWord.current = next.text
+    if (!next.probe && !practiced.current.includes(next.text)) practiced.current.push(next.text)
+    if (next.probe) { scheduleBars(next); return }
     const line = lead ?? (next.modelCue && !modelIntroduced.current ? MODEL_LEAD : null)
     if (line) { if (line === MODEL_LEAD) modelIntroduced.current = true; say(line, () => scheduleBars(next)); return }
     scheduleBars(next)
@@ -243,7 +247,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     const previous = grid.current ?? { anchor: now + LEAD_MS, bpm: bpm.current }
     let start = nextBarStart(previous.anchor, previous.bpm, now, LEAD_MS)
     grid.current = { anchor: start, bpm: bpm.current }
-    if (next.modelCue) { duduBar(start, next); start += barMs(bpm.current) }
+    if (next.modelCue && !next.probe) { duduBar(start, next); start += barMs(bpm.current) }
     childBar(start, next)
   }
 
@@ -268,7 +272,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   function childBar(start: number, next: CrossingItem) {
     const b = bar(start, bpm.current, outputLatencyMs())
     tick(b.beats.slice(0, 3))
-    at(b.beats[0], () => { setTurn('child'); setAction('IDLE'); setCard('here'); setCaption(`하나, 둘, 셋 다음에 '${next.text}'!`) })
+    at(b.beats[0], () => { setTurn('child'); setAction('IDLE'); setCard('here'); setCaption(next.probe ? '그림을 보고 말해 줘.' : `하나, 둘, 셋 다음에 '${next.text}'!`) })
     b.beats.forEach((time, i) => beatAt(time, i + 1))
     // 귀 쫑긋(듣기 자세)은 마이크가 열리기 전에 끝난다.
     at(b.beats[2] - PERK_LEAD_MS, () => setAction('LISTENING'))
@@ -278,7 +282,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
   function openWindow(b: Bar, next: CrossingItem) {
     if (pausedRef.current) return
-    setWindowOpen(true); setCaption(`지금! '${next.text}'`)
+    setWindowOpen(true); setCaption(next.probe ? '네 차례!' : `지금! '${next.text}'`)
     pipeline.current?.resetUtterance()
     landAt.current = b.land; speechStartAt.current = null
     listening.current = true
@@ -299,8 +303,10 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     const provider = judge.current, target = current.current
     if (!provider || !target || busy.current) return
     busy.current = true
-    if (acoustic) counts.current.attempts++
-    else { setCard('gone'); setAction('THINKING'); playFx('whoosh'); say(MISS_LINE, undefined, 'THINKING') }
+    if (!target.probe) {
+      if (acoustic) counts.current.attempts++
+      else { setCard('gone'); setAction('THINKING'); playFx('whoosh'); say(MISS_LINE, undefined, 'THINKING') }
+    }
     try {
       const sent: Acoustic = acoustic ?? { durationMs: 0, voicedMs: 0, activeMs: 0, meanRmsDb: -60, peakRmsDb: -60, meanHfRatio: 0, onsetLatencyMs: 0, source: modeRef.current === 'demo' ? 'keyboard' : 'microphone' }
       const result = await provider.submit(target, { transcript: null, acoustic: sent })
@@ -311,6 +317,20 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   }
 
   function react(result: CrossingTurn, acoustic: Acoustic | null) {
+    if (result.probe) {
+      // 모든 자동 결과에 같은 자막만 쓴다. 말·도움말·점프·효과·박 맞춤·빠르기 변경이 없다.
+      setTurn(null); setBeat(0); setCard('hidden'); setTip(null); setPop(null); setAction('IDLE'); setCaption(PROBE_THANKS)
+      finishedWhilePaused.current = result.complete || !result.next
+      if (result.next) current.current = result.next
+      if (pausedRef.current) {
+        return
+      }
+      later(() => {
+        if (result.complete || !result.next) endGame()
+        else present(result.next)
+      }, 1000)
+      return
+    }
     const target = current.current!
     const missed = acoustic === null
     if (pausedRef.current) {
@@ -372,11 +392,30 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     setStripe(ARRIVAL_STRIPE); setAction('CHEER')
     const name = heroName.current
     const more = lapRef.current < MAX_LAPS
-    say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(more ? offerLap : endGame, more ? 400 : 1200), 'CHEER', 'arrive')
+    say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(more ? offerLap : () => { void beginProbes() }, more ? 400 : 1200), 'CHEER', 'arrive')
   }
   /** 판을 마치면 한 판 더 할지 묻는다. 묻는 말은 두두 녹음이 없어 글로만 보인다. */
   function offerLap() { setPhase('choice'); setAction('WAVE'); setCaption(LAP_QUESTION) }
-  /** 그만하거나 마지막 판을 마치면 회기를 끝내고 마무리 인사로 간다. 시도 수와 연습한 말은 모든 판을 합친다. */
+  /** 그만하거나 마지막 판을 마치면 새 낱말 확인을 먼저 한다. 안내는 자막이고 시범은 없다. */
+  async function beginProbes() {
+    const provider = judge.current
+    if (!provider || busy.current) return
+    busy.current = true; setError(''); clearTimers(); voice.current?.cancel()
+    setPhase('probe'); setItem(null); setCard('hidden'); setTip(null); setPop(null); setTurn(null); setBeat(0); setAction('IDLE')
+    setCaption('새 낱말 그림을 보고 말해 줘.')
+    try {
+      // 도착 때 끈 마이크를 다시 연다. 오류가 나면 확인 시작 요청 전이므로 다시 시도할 수 있다.
+      if (modeRef.current === 'real') { capture.current?.stop(); await startMicrophone() }
+      const { first, total } = await provider.startProbes()
+      if (!mounted.current) return
+      probeActive.current = true; setProbeTotal(total); finishedWhilePaused.current = false
+      if (!first) { endGame(); return }
+      present(first)
+    } catch (cause) {
+      setError(cause instanceof Error && !cause.message.startsWith('[object') ? cause.message : '새 낱말 확인을 시작할 수 없어요')
+    } finally { busy.current = false }
+  }
+  /** 회기를 끝내고 마무리 인사로 간다. 확인 낱말은 연습한 말·연습 시도 수에 넣지 않는다. */
   function endGame() {
     void judge.current?.finish(Math.floor((Date.now() - startedAt.current) / 1000)).catch(() => undefined)
     navigate('/play/goodbye', { state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: heroName.current, words: practiced.current } })
@@ -411,7 +450,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       setCaption('잠깐 쉬어요. 준비되면 다시 시작을 눌러 줘.'); setAction('IDLE')
     } else {
       pausedRef.current = false; setPaused(false)
-      if (finishedWhilePaused.current) arrive()
+      if (finishedWhilePaused.current) { if (probeActive.current) endGame(); else arrive() }
       else if (current.current) present(current.current)
     }
   }
@@ -426,7 +465,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       meanHfRatio: 0.5, onsetLatencyMs: 0, source: 'keyboard', onsetFricationMs: 150, voicedAfterFricationMs: Math.max(0, ms - 150) })
   }
   useEffect(() => {
-    if (phase !== 'play' || mode !== 'demo') return
+    if ((phase !== 'play' && phase !== 'probe') || mode !== 'demo') return
     const down = (event: KeyboardEvent) => { if (event.code === 'Space' && !event.repeat) { event.preventDefault(); holdDown() } }
     const up = (event: KeyboardEvent) => { if (event.code === 'Space') { event.preventDefault(); holdUp() } }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
@@ -435,17 +474,19 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
   const roundIndex = item?.roundIndex ?? 1
   const beatLabel = turn === 'dudu' ? '두두' : '말해!'
-  return <main className={`crossing-screen dudu-sky time-${lapTime(lap)}`}><div className="crossing-shell">
+  const active = phase === 'play' || phase === 'probe'
+  return <main className={`crossing-screen dudu-sky time-${lapTime(lap)}${phase === 'probe' ? ' crossing-probe' : ''}`}><div className="crossing-shell">
     <header className="crossing-top">
       {/* 도움말이 있으면 제목 자리에 보인다(무대·버튼이 밀리지 않게). 제목은 화면 읽기용으로 남긴다. */}
       {phase === 'play' && tip && <RetryTipCard key={`${tip.title}-${tip.body}`} tip={tip} />}
       <div className={phase === 'play' && tip ? 'crossing-top-main sr-only' : 'crossing-top-main'}><p className="eyebrow">대구대 건너기{mode === 'demo' && phase !== 'intro' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
-        <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : phase === 'choice' ? LAP_QUESTION : '두두랑 대구대까지!'}</h1>
+        <h1>{phase === 'probe' ? '새 낱말 확인' : phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : phase === 'choice' ? LAP_QUESTION : '두두랑 대구대까지!'}</h1>
+        {phase === 'probe' && item && <span className="crossing-chip">그림 {item.probeIndex ?? 1} / {probeTotal}</span>}
         {phase === 'play' && <><span className="crossing-chip">{ROUND_TITLES[roundIndex - 1]}</span>
           {lap > 1 && <span className="crossing-chip">{lap}판째</span>}
           <span className="crossing-chip tempo"><span aria-hidden="true">♩ {tempo}</span><span className="sr-only">빠르기 1분에 {tempo}박</span></span></>}</div>
       {/* 쉬기: 게임처럼 동그란 아이콘 버튼(이름은 화면 읽기용으로 그대로). 제목·도움말과 한 줄에 둔다. */}
-      {phase === 'play' && <button className="secondary-action crossing-pause" onClick={togglePause} aria-label={paused ? '다시 시작' : '잠깐 쉬기'} title={paused ? '다시 시작' : '잠깐 쉬기'}>
+      {active && item && <button className="secondary-action crossing-pause" onClick={togglePause} aria-label={paused ? '다시 시작' : '잠깐 쉬기'} title={paused ? '다시 시작' : '잠깐 쉬기'}>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">{paused ? <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /> : <><rect x="6.5" y="5.5" width="4" height="13" rx="1.6" fill="currentColor" /><rect x="13.5" y="5.5" width="4" height="13" rx="1.6" fill="currentColor" /></>}</svg>
       </button>}
     </header>
@@ -472,20 +513,20 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
     {phase !== 'intro' && <>
       <div className="crossing-stage">
-        <CrossingScene stripe={stripe} action={action} animate={!windowOpen && !still && !paused} bob={phase === 'play'} arrived={phase === 'arrive' || phase === 'choice'} beat={grid} timeOfDay={lapTime(lap)} />
-        {phase === 'play' && <div className="crossing-lane" aria-hidden="true">
+        <CrossingScene stripe={stripe} action={action} animate={!windowOpen && !still && !paused && phase !== 'probe'} bob={phase === 'play'} arrived={phase === 'arrive' || phase === 'choice' || phase === 'probe'} beat={grid} timeOfDay={lapTime(lap)} />
+        {active && <div className="crossing-lane" aria-hidden="true">
           <div key={`ring-${beatSerial}`} className={`crossing-ring${windowOpen ? ' open' : ''}${turn === 'dudu' && beat === 4 ? ' dudu' : ''}${beat >= 1 && beat <= 3 && !windowOpen ? ' tick' : ''}`} />
           {/* 낱말 라운드는 그림 보고 말하기다: 그림이 있는 낱말은 카드에 그림을 함께 보여 준다. */}
           {item && card !== 'hidden' && <div key={cardKey} className={`crossing-card ${item.level === 'word' ? 'word' : ''}${item.level === 'word' && hasPicture(item.text) ? ' pictured' : ''} ${card}`}
             style={{ ['--approach' as string]: `${Math.round(3 * beatMs(tempo))}ms` }}>{item.level === 'word' && <WordPicture word={item.text} size={46} />}<span>{item.text}</span></div>}
         </div>}
         {/* 박 표시(무대 아래): 1~3박은 '똑', 4박은 말할 박(두두 마디에서는 두두가 부르는 박). */}
-        {phase === 'play' && <div className={`crossing-beats${turn ? ` ${turn}` : ''}`} aria-hidden="true">
+        {active && <div className={`crossing-beats${turn ? ` ${turn}` : ''}`} aria-hidden="true">
           {[1, 2, 3, 4].map(n => <i key={n} className={`${beat === n ? 'on' : ''}${beat > n ? ' done' : ''}${n === 4 ? ' say' : ''}`}>{n === 4 ? beatLabel : COUNT_IN[n - 1]}</i>)}
         </div>}
-        {pop && <PopBurst key={pop.key} kind={pop.kind} label={pop.label} still={still} />}
+        {phase !== 'probe' && pop && <PopBurst key={pop.key} kind={pop.kind} label={pop.label} still={still} />}
         {countdown && <div key={countdown} className="crossing-countdown" role="status">{countdown}</div>}
-        <TurnCue on={phase === 'play' && windowOpen} />
+        <TurnCue on={active && windowOpen} />
       </div>
       <p key={captionKey} className={`crossing-caption${caption ? '' : ' empty'}${captionStyle === 'normal' ? '' : ` ${captionStyle}`}`} aria-live="polite">
         {captionStyle === 'normal' || still ? caption || ' ' : <>
@@ -505,16 +546,17 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       </div>
       {phase === 'choice' && <div className="crossing-controls crossing-lap-choice">
         <button onClick={() => { void anotherLap() }}>한 번 더 건널래!</button>
-        <button className="secondary-action" onClick={endGame}>오늘은 그만할래</button>
+        <button className="secondary-action" onClick={() => { void beginProbes() }}>오늘은 그만할래</button>
         <p className="small">{lap}판 건넜어요. {MAX_LAPS - lap}판 더 할 수 있어요.</p>
       </div>}
-      {phase === 'play' && mode === 'demo' && <div className="crossing-controls">
+      {active && item && mode === 'demo' && <div className="crossing-controls">
         <button className={holding ? 'pressed' : ''} disabled={!windowOpen && !holding}
           onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small key-hint">Space</span></button>
         <p className="small">DEMO 입력입니다. 실제 발음 평가가 아닙니다.</p>
       </div>}
     </>}
     {error && <p role="alert" className="notice">{error}</p>}
+    {phase === 'probe' && error && !item && <button onClick={() => { void beginProbes() }}>새 낱말 확인 다시 연결</button>}
     <VoiceCredit />
   </div></main>
 }

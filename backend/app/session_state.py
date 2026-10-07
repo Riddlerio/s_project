@@ -90,6 +90,11 @@ class CrossingState(ActivityState):
     modelCue: StrictBool
     # 같은 회기에서 몇 번째 판인지(games/crossing.py MAX_LAPS). 판 기능 전의 회기는 값이 없어 1이다.
     lap: StrictInt = Field(default=1, ge=1, le=3)
+    probeStarted: StrictBool = False
+    probeComplete: StrictBool = False
+    probeItems: list[ActivityItem] = Field(default_factory=list, max_length=3)
+    probeIndex: StrictInt = Field(default=0, ge=0, le=3)
+    probeAttemptsUsed: StrictInt = Field(default=0, ge=0, le=2)
 
     @model_validator(mode="after")
     def consistent_cursor(self):
@@ -99,6 +104,26 @@ class CrossingState(ActivityState):
             raise ValueError("줄 위치가 라운드와 일치하지 않습니다")
         if self.roundsComplete and (self.roundIndex != 5 or self.itemIndexInRound != 2):
             raise ValueError("완료 위치가 올바르지 않습니다")
+        if self.probeStarted:
+            if not self.roundsComplete or self.modelCue:
+                raise ValueError("확인 낱말은 판 완료 뒤 시범 없이 진행합니다")
+            if not self.probeItems:
+                if not self.probeComplete or self.probeIndex != 0 or self.probeAttemptsUsed != 0:
+                    raise ValueError("확인 낱말이 없는 상태가 올바르지 않습니다")
+            else:
+                if not 1 <= self.probeIndex <= len(self.probeItems):
+                    raise ValueError("확인 낱말 위치가 올바르지 않습니다")
+                current = self.probeItems[self.probeIndex - 1]
+                if current.itemId != self.currentItem.itemId or any(
+                    item.game != "daegu_crossing" or item.level != "word" for item in self.probeItems
+                ):
+                    raise ValueError("확인 낱말 항목이 올바르지 않습니다")
+                if self.probeComplete and self.probeIndex != len(self.probeItems):
+                    raise ValueError("확인 낱말 완료 위치가 올바르지 않습니다")
+                if not self.probeComplete and self.probeAttemptsUsed >= 2:
+                    raise ValueError("확인 낱말 시도 수가 올바르지 않습니다")
+        elif self.probeComplete or self.probeItems or self.probeIndex or self.probeAttemptsUsed:
+            raise ValueError("시작 전 확인 낱말 상태가 올바르지 않습니다")
         return self
 
 

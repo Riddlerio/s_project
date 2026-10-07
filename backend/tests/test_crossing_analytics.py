@@ -416,3 +416,93 @@ def test_large_history_fits_sqlites_legacy_bind_limit(api):
         assert (row["attemptN"], row["reviewedN"], row["confirmedSuccessN"], row["confirmedRate"]) == (1001, 1001, 1001, 1)
     finally:
         connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, previous_limit)
+
+
+def mark_probes(sessions, ids, *, text="사자"):
+    with sessions() as db:
+        for observation_id in ids:
+            row = db.get(ClinicalObservation, observation_id)
+            row.evidence = {**row.evidence, "probe": True, "elicitationType": "GENERALIZATION_PROBE", "targetText": text}
+        db.commit()
+
+
+def test_probe_is_separate_from_practice_rates_levels_and_automatic_reasons(api):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "일반화 따로 보기")
+    sid, ids = crossing_session(sessions, child_id, ["success", "retry", "success", "uncertain", "no_speech"])
+    mark_probes(sessions, ids[2:])
+    row = point(client, child_id, sid)
+    assert (row["attemptN"], row["deferredN"], row["reviewedN"], row["confirmedSuccessN"], row["confirmedRate"]) == (2, 0, 2, 1, 0.5)
+    assert row["byLevel"]["word"] == {"reviewedN": 2, "confirmedSuccessN": 1}
+    assert row["autoReasons"]["ok"] == 2
+    assert row["probe"] == {"reviewedN": 1, "confirmedSuccessN": 1, "confirmedRate": 1}
+
+
+@pytest.mark.parametrize("mode,is_seed", [("demo", False), ("real", True)])
+def test_demo_and_sample_probe_never_enter_the_clinical_rate(api, mode, is_seed):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "확인 출처")
+    sid, ids = crossing_session(sessions, child_id, ["success"], mode=mode, is_seed=is_seed)
+    mark_probes(sessions, ids)
+    assert point(client, child_id, sid)["probe"] == {"reviewedN": 0, "confirmedSuccessN": 0, "confirmedRate": None}
+
+
+def test_probe_without_last_confirmed_review_has_null_rate(api):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "확인 결정 없음")
+    sid, ids = crossing_session(sessions, child_id, ["success"], decision=None)
+    mark_probes(sessions, ids)
+    with sessions() as db:
+        db.get(ClinicalObservation, ids[0]).verification_state = "CONFIRMED"
+        db.commit()
+    assert point(client, child_id, sid)["probe"] == {"reviewedN": 0, "confirmedSuccessN": 0, "confirmedRate": None}
+
+
+def test_probe_uses_last_correction_and_excludes_poor_audio(api):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "확인 교정")
+    sid, ids = crossing_session(sessions, child_id, ["retry", "success", "uncertain"], decision="correct")
+    mark_probes(sessions, ids)
+    with sessions() as db:
+        db.get(ClinicalObservation, ids[1]).audio_quality = "POOR"
+        therapist_id = db.get(Child, child_id).therapist_id
+        db.add(ClinicalVerification(observation_id=ids[2], therapist_id=therapist_id, action="reject",
+                                    created_at=now() + timedelta(seconds=1)))
+        db.commit()
+    row = point(client, child_id, sid)
+    assert row["confirmedRate"] is None and row["attemptN"] == 0
+    assert row["probe"] == {"reviewedN": 1, "confirmedSuccessN": 1, "confirmedRate": 1}
+
+
+@pytest.mark.parametrize("practice_result,probe_result,expected", [("retry", "success", False), ("success", "retry", True)])
+def test_mastery_never_uses_probe_outcomes(api, practice_result, probe_result, expected):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "숙달과 일반화 분리")
+    for days_ago in (3, 2, 1):
+        _sid, ids = crossing_session(sessions, child_id, [practice_result, probe_result], days_ago=days_ago)
+        mark_probes(sessions, ids[1:])
+    assert analytics(client, child_id)["mastery"]["met"] is expected
+
+
+def test_session_insights_and_round_summary_do_not_mix_probe_with_practice(api):
+    client, sessions = api
+    child_id = add_child(client, auth(client), "회기 확인 분리")
+    sid, ids = crossing_session(sessions, child_id, ["success", "retry", "success", "no_speech"])
+    mark_probes(sessions, ids[2:])
+    with sessions() as db:
+        for observation_id in ids:
+            db.get(ClinicalObservation, observation_id).round_index = 5
+        db.commit()
+    body = client.get(f"/api/sessions/{sid}/insights").json()
+    assert len(body["observations"]) == 4
+    assert sum(row["isProbe"] for row in body["observations"]) == 2
+    assert body["summary"]["observedN"] == 2 and body["summary"]["successRate"] == 50
+    assert body["rounds"][4]["observedN"] == 2
+    summary = body["crossingSummary"]
+    assert (summary["attemptN"], summary["autoSuccessN"], summary["deferredN"], summary["probeN"], summary["probeAttemptN"]) == (2, 1, 0, 1, 2)
+    clinical = client.get(f"/api/sessions/{sid}/clinical-summary").json()
+    assert clinical["rounds"][4]["totalObservedN"] == 2
+    assert clinical["rounds"][4]["evaluableN"] == 2
+    trends = client.get(f"/api/children/{child_id}/goal-trends")
+    assert trends.status_code == 200
+    assert all(group["baseline"]["observedN"] == 2 for group in trends.json()["groups"])

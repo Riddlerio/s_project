@@ -30,6 +30,19 @@ const PICTURES: Record<string, () => ReactElement> = {
     <path d="M29 36h6l-3 3z" fill="#7a4a2b" />
     <path d="M28 41c2 2 6 2 8 0" stroke="#7a4a2b" strokeWidth="2" fill="none" strokeLinecap="round" />
   </>,
+  사탕: () => <>
+    <path d="M19 26l-12-7v26l12-7M45 26l12-7v26l-12-7" fill="#f2a83b" />
+    <rect x="17" y="22" width="30" height="20" rx="10" fill="#e8607a" />
+    <path d="M26 23l-5 17M35 23l-5 18M43 26l-4 15" stroke="#fff0d9" strokeWidth="4" />
+    <path d="M10 26l6 4M10 38l6-4M48 30l6-4M48 34l6 4" stroke="#d9822b" strokeWidth="2" strokeLinecap="round" />
+  </>,
+  수건: () => <>
+    <rect x="10" y="9" width="44" height="7" rx="3.5" fill="#b4bbc5" />
+    <path d="M18 12h28v42H18z" fill="#74bdcf" />
+    <path d="M18 45h28v5H18z" fill="#e8f7fa" />
+    <path d="M23 18v20M28 18v20M33 18v20M38 18v20" stroke="#4b9fb4" strokeWidth="2" opacity=".6" />
+    <path d="M18 54h28" stroke="#4b9fb4" strokeWidth="3" />
+  </>,
   시소: () => <>
     <path d="M26 50l6-14 6 14z" fill="#7a8aa0" />
     <rect x="6" y="31" width="52" height="5" rx="2.5" fill="#f2a83b" transform="rotate(-12 32 33)" />

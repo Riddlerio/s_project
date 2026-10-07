@@ -11,12 +11,16 @@ export interface InsightObservation {
   verification: string; provenance: Provenance; measurementSource: string; qualityFlags: string[]
   excludedReasons: string[]; included: boolean; reviewNote: string; acoustic: Record<string, number>
   automaticEvidence?: string[]
+  /** 피드백 없이 연습하지 않은 낱말을 확인한 관찰. 과거 응답에는 없다. */
+  isProbe?: boolean
 }
 export interface CrossingSummary {
   attemptN: number; autoSuccessN: number; deferredN: number; confirmedN: number; reviewTotalN: number
   rhythm: { startBpm: number; allowFaster: boolean } | null
   /** 같은 회기에서 끝까지 건넌 판 수(판 반복, 2026-10-07). 이전 서버 응답에는 없다. */
   lapN?: number
+  probeN?: number
+  probeAttemptN?: number
 }
 export interface SessionInsights {
   sessionId: string; source: EvidenceSource; observations: InsightObservation[]
@@ -55,6 +59,6 @@ export const FLAG_LABELS: Record<string, string> = {
 export const INDEPENDENCE_LABELS: Record<string, string> = { MODELED: '시범 후', INDEPENDENT: '혼자', UNKNOWN: '미기록' }
 export const QUALITY_LABELS: Record<string, string> = { GOOD: '좋음', FAIR: '보통', POOR: '나쁨', UNKNOWN: '미측정' }
 export const MEASUREMENT_SOURCE_LABELS: Record<string, string> = { CLIENT_REPORTED: '아동 기기 측정값', SYSTEM_MEASURED: '서버 측정', UNKNOWN: '미상' }
-export const CUE_NAMES: Record<string, string> = { NONE: '단서 없음', AUDITORY_MODEL: '소리 시범', PICTURE: '그림 단서', VISUAL: '시각 단서', AUDITORY: '청각 단서', MODEL: '모델 제시', COMBINED: '복합 단서', UNKNOWN: '단서 미기록' }
+export const CUE_NAMES: Record<string, string> = { NONE: '단서 없음', AUDITORY_MODEL: '소리 시범', PICTURE: '그림 단서', PICTURE_PROMPT: '그림 단서', VISUAL: '시각 단서', AUDITORY: '청각 단서', MODEL: '모델 제시', COMBINED: '복합 단서', UNKNOWN: '단서 미기록' }
 export const cueText = (counts: Record<string, number>) => Object.entries(counts).map(([cue, count]) => `${CUE_NAMES[cue] || cue} ${count}건`).join(' · ') || '자료 없음'
 export const insightRate = (stats: InsightStats) => stats.successRate === null ? '자료 없음' : `${stats.successRate}% (${stats.successN}/${stats.evaluableN}건)`

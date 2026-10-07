@@ -1,0 +1,14 @@
+/* 새 낱말 확인: 연습과 같은 아이 마디를 쓰되, 카드·자막에는 정오 연출이 없다. */
+.crossing-probe .crossing-caption {
+  animation: none;
+  color: var(--text, #253449);
+}
+
+.crossing-probe .crossing-card.pictured .word-picture {
+  flex-shrink: 0;
+}
+
+.crossing-probe .crossing-chip {
+  background: #e8f4f4;
+  color: #28505c;
+}

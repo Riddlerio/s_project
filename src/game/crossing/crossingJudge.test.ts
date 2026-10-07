@@ -3,10 +3,10 @@ import type { ActivityItem, ActivityResponse, ActivityRound, ActivityStart } fro
 import type { Acoustic } from '../../shared/types'
 import type { CrossingResult } from './crossingFlow'
 
-vi.mock('../../api/activities', () => ({ startActivity: vi.fn(), sendActivityUtterance: vi.fn(), nextCrossingLap: vi.fn() }))
+vi.mock('../../api/activities', () => ({ startActivity: vi.fn(), sendActivityUtterance: vi.fn(), nextCrossingLap: vi.fn(), startCrossingProbes: vi.fn() }))
 vi.mock('../../api/client', () => ({ api: vi.fn(async () => ({})) }))
 
-import { nextCrossingLap, sendActivityUtterance, startActivity } from '../../api/activities'
+import { nextCrossingLap, sendActivityUtterance, startActivity, startCrossingProbes } from '../../api/activities'
 import { api } from '../../api/client'
 import { previewJudge, serverJudge } from './crossingJudge'
 
@@ -41,7 +41,7 @@ function fakeServer() {
 const acoustic = { source: 'mic', durationMs: 400, activeMs: 300 } as Acoustic
 
 describe('대구대 건너기 서버 판정(Codex 계약)', () => {
-  beforeEach(() => { vi.mocked(sendActivityUtterance).mockReset(); vi.mocked(api).mockClear() })
+  beforeEach(() => { vi.mocked(sendActivityUtterance).mockReset(); vi.mocked(startCrossingProbes).mockReset(); vi.mocked(api).mockClear() })
 
   it('치료사가 정한 박자(시작 응답의 선택 필드 rhythm)를 쓰고, 없으면 기본값(84BPM·빨라지기 허용)', async () => {
     fakeServer()
@@ -114,5 +114,62 @@ describe('대구대 건너기 서버 판정(Codex 계약)', () => {
     const { first } = await judge.start()
     const again = await judge.nextLap()
     expect(again.first).toEqual(first)
+  })
+
+  it('새 낱말 확인 시작 API에 같은 회기의 임대 토큰을 보낸다', async () => {
+    const actual = await vi.importActual<typeof import('../../api/activities')>('../../api/activities')
+    await actual.startCrossingProbes({ sessionId: 's1', leaseToken: 'lease-1' } as ActivityStart)
+    expect(api).toHaveBeenCalledWith('/activities/s1/probes', { method: 'POST', headers: { 'X-Activity-Lease': 'lease-1' } })
+  })
+
+  it('확인 중 서버의 카드·시도 번호만 쓰고 중립 응답에서 정오를 만들지 않는다', async () => {
+    fakeServer()
+    const judge = serverJudge('demo')
+    await judge.start()
+    const probe = (text: string): ActivityItem => ({ itemId: `probe-${text}`, displayText: text, level: 'word', game: 'daegu_crossing', pictureKey: text })
+    const r = { ...round(5), childTitle: '새 낱말 확인', elicitationType: 'probe', attempts: 2 }
+    vi.mocked(startCrossingProbes).mockResolvedValueOnce({ sessionId: 's1', game: 'daegu_crossing', mode: 'demo', heroName: '바람용사', rounds: [],
+      currentRound: r, firstItem: probe('사자'), nextAttemptIndex: 1, events: [{ type: 'PROBE_START', payload: {} }],
+      probeStarted: true, probeComplete: false, probeIndex: 1, probeTotal: 3,
+      ...progress(10) } as never)
+    const started = await judge.startProbes()
+    expect(startCrossingProbes).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 's1', leaseToken: 'lease-1' }))
+    expect(started).toMatchObject({ total: 3, first: { text: '사자', probe: true, probeIndex: 1, modelCue: false, stripeIndex: 10 } })
+    const reply = (text: string | null, index: number, attempt: number) => vi.mocked(sendActivityUtterance).mockResolvedValueOnce({
+      events: [{ type: 'PROBE_RECORDED', payload: {} }], nextItem: text ? probe(text) : null, currentRound: text ? r : null,
+      nextAttemptIndex: attempt, sessionComplete: text === null, probeStarted: true, probeComplete: text === null,
+      probeIndex: index, probeTotal: 3, modelCue: false,
+    } as never)
+    reply('사자', 1, 2)
+    const again = await judge.submit(started.first!, { transcript: null, acoustic })
+    expect(again).toMatchObject({ probe: true, complete: false, next: { text: '사자', modelCue: false } })
+    expect(again).not.toHaveProperty('result')
+    reply('사탕', 2, 1)
+    const next = await judge.submit(again.next!, { transcript: null, acoustic })
+    expect(next).toMatchObject({ probe: true, next: { text: '사탕', probeIndex: 2, modelCue: false } })
+    expect(vi.mocked(sendActivityUtterance).mock.lastCall?.slice(1, 4)).toEqual([probe('사자'), 5, 2])
+    reply(null, 3, 1)
+    expect(await judge.submit(next.next!, { transcript: null, acoustic })).toEqual({ probe: true, complete: true, next: null })
+  })
+
+  it('남는 확인 낱말이 없으면 카드를 내지 않고 마무리할 수 있다', async () => {
+    fakeServer()
+    const judge = serverJudge('demo')
+    await judge.start()
+    vi.mocked(startCrossingProbes).mockResolvedValueOnce({ firstItem: null, currentRound: null, probeStarted: true, probeComplete: true, probeIndex: 0,
+      probeTotal: 0, nextAttemptIndex: 1, sessionComplete: true, events: [{ type: 'PROBE_COMPLETE', payload: {} }] } as never)
+    expect(await judge.startProbes()).toEqual({ first: null, total: 0 })
+    await judge.finish(120)
+    expect(api).toHaveBeenCalledWith('/play/sessions/s1/complete', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('미리보기 확인에서도 자동 결과와 피드백은 반환하지 않는다', async () => {
+    const judge = previewJudge()
+    await judge.start()
+    const { first, total } = await judge.startProbes()
+    expect(total).toBe(3)
+    const turn = await judge.submit(first!, { transcript: null, acoustic: { source: 'keyboard', durationMs: 400 } as Acoustic })
+    expect(turn).toMatchObject({ probe: true, next: { text: '사탕', modelCue: false } })
+    expect(turn).not.toHaveProperty('result')
   })
 })
