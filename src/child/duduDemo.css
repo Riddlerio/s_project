@@ -87,7 +87,11 @@
 @keyframes praise-char { from { transform: translateY(14px) scale(.4); opacity: 0; } }
 @keyframes praise-spark { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; transform: scale(1.25) rotate(30deg); } 100% { opacity: 0; transform: translateY(-18px) scale(.6) rotate(90deg); } }
 .crossing-caption::before { content: ''; position: absolute; left: 50%; top: -10px; width: 20px; height: 20px; margin-left: -10px; background: var(--color-surface-white); transform: rotate(45deg); border-radius: 4px; }
+/* 판마다 시간이 바뀐다: 아침(1판) → 점심(2판, 기본 하늘) → 저녁(3판). 3D 빛은 CrossingScene이 함께 바꾼다. */
+.crossing-screen.time-morning .crossing-stage { background: linear-gradient(var(--color-palette-sky-l87) 0%, var(--color-palette-peach-l90) 58%, var(--color-palette-yellow-l94) 78%); }
+.crossing-screen.time-evening .crossing-stage { background: linear-gradient(var(--color-palette-dusk-l42) 0%, var(--color-palette-dusk-l66) 42%, var(--color-palette-peach-l80) 74%); }
 .crossing-controls { display: flex; justify-content: center; align-items: center; gap: .7rem; flex-wrap: wrap; }
+.crossing-lap-choice button { font-size: 1.1rem; padding: .9rem 1.6rem; border-radius: 16px; }
 .crossing-controls > .small { flex-basis: 100%; text-align: center; color: var(--muted); }
 /* 버튼 안 단축키 안내(Space)는 초록 버튼 위에서도 읽히게 밝게 */
 .crossing-controls button .small { color: var(--color-brand-lime); }

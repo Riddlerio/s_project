@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { callWord, CrossingProgress, judgeOnset, LISTEN_AGAIN_LEAD, listenAgainLine, MODEL_LEAD, modelLine, onsetReason, praiseLine, previewPlan, resultFromEvents, RETRY_LINE, retryLine, STRIPES } from './crossingFlow'
+import { callWord, CrossingProgress, judgeOnset, LAP_START_LINES, LAP_TIMES, lapTime, LISTEN_AGAIN_LEAD, listenAgainLine, MAX_LAPS, MODEL_LEAD, modelLine, onsetReason, praiseLine, previewPlan, resultFromEvents, RETRY_LINE, retryLine, STRIPES } from './crossingFlow'
 
 describe('대구대 건너기 진행', () => {
+  it('판은 최대 3판이고 아침 → 점심 → 저녁 순서로 바뀌며, 범위 밖 값은 가장 가까운 판으로 본다', () => {
+    expect(MAX_LAPS).toBe(3)
+    expect([1, 2, 3].map(lapTime)).toEqual(['morning', 'noon', 'evening'])
+    expect([0, -1, 4, Number.NaN, 2.7].map(lapTime)).toEqual(['morning', 'morning', 'evening', 'morning', 'noon'])
+    expect(LAP_TIMES.map(time => LAP_START_LINES[time].length > 0)).toEqual([true, true, true])
+  })
+
   it('미리보기 계획은 5라운드 × 2줄 = 10줄이고 1라운드만 두두가 먼저 들려준다', () => {
     const plan = previewPlan()
     expect(plan).toHaveLength(STRIPES)

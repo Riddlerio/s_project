@@ -4,7 +4,7 @@ import { MathUtils, Vector3, type Group, type Mesh, type MeshStandardMaterial } 
 import type { HoyaAction } from '../../control/speechGameSignal'
 import { DuduCharacter } from '../../tiger/DuduCharacter'
 import { canUseWebGL, HoyaErrorBoundary, HoyaFallback } from '../../tiger/Hoya3D'
-import { STRIPES } from './crossingFlow'
+import { STRIPES, type TimeOfDay } from './crossingFlow'
 import { DaeguGate } from './DaeguGate'
 import { beatPhase } from './rhythm'
 
@@ -166,7 +166,15 @@ function Walker({ stripe, action, animate, bob, arrived, beat }: { stripe: numbe
   </group>
 }
 
-export function CrossingScene({ stripe, action, animate, bob = true, arrived = false, beat }: { stripe: number; action: HoyaAction; animate: boolean; bob?: boolean; arrived?: boolean; beat?: MutableRefObject<BeatGrid | null> }) {
+/** 판마다 바뀌는 빛(아침: 낮고 따뜻한 동쪽 해, 점심: 기본, 저녁: 낮은 노을빛). 하늘색은 무대 CSS(time-*)가 맡는다. */
+const LIGHTS: Record<TimeOfDay, { sky: string; ground: string; hemi: number; sun: string; sunIntensity: number; sunAt: [number, number, number] }> = {
+  morning: { sky: '#fff1dc', ground: '#cfe3d6', hemi: 1.15, sun: '#ffe2b8', sunIntensity: 1.35, sunAt: [-6, 4, 6] },
+  noon: { sky: '#ffffff', ground: '#cfe3d6', hemi: 1.3, sun: '#ffffff', sunIntensity: 1.6, sunAt: [4, 7, 6] },
+  evening: { sky: '#ffd2ad', ground: '#8a86b4', hemi: 0.95, sun: '#ff9f63', sunIntensity: 1.15, sunAt: [8, 2.5, 4] },
+}
+
+export function CrossingScene({ stripe, action, animate, bob = true, arrived = false, beat, timeOfDay = 'noon' }: { stripe: number; action: HoyaAction; animate: boolean; bob?: boolean; arrived?: boolean; beat?: MutableRefObject<BeatGrid | null>; timeOfDay?: TimeOfDay }) {
+  const light = LIGHTS[timeOfDay]
   const [supported] = useState(() => canUseWebGL())
   const [lost, setLost] = useState(false)
   if (!supported || lost) return <HoyaFallback action={action} />
@@ -175,8 +183,8 @@ export function CrossingScene({ stripe, action, animate, bob = true, arrived = f
       <Canvas camera={{ position: [0, 1.9, 4.8], fov: 40 }} dpr={[1, 2]}
         onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); setLost(true) })}>
         {/* 하늘은 무대(.crossing-stage)의 그라데이션이 보이게 비워 둔다(화면 배경 그림과 같은 하늘색). */}
-        <hemisphereLight args={['#ffffff', '#cfe3d6', 1.3]} />
-        <directionalLight position={[4, 7, 6]} intensity={1.6} />
+        <hemisphereLight key={timeOfDay} args={[light.sky, light.ground, light.hemi]} />
+        <directionalLight position={light.sunAt} intensity={light.sunIntensity} color={light.sun} />
         <directionalLight position={[-5, 3, 4]} intensity={0.4} />
         <Street crossed={Math.min(STRIPES, Math.floor(stripe))} />
         <LandingFx stripe={stripe} animate={animate} />

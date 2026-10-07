@@ -11,6 +11,11 @@ export const startActivity = (game: GameKind, mode: 'real' | 'demo') =>
   api<ActivityStart>('/activities', { method: 'POST', body: JSON.stringify({ game, mode }) })
 
 
+/** 대구대 건너기: 한 판을 마친 같은 회기에서 첫 줄부터 한 판 더 건넌다. 최대 판 수는 서버가 막는다(409). */
+export const nextCrossingLap = (session: ActivityStart) =>
+  api<ActivityStart & { events: ActivityResponse['events']; lap?: number; maxLaps?: number }>(`/activities/${session.sessionId}/laps`, {
+    method: 'POST', ...(session.leaseToken ? { headers: { 'X-Activity-Lease': session.leaseToken } } : {}) })
+
 export const sendActivityUtterance = (session: ActivityStart, item: ActivityItem, roundIndex: number, attemptIndex: number,
   transcript: string | null, acoustic: Acoustic, attack: 'basic' | 'magic_beam' = 'basic') =>
   api<ActivityResponse>(`/activities/${session.sessionId}/utterances`, { method: 'POST', ...(session.leaseToken ? { headers: { 'X-Activity-Lease': session.leaseToken } } : {}), body: JSON.stringify({

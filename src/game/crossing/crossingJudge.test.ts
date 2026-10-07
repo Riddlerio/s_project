@@ -3,12 +3,12 @@ import type { ActivityItem, ActivityResponse, ActivityRound, ActivityStart } fro
 import type { Acoustic } from '../../shared/types'
 import type { CrossingResult } from './crossingFlow'
 
-vi.mock('../../api/activities', () => ({ startActivity: vi.fn(), sendActivityUtterance: vi.fn() }))
+vi.mock('../../api/activities', () => ({ startActivity: vi.fn(), sendActivityUtterance: vi.fn(), nextCrossingLap: vi.fn() }))
 vi.mock('../../api/client', () => ({ api: vi.fn(async () => ({})) }))
 
-import { sendActivityUtterance, startActivity } from '../../api/activities'
+import { nextCrossingLap, sendActivityUtterance, startActivity } from '../../api/activities'
 import { api } from '../../api/client'
-import { serverJudge } from './crossingJudge'
+import { previewJudge, serverJudge } from './crossingJudge'
 
 /*
  * Codex 계약(src/api/daeguCrossing.ts, 10줄 = 5라운드 × 2줄)을 흉내 낸 가짜 서버.
@@ -86,5 +86,33 @@ describe('대구대 건너기 서버 판정(Codex 계약)', () => {
     expect(seen).toEqual(['1/1/1:사', '1/2/2:사', '2/1/3:사', '2/2/4:사', '3/1/5:소', '3/2/6:시', '4/1/7:사과', '4/2/8:수박', '5/1/9:수', '5/2/10:시소'])
     await judge.finish(42)
     expect(api).toHaveBeenCalledWith('/play/sessions/s1/complete', expect.objectContaining({ method: 'POST', headers: { 'X-Activity-Lease': 'lease-1' } }))
+  })
+
+  it('한 판을 마친 뒤 다음 판은 같은 회기에서 서버가 준 첫 항목·시도 번호로 첫 줄부터 센다', async () => {
+    const server = fakeServer()
+    const judge = serverJudge('demo')
+    let current = (await judge.start()).first
+    for (let i = 0; i < 10; i++) {
+      server.reply('success')
+      const turn = await judge.submit(current, { transcript: null, acoustic })
+      if (turn.next) current = turn.next
+    }
+    vi.mocked(nextCrossingLap).mockResolvedValueOnce({ sessionId: 's1', game: 'daegu_crossing', mode: 'demo', heroName: '바람용사', rounds: [1, 2, 3, 4, 5].map(round),
+      currentRound: round(1), firstItem: { ...item(1), itemId: 'lap2-1' }, nextAttemptIndex: 1, events: [], lap: 2, maxLaps: 3, ...progress(1) } as never)
+    const { first } = await judge.nextLap()
+    expect(nextCrossingLap).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 's1', leaseToken: 'lease-1' }))
+    expect(first).toMatchObject({ itemId: 'lap2-1', stripeIndex: 1, itemIndexInRound: 1, roundIndex: 1, modelCue: true })
+    // 다음 판의 첫 발화는 새 항목과 서버가 준 시도 번호(1)로 보낸다.
+    vi.mocked(sendActivityUtterance).mockResolvedValueOnce({ result: 'success', events: [], nextItem: item(2), nextAttemptIndex: 1, currentRound: round(1), ...progress(2) } as ActivityResponse)
+    const turn = await judge.submit(first, { transcript: null, acoustic })
+    expect(vi.mocked(sendActivityUtterance).mock.lastCall?.slice(1, 4)).toEqual([expect.objectContaining({ itemId: 'lap2-1' }), 1, 1])
+    expect(turn.next).toMatchObject({ stripeIndex: 2 })
+  })
+
+  it('미리보기 판정도 다음 판에서 첫 줄부터 다시 센다', async () => {
+    const judge = previewJudge()
+    const { first } = await judge.start()
+    const again = await judge.nextLap()
+    expect(again.first).toEqual(first)
   })
 })

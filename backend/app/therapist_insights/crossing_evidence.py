@@ -84,4 +84,13 @@ def crossing_summary(rows, session):
                           for row in observations),
         "reviewTotalN": len(observations),
         "rhythm": rhythm,
+        "lapN": _completed_laps(session.runtime_state or {}),
     }
+
+
+def _completed_laps(state):
+    """끝까지 건넌 판 수. 마지막 판을 도중에 멈췄으면 그 판은 세지 않는다(시도 수에는 들어 있다)."""
+    lap = state.get("lap", 1)
+    if type(lap) is not int or lap < 1:
+        lap = 1
+    return lap if state.get("roundsComplete") else lap - 1

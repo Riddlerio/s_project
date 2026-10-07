@@ -22,6 +22,10 @@ def therapist_text(event_type, payload, item=None, goal=None, analysis=None):
         return f"단서 제공: {payload.get('cue', '')} · {payload.get('modelText', '')}"
     if event_type == "ROUND_START":
         return f"{payload['index']}라운드 시작" if payload.get("index") else "라운드 시작"
+    if event_type == "LAP_START":
+        return f"{payload.get('lap', '')}판째 시작(같은 회기에서 한 판 더)"
+    if event_type == "SESSION_COMPLETE" and payload.get("lap"):
+        return f"{payload['lap']}판 완료"
     if event_type == "ROUND_CLEAR":
         return f"{payload['index']}라운드 마침" if payload.get("index") else "라운드 마침"
     return {"NO_SPEECH": "인식 결과 없음 — 재요청", "LISTEN_AGAIN": "판단 보류 — 다시 듣기(실패 아님)", "ITEM_ADVANCE": "다음 항목으로",

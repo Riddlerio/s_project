@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import type { HoyaAction } from '../control/speechGameSignal'
 import { ARRIVAL_STRIPE, CrossingScene, type BeatGrid } from '../game/crossing/CrossingScene'
 import {
-  callWord, LISTEN_AGAIN_LEAD, MISS_LINE, MODEL_LEAD, onsetReason, praiseLine, retryLine, ROUND_TITLES, STRIPES,
-  type CrossingItem, type PaceEvent,
+  callWord, LAP_QUESTION, LAP_START_LINES, lapTime, LISTEN_AGAIN_LEAD, MAX_LAPS, MISS_LINE, MODEL_LEAD, onsetReason, praiseLine, retryLine,
+  ROUND_TITLES, STRIPES, type CrossingItem, type PaceEvent,
 } from '../game/crossing/crossingFlow'
 import { previewJudge, serverJudge, type CrossingJudge, type CrossingTurn } from '../game/crossing/crossingJudge'
 import { OnsetPipeline } from '../game/crossing/onsetPipeline'
@@ -64,7 +64,10 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   const navigate = useNavigate()
   const [capabilities] = useState(() => detectCapabilities())
   const realSupported = supportsRealMode('daegu_crossing', capabilities)
-  const [phase, setPhase] = useState<'intro' | 'play' | 'arrive'>('intro')
+  // choice: 한 판을 마치고 한 판 더 할지 고르는 때(최대 MAX_LAPS판, 같은 회기).
+  const [phase, setPhase] = useState<'intro' | 'play' | 'arrive' | 'choice'>('intro')
+  const [lap, setLap] = useState(1)
+  const lapRef = useRef(1)
   const [mode, setMode] = useState<'real' | 'demo'>('demo')
   const [item, setItem] = useState<CrossingItem | null>(null)
   const [card, setCard] = useState<Card>('hidden')
@@ -174,25 +177,29 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
       // 첫 카드는 박을 센 뒤에 낸다. 그 사이에 쉬었다가 다시 시작해도 이 카드부터 이어진다.
       current.current = started.first
       setPhase('play')
-      const countIn = () => {
-        // 박을 타며 시작: 두두가 박에 맞춰 몸을 흔들고 '하나·둘·셋·넷' 한 마디를 센 다음 첫 카드가 온다.
-        const start = performance.now() + 450
-        grid.current = { anchor: start, bpm: bpm.current }
-        setAction('IDLE')
-        const intro = bar(start, bpm.current)
-        tick(intro.beats)
-        intro.beats.forEach((time, i) => { at(time, () => setCountdown(COUNT_IN[i])); beatAt(time, i + 1) })
-        at(intro.land + beatMs(bpm.current) * 0.8, () => { setCountdown(''); setBeat(0) })
-        at(start + barMs(bpm.current) - LEAD_MS - 40, () => present(started.first))
-      }
-      // 처음 카드를 두두가 먼저 들려주면 '두두 따라 해 봐.'를 먼저 말하고 박을 센다.
-      if (started.first.modelCue) { modelIntroduced.current = true; say(MODEL_LEAD, () => { if (!pausedRef.current) countIn() }, 'WAVE') }
-      else countIn()
+      startLap(started.first)
     } catch (cause) {
       // 서버가 이 게임을 모르면 422다(서버 작업 전). 그 밖에는 서버가 준 문구를 쓴다.
       setError(cause instanceof ApiError && cause.status === 422 ? '서버에 아직 대구대 건너기가 준비되지 않았어요.'
         : cause instanceof Error && typeof cause.message === 'string' && !cause.message.startsWith('[object') ? cause.message : '게임을 시작할 수 없어요')
     }
+  }
+
+  /** 박을 센 뒤 첫 카드를 낸다. 처음 카드를 두두가 먼저 들려주면 '두두 따라 해 봐.'를 먼저 말한다(판마다 같다). */
+  function startLap(first: CrossingItem) {
+    const countIn = () => {
+      // 박을 타며 시작: 두두가 박에 맞춰 몸을 흔들고 '하나·둘·셋·넷' 한 마디를 센 다음 첫 카드가 온다.
+      const start = performance.now() + 450
+      grid.current = { anchor: start, bpm: bpm.current }
+      setAction('IDLE')
+      const intro = bar(start, bpm.current)
+      tick(intro.beats)
+      intro.beats.forEach((time, i) => { at(time, () => setCountdown(COUNT_IN[i])); beatAt(time, i + 1) })
+      at(intro.land + beatMs(bpm.current) * 0.8, () => { setCountdown(''); setBeat(0) })
+      at(start + barMs(bpm.current) - LEAD_MS - 40, () => present(first))
+    }
+    if (first.modelCue) { modelIntroduced.current = true; say(MODEL_LEAD, () => { if (!pausedRef.current) countIn() }, 'WAVE') }
+    else countIn()
   }
 
   async function startMicrophone() {
@@ -364,9 +371,37 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
   function finale() {
     setStripe(ARRIVAL_STRIPE); setAction('CHEER')
     const name = heroName.current
+    const more = lapRef.current < MAX_LAPS
+    say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(more ? offerLap : endGame, more ? 400 : 1200), 'CHEER', 'arrive')
+  }
+  /** 판을 마치면 한 판 더 할지 묻는다. 묻는 말은 두두 녹음이 없어 글로만 보인다. */
+  function offerLap() { setPhase('choice'); setAction('WAVE'); setCaption(LAP_QUESTION) }
+  /** 그만하거나 마지막 판을 마치면 회기를 끝내고 마무리 인사로 간다. 시도 수와 연습한 말은 모든 판을 합친다. */
+  function endGame() {
     void judge.current?.finish(Math.floor((Date.now() - startedAt.current) / 1000)).catch(() => undefined)
-    say(`도착! 정말 잘했어! 역시 ${name ? isName(name) : '최고야'}!`, () => later(() => navigate('/play/goodbye', {
-      state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: name, words: practiced.current } }), 1200), 'CHEER', 'arrive')
+    navigate('/play/goodbye', { state: { attempts: counts.current.attempts, word: firstWord.current ?? '사과', heroName: heroName.current, words: practiced.current } })
+  }
+  /** 같은 회기에서 첫 줄부터 한 판 더. 하늘과 빛이 다음 시간대로 바뀌고, 빠르기는 지금 박자를 이어 간다. */
+  async function anotherLap() {
+    const provider = judge.current
+    if (!provider || busy.current) return
+    busy.current = true; setError('')
+    try {
+      const { first } = await provider.nextLap()
+      if (!mounted.current) return
+      const next = lapRef.current + 1
+      lapRef.current = next; setLap(next)
+      counts.current.successes = 0; history.current = []; finishedWhilePaused.current = false; modelIntroduced.current = false
+      setStripe(0); setTip(null); setCard('hidden'); setAction('IDLE')
+      if (modeRef.current === 'real') await startMicrophone()
+      if (!mounted.current) return
+      current.current = first
+      setPhase('play')
+      setCaption(LAP_START_LINES[lapTime(next)])
+      later(() => { if (!pausedRef.current) startLap(first) }, 1600)
+    } catch (cause) {
+      setError(cause instanceof Error && !cause.message.startsWith('[object') ? cause.message : '다음 판을 시작할 수 없어요')
+    } finally { busy.current = false }
   }
 
   function togglePause() {
@@ -400,13 +435,14 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
   const roundIndex = item?.roundIndex ?? 1
   const beatLabel = turn === 'dudu' ? '두두' : '말해!'
-  return <main className="crossing-screen dudu-sky"><div className="crossing-shell">
+  return <main className={`crossing-screen dudu-sky time-${lapTime(lap)}`}><div className="crossing-shell">
     <header className="crossing-top">
       {/* 도움말이 있으면 제목 자리에 보인다(무대·버튼이 밀리지 않게). 제목은 화면 읽기용으로 남긴다. */}
       {phase === 'play' && tip && <RetryTipCard key={`${tip.title}-${tip.body}`} tip={tip} />}
       <div className={phase === 'play' && tip ? 'crossing-top-main sr-only' : 'crossing-top-main'}><p className="eyebrow">대구대 건너기{mode === 'demo' && phase !== 'intro' ? ' · DEMO 연습' : ''}{preview ? ' · 미리보기(서버 판정 아님)' : ''}</p>
-        <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : '두두랑 대구대까지!'}</h1>
+        <h1>{phase === 'play' ? (stripe < STRIPES ? `정문까지 ${STRIPES - stripe}칸!` : '거의 다 왔어!') : phase === 'choice' ? LAP_QUESTION : '두두랑 대구대까지!'}</h1>
         {phase === 'play' && <><span className="crossing-chip">{ROUND_TITLES[roundIndex - 1]}</span>
+          {lap > 1 && <span className="crossing-chip">{lap}판째</span>}
           <span className="crossing-chip tempo"><span aria-hidden="true">♩ {tempo}</span><span className="sr-only">빠르기 1분에 {tempo}박</span></span></>}</div>
       {/* 쉬기: 게임처럼 동그란 아이콘 버튼(이름은 화면 읽기용으로 그대로). 제목·도움말과 한 줄에 둔다. */}
       {phase === 'play' && <button className="secondary-action crossing-pause" onClick={togglePause} aria-label={paused ? '다시 시작' : '잠깐 쉬기'} title={paused ? '다시 시작' : '잠깐 쉬기'}>
@@ -436,7 +472,7 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
 
     {phase !== 'intro' && <>
       <div className="crossing-stage">
-        <CrossingScene stripe={stripe} action={action} animate={!windowOpen && !still && !paused} bob={phase === 'play'} arrived={phase === 'arrive'} beat={grid} />
+        <CrossingScene stripe={stripe} action={action} animate={!windowOpen && !still && !paused} bob={phase === 'play'} arrived={phase === 'arrive' || phase === 'choice'} beat={grid} timeOfDay={lapTime(lap)} />
         {phase === 'play' && <div className="crossing-lane" aria-hidden="true">
           <div key={`ring-${beatSerial}`} className={`crossing-ring${windowOpen ? ' open' : ''}${turn === 'dudu' && beat === 4 ? ' dudu' : ''}${beat >= 1 && beat <= 3 && !windowOpen ? ' tick' : ''}`} />
           {/* 낱말 라운드는 그림 보고 말하기다: 그림이 있는 낱말은 카드에 그림을 함께 보여 준다. */}
@@ -461,11 +497,17 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
           {PRAISE_SPARKS.map((spark, i) => <i key={i} className="praise-spark" aria-hidden="true" style={{ ['--x' as string]: spark.x, ['--y' as string]: spark.y, ['--d' as string]: spark.d, ['--c' as string]: spark.c }} />)}
         </>}
       </p>
-      <div className="crossing-path" aria-label={`흰 줄 ${STRIPES}개 중 ${Math.min(stripe, STRIPES)}개 건넘`}>
+      {/* 진행 표시는 그림 하나로 읽힌다(역할 없이 이름만 두면 axe aria-prohibited-attr). */}
+      <div className="crossing-path" role="img" aria-label={`흰 줄 ${STRIPES}개 중 ${Math.min(stripe, STRIPES)}개 건넘`}>
         <span className="crossing-path-end start" aria-hidden="true">출발</span>
         {Array.from({ length: STRIPES }, (_, i) => <span key={i} className={`crossing-path-step${i < stripe ? ' done' : ''}${i === stripe ? ' here' : ''}`}>{i === stripe && phase === 'play' ? '🐾' : ''}</span>)}
         <span className="crossing-path-end goal" aria-hidden="true">대구대</span>
       </div>
+      {phase === 'choice' && <div className="crossing-controls crossing-lap-choice">
+        <button onClick={() => { void anotherLap() }}>한 번 더 건널래!</button>
+        <button className="secondary-action" onClick={endGame}>오늘은 그만할래</button>
+        <p className="small">{lap}판 건넜어요. {MAX_LAPS - lap}판 더 할 수 있어요.</p>
+      </div>}
       {phase === 'play' && mode === 'demo' && <div className="crossing-controls">
         <button className={holding ? 'pressed' : ''} disabled={!windowOpen && !holding}
           onPointerDown={holdDown} onPointerUp={holdUp} onPointerLeave={() => { if (holdStart.current !== null) holdUp() }}>누르고 말하기 <span className="small key-hint">Space</span></button>

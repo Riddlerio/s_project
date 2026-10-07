@@ -41,8 +41,9 @@ export function CrossingSessionSummary({ summary }: { summary: CrossingSummary }
       <div><dt>자동 추정 ‘성공’</dt><dd>{summary.autoSuccessN}회</dd></div>
       <div><dt>판단 보류</dt><dd>{summary.deferredN}회</dd></div>
       <div><dt>치료사 확인</dt><dd>{summary.confirmedN} / {summary.reviewTotalN}</dd></div>
+      {summary.lapN !== undefined && <div><dt>끝까지 건넌 판</dt><dd>{summary.lapN}판</dd></div>}
     </dl>
-    <p className="small">판단 보류는 불확실·무발화 기록이며 실패가 아닙니다. 시도 수에는 보류된 기록도 포함합니다.</p>
+    <p className="small">판단 보류는 불확실·무발화 기록이며 실패가 아닙니다. 시도 수에는 보류된 기록도 포함합니다. 같은 회기에서 여러 판을 건넜으면 모든 판의 시도를 합칩니다.</p>
     <p>{summary.rhythm
       ? `이 회기의 시작 박자: ${summary.rhythm.startBpm} BPM · 잘하면 조금씩 빨라지기: ${summary.rhythm.allowFaster ? '켜짐' : '꺼짐'}`
       : '이 회기의 박자 설정: 기록 없음. 현재 설정으로 대신 표시하지 않습니다.'}</p>

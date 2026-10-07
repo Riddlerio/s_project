@@ -11,6 +11,9 @@ GAME = "daegu_crossing"
 ITEMS_PER_ROUND = 2
 MAX_TRIES = 3
 MAX_NEUTRAL_STREAK = 3
+# 한 판(5라운드 10줄)을 마치면 같은 회기에서 처음부터 한 판 더 건널 수 있다(제품 규칙, 연습량 늘리기).
+# 판마다 새 회기를 만들지 않으므로 치료사 화면의 회기·숙달 계산은 판 수만큼 늘지 않는다.
+MAX_LAPS = 3
 
 
 def build_stages(goal):
@@ -73,7 +76,8 @@ def cursor(state):
     return {"roundIndex": state["roundIndex"], "itemIndexInRound": state["itemIndexInRound"],
             "stripeIndex": state["stripeIndex"],
             "triesLeft": 0 if complete else MAX_TRIES - state["itemAttemptsUsed"],
-            "modelCue": False if complete else state["modelCue"], "sessionComplete": complete}
+            "modelCue": False if complete else state["modelCue"], "sessionComplete": complete,
+            "lap": state.get("lap", 1), "maxLaps": MAX_LAPS}
 
 
 def advance(state, result, stages, at):
@@ -103,7 +107,7 @@ def advance(state, result, stages, at):
         if state["roundIndex"] == 5:
             state["roundsComplete"] = True
             state["modelCue"] = False
-            drafts.append({"type": "SESSION_COMPLETE", "payload": {"totalAttempts": state["totalAttempts"]}})
+            drafts.append({"type": "SESSION_COMPLETE", "payload": {"totalAttempts": state["totalAttempts"], "lap": state.get("lap", 1)}})
             return drafts
         state.update(roundIndex=state["roundIndex"] + 1, stageIndex=state["stageIndex"] + 1,
                      itemIndexInRound=1, roundAttemptsUsed=0, roundSuccesses=0, roundEvaluated=0,
@@ -117,3 +121,15 @@ def advance(state, result, stages, at):
     update_cue(state, model=state["roundIndex"] == 1)
     drafts.append({"type": "TARGET_PRESENTED", "payload": {"item": state["currentItem"]}})
     return drafts
+
+
+def next_lap(state, stages, at):
+    """한 판을 마친 회기에서 첫 줄부터 다시 건넌다. 시도 수(totalAttempts)와 관찰은 같은 회기에 이어서 쌓인다."""
+    lap = state.get("lap", 1) + 1
+    state.update(lap=lap, roundsComplete=False, roundIndex=1, stageIndex=0, itemIndexInRound=1, stripeIndex=1,
+                 roundAttempt=1, roundAttemptsUsed=0, roundSuccesses=0, roundEvaluated=0, itemAttemptsUsed=0,
+                 listenAgainCount=0, roundStartedAt=at.isoformat(), currentItem=stages[0]["items"][0])
+    update_cue(state, model=True)
+    return [{"type": "LAP_START", "payload": {"lap": lap}},
+            {"type": "ROUND_START", "payload": child_round(GAME_ROUNDS[GAME][0])},
+            {"type": "TARGET_PRESENTED", "payload": {"item": state["currentItem"]}}]

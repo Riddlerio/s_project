@@ -147,6 +147,7 @@ Phase 0 감사에서 찾은, 코드에 고정된 행동·임상·제품 기준�
 | 듣기 창 = 착지 + 4박(말이 시작됐으면 최대 4초) | `rhythm.ts`의 `WINDOW_BEATS` | 대답 시간 | PRODUCT_HEURISTIC |
 | '딱 맞았어!' = 착지 앞 300ms~뒤 400ms. 화면에만 보이고 저장하지 않음 | `rhythm.ts`의 `PERFECT_EARLY_MS`·`PERFECT_LATE_MS` | 동기 | PRODUCT_HEURISTIC |
 | 두두 부르기: 음성 파일을 착지 − 모음 시작('사!'는 200ms) − 40ms에 재생 | `rhythm.ts`의 `beatLeadMs` | 시범을 박에 맞춤 | PRODUCT_HEURISTIC |
+| 한 회기에 최대 3판(같은 회기에서 이어 감). 판마다 하늘·빛이 아침 → 점심 → 저녁 | `backend/app/games/crossing.py`의 `MAX_LAPS`, `src/game/crossing/crossingFlow.ts`의 `MAX_LAPS`·`lapTime` | 연습량 늘리기(한 판 약 10~20번 시도), 반복해도 새로워 보이게 | PRODUCT_HEURISTIC(회기당 50~70번 이상 연습이 권장된다는 근거가 있으나 3판이라는 값 자체의 근거는 없음, 2026-10-07 사용자 결정) |
 
 ## 9-2. 대구대 건너기 확인 비율·숙달 표시 (2026-10-06)
 

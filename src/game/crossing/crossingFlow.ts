@@ -18,6 +18,17 @@ export const STRIPES = 10
 export const ITEMS_PER_ROUND = 2
 export const MAX_TRIES = 3
 export const MAX_QUIET = 3
+/** 한 회기에서 건널 수 있는 판 수(서버 games/crossing.py MAX_LAPS와 같음). 판은 같은 회기 안에서 이어진다. */
+export const MAX_LAPS = 3
+/** 판마다 하늘과 빛이 아침(1판) → 점심(2판) → 저녁(3판)으로 바뀐다(반복해도 새로워 보이게). */
+export type TimeOfDay = 'morning' | 'noon' | 'evening'
+export const LAP_TIMES: readonly TimeOfDay[] = ['morning', 'noon', 'evening']
+export const lapTime = (lap: number): TimeOfDay => LAP_TIMES[Math.min(Math.max(Math.floor(lap) || 1, 1), MAX_LAPS) - 1]
+/** 판을 마친 뒤 묻는 말과 새 판을 시작할 때의 자막. 두두 녹음이 없어 소리 없이 글로만 보인다(브라우저 음성과 섞지 않음). */
+export const LAP_QUESTION = '한 번 더 건너 볼까?'
+export const LAP_START_LINES: Record<TimeOfDay, string> = {
+  morning: '아침이야! 두두랑 건너 보자.', noon: '점심이 됐어! 한 번 더 건너 보자.', evening: '저녁이 됐어! 마지막으로 건너 보자.',
+}
 export const ROUND_TITLES = ['두두 따라 건너기', '혼자 건너기', '모음 바꿔 건너기', '낱말 건너기', '정문까지'] as const
 
 const SYLLABLES = ['사', '소', '수', '시']

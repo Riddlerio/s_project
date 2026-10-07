@@ -15,6 +15,8 @@ export interface InsightObservation {
 export interface CrossingSummary {
   attemptN: number; autoSuccessN: number; deferredN: number; confirmedN: number; reviewTotalN: number
   rhythm: { startBpm: number; allowFaster: boolean } | null
+  /** 같은 회기에서 끝까지 건넌 판 수(판 반복, 2026-10-07). 이전 서버 응답에는 없다. */
+  lapN?: number
 }
 export interface SessionInsights {
   sessionId: string; source: EvidenceSource; observations: InsightObservation[]

@@ -49,9 +49,10 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 | 대화 202 | 기존 처리 중 응답 유지. 완료한 요청 재전송은 저장한 같은 문구·전환 값을 반환 |
 | 활동 시작 | `POST /api/activities`, 요청 `{game:"daegu_crossing", mode:"real"\|"demo"}`. 응답 타입 `DaeguCrossingStart` |
 | 시작·재개 응답 | `sessionId, game, mode, heroName, rounds, currentRound, firstItem, nextAttemptIndex`와 아래 진행 필드. 재개 타입은 `DaeguCrossingSnapshot`. 완료 상태에서는 `firstItem/currentRound=null`. 재개 경로의 `leaseToken, completedRounds` 보존 |
-| 진행 필드 | `roundIndex` 1~5, `itemIndexInRound` 1~2, `stripeIndex` 1~10, `triesLeft` 0~3, `modelCue` boolean, `sessionComplete` boolean |
+| 진행 필드 | `roundIndex` 1~5, `itemIndexInRound` 1~2, `stripeIndex` 1~10, `triesLeft` 0~3, `modelCue` boolean, `sessionComplete` boolean(이번 판의 끝), `lap` 1~3, `maxLaps` 3(2026-10-07) |
 | 발화 요청 | 기존 `POST /api/activities/{sessionId}/utterances`. `roundIndex, itemId, attemptIndex, transcript, acoustic, recognizer, attack:"basic"`. lease가 있으면 `X-Activity-Lease` 헤더 |
 | 발화 응답 | 타입 `DaeguCrossingResponse`: `result: "success"\|"retry"\|"uncertain"\|"no_speech"`, `events, nextItem, nextAttemptIndex, currentRound`와 진행 필드 |
+| 다음 판 | `POST /api/activities/{sessionId}/laps`(요청 본문 없음, lease가 있으면 `X-Activity-Lease`). 판을 마친 같은 회기에서 첫 줄부터 다시 시작하고 시작 응답과 같은 형식 + `events`(`LAP_START, ROUND_START, TARGET_PRESENTED`)를 준다. 판을 다 건너지 않았거나 3판을 넘거나 끝난 회기면 409 |
 | 항목 | 타입 `DaeguCrossingItem`: `itemId, displayText, level, game:"daegu_crossing", pictureKey` |
 | 라운드 | 타입 `DaeguCrossingRound`: `index, id, childTitle, childPrompt`. 임상 메타는 아동 응답에 포함하지 않음 |
 
