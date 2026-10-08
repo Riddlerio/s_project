@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620" fill="#20364b" role="img" aria-labelledby="workflow-title workflow-desc">
+  <title id="workflow-title">대화와 회기 요약의 AI 사용 흐름</title>
+  <desc id="workflow-desc">첫 번째 대화 흐름은 Web Speech가 인식한 문장을 서버로 보내고, 서버가 전략과 입력을 분리합니다. 선택적인 LLM이 문장을 만들면 서버가 응답 형식과 표현을 검사하여 두두의 문장으로 전달합니다. AI를 사용하지 않거나 실패하면 DEMO 대본으로 대체합니다. 두 번째 회기 요약의 LangGraph 서버 흐름은 맥락 불러오기, 확인된 근거 선별, 수치 계산, 제안 생성, 요약 문장 생성, 출력 검사의 여섯 단계입니다. REAL이고 샘플이 아니며 치료사가 확인한 관찰을 사용하고, Python이 수치와 제안을 계산하며, 선택적인 LLM은 요약 문장만 만듭니다. AI를 사용하지 않거나 실패하면 템플릿으로 대체합니다. LangGraph가 검사한 결과를 받은 치료사가 별도로 검토하고 승인합니다. 음향 규칙과 임상 최종 판단은 LLM의 역할 밖입니다.</desc>
+  <defs>
+    <marker id="workflow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#347f91"/>
+    </marker>
+    <marker id="workflow-ai-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#8764ad"/>
+    </marker>
+    <style>
+      text { font-family: "Malgun Gothic", "맑은 고딕", "Noto Sans KR", system-ui, sans-serif; }
+      .heading { font-size: 32px; font-weight: 700; }
+      .sub { font-size: 20px; fill: #526675; }
+      .lane-title { font-size: 26px; font-weight: 700; }
+      .box-title { font-size: 23px; font-weight: 700; text-anchor: middle; }
+      .body { font-size: 20px; text-anchor: middle; }
+      .small { font-size: 19px; fill: #526675; }
+      .line { fill: none; stroke: #347f91; stroke-width: 3; marker-end: url(#workflow-arrow); }
+      .ai-line { fill: none; stroke: #8764ad; stroke-width: 3; stroke-dasharray: 7 6; marker-end: url(#workflow-ai-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="620" rx="20" fill="#fbfaf6"/>
+  <text x="36" y="48" class="heading">AI는 대화와 요약의 문장을 돕습니다</text>
+  <text x="36" y="82" class="sub">서버의 정책과 계산을 거쳐, 검사된 문장만 화면에 전달합니다.</text>
+
+  <rect x="28" y="112" width="1144" height="196" rx="20" fill="#ffffff" stroke="#d9e4e7" stroke-width="2"/>
+  <rect x="28" y="112" width="138" height="196" rx="20" fill="#e6f3ee"/>
+  <rect x="142" y="112" width="24" height="196" fill="#e6f3ee"/>
+  <text x="52" y="190" class="lane-title">대화</text>
+  <text x="52" y="222" class="sub">문장 생성</text>
+
+  <rect x="190" y="144" width="208" height="98" rx="14" fill="#f0f6f8" stroke="#c0d6dd" stroke-width="2"/>
+  <text x="294" y="179" class="box-title">Web Speech</text>
+  <text x="294" y="214" class="body">인식 문장</text>
+  <path d="M 404 193 H 421" class="line"/>
+
+  <rect x="430" y="144" width="208" height="98" rx="14" fill="#e8f0fc" stroke="#b9cde5" stroke-width="2"/>
+  <text x="534" y="179" class="box-title">서버 전략</text>
+  <text x="534" y="214" class="body">전략 · 입력 분리</text>
+  <path d="M 644 193 H 663" class="ai-line"/>
+
+  <rect x="672" y="135" width="262" height="116" rx="14" fill="#f6f0fb" stroke="#a48abe" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="803" y="166" class="box-title" fill="#6c4c92">선택 LLM</text>
+  <text x="803" y="197" class="body">문장 생성</text>
+  <rect x="693" y="210" width="220" height="30" rx="7" fill="#ffffff"/>
+  <text x="803" y="231" font-size="19" text-anchor="middle">서버: 형식·표현 검사</text>
+  <path d="M 940 193 H 959" class="ai-line"/>
+
+  <rect x="968" y="144" width="180" height="98" rx="14" fill="#e6f3ee" stroke="#b8d6cb" stroke-width="2"/>
+  <text x="1058" y="201" class="box-title">두두 문장</text>
+  <path d="M 534 247 V 268 H 1058 V 248" class="line"/>
+  <rect x="605" y="256" width="368" height="25" rx="6" fill="#ffffff"/>
+  <text x="789" y="276" class="body" fill="#347f91">미사용·실패 → DEMO 대본 대체</text>
+
+  <rect x="28" y="321" width="1144" height="42" rx="12" fill="#20364b"/>
+  <text x="600" y="349" font-size="23" font-weight="700" text-anchor="middle" fill="#ffffff">음향 규칙 · 임상 최종 판단은 LLM 역할 밖</text>
+
+  <rect x="28" y="376" width="1144" height="212" rx="20" fill="#ffffff" stroke="#d9e4e7" stroke-width="2"/>
+  <rect x="28" y="376" width="138" height="212" rx="20" fill="#e8f0fc"/>
+  <rect x="142" y="376" width="24" height="212" fill="#e8f0fc"/>
+  <text x="46" y="431" font-size="24" font-weight="700">회기 요약</text>
+  <text x="46" y="469" font-size="20" font-weight="600">LangGraph</text>
+  <text x="46" y="498" class="sub">6단계</text>
+  <text x="46" y="527" class="small">서버 흐름</text>
+  <rect x="180" y="390" width="806" height="190" rx="17" fill="none" stroke="#b9cde5" stroke-width="2"/>
+
+  <rect x="190" y="407" width="182" height="102" rx="14" fill="#f0f6f8" stroke="#c0d6dd" stroke-width="2"/>
+  <text x="281" y="434" class="body" font-weight="700">REAL · 비샘플</text>
+  <text x="281" y="464" class="body">치료사 확인</text>
+  <text x="281" y="491" class="body">관찰</text>
+  <path d="M 378 458 H 391" class="line"/>
+
+  <rect x="400" y="407" width="165" height="102" rx="14" fill="#e8f0fc" stroke="#b9cde5" stroke-width="2"/>
+  <text x="482" y="445" class="box-title">Python</text>
+  <text x="482" y="479" class="body">수치·제안 계산</text>
+  <path d="M 571 458 H 584" class="ai-line"/>
+
+  <rect x="593" y="397" width="250" height="122" rx="14" fill="#f6f0fb" stroke="#a48abe" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="718" y="428" class="box-title" fill="#6c4c92">선택 LLM</text>
+  <text x="718" y="455" class="body">요약 문장 생성</text>
+  <rect x="613" y="471" width="210" height="33" rx="9" fill="#ffffff"/>
+  <text x="718" y="494" font-size="19" text-anchor="middle">숫자 계산은 서버</text>
+  <path d="M 849 458 H 862" class="ai-line"/>
+
+  <rect x="871" y="407" width="105" height="102" rx="14" fill="#f0f6f8" stroke="#c0d6dd" stroke-width="2"/>
+  <text x="923" y="445" class="box-title">검사</text>
+  <text x="923" y="478" font-size="18" text-anchor="middle">수치·문장</text>
+  <path d="M 982 458 H 995" class="line"/>
+
+  <rect x="1004" y="407" width="144" height="102" rx="14" fill="#e6f3ee" stroke="#b8d6cb" stroke-width="2"/>
+  <text x="1076" y="445" class="box-title">치료사</text>
+  <text x="1076" y="479" class="body">검토 · 승인</text>
+  <path d="M 482 515 V 543 H 923 V 515" class="line"/>
+  <text x="720" y="570" class="body" fill="#347f91">미사용·실패 → 템플릿 대체</text>
+
+  <path d="M 40 604 H 78" stroke="#347f91" stroke-width="3"/>
+  <text x="89" y="611" class="small">서버의 고정 처리</text>
+  <path d="M 299 604 H 337" stroke="#8764ad" stroke-width="3" stroke-dasharray="7 6"/>
+  <text x="348" y="611" class="small">선택 LLM</text>
+</svg>
