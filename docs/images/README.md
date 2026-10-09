@@ -4,6 +4,7 @@
 
 - [system-overview.svg](system-overview.svg): 아동·치료사 화면, 서버, 기록 저장소의 연결.
 - [ai-workflow.svg](ai-workflow.svg): 선택적 대화·요약 생성과 서버 검증·대체 응답 흐름.
+- [screens/](screens): 루트 README ‘화면 미리보기’의 휴대폰 화면 스크린샷 4장. 로컬 DEMO 서버를 Chrome 390×844(배율 2)로 열어 찍었습니다.
 
 README가 상대 경로로 그림을 참조하므로 파일 위치를 유지합니다.
 구현 흐름을 바꾸면 그림과 README의 설명도 함께 갱신하세요.
