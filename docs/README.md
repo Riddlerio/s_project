@@ -19,5 +19,6 @@
 | [references](references/README.md) | 근거 출처 목록 |
 | [images](images/README.md) | README에 쓰는 시스템·AI 흐름 그림 |
 | [poster](poster/README.md) | 발표용 검토 자료 |
+| [v2](v2/README.md) | 초기 V2 작업 지시·결정·임상 의미·보완 명세 원문 |
 
 audit의 현실 매트릭스와 legacy 목록은 작성 당시의 감사 기록입니다. 현재 제품 상태는 프로젝트 README와 로드맵을 기준으로 확인하세요. 완료된 번호 지시서와 10월 초 시연 전 일정은 [작업 기록](WORK_HISTORY.md)에 요약하고 원문 커밋 링크를 남겼습니다.

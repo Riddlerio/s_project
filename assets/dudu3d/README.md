@@ -141,4 +141,4 @@ Blender 4.5.14 LTS 휴대용판을 `C:\Users\kor02\Tools\blender-4.5.14-windows-
 
 **충돌 시 원래 2D 도안의 캐릭터 정체성을 먼저 지킨다.** 새 생성 이미지의 봉제 인형 같은 조형·재질·표정은 그 정체성을 3D로 높이는 시각 목표다. 사용자에게서 측면·뒷면 도안이 추가로 오면 그 자료로 보이지 않는 면을 확정한다. 현재 시제품의 평면형 얼굴이나 흉장 근사 표현을 최종 디자인 기준으로 삼지 않는다.
 
-사용자가 준 정면·측면·후면 조형 도면(`dudu_turnaround_front_side_back.jpg`)과 공식 포즈 시트(`dudu_official_sheet_poses.jpg`)도 같은 폴더에 있다(2026-10-03 추가).
+사용자가 준 정면·측면·후면 조형 도면(`dudu_turnaround_front_side_back.jpg`)과 공식 포즈 시트(`dudu_official_sheet_poses.jpg`)도 같은 폴더에 있다(2026-10-03 추가). `original_dudu_2d.jpg`는 저장소 루트에 있던 같은 기본형 원화의 더 큰 판(680×821px)으로 교체했다.

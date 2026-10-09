@@ -9,6 +9,7 @@
 | 에셋 | 위치 | 출처·만든 방법 | 권리·조건 | 남은 확인 |
 |---|---|---|---|---|
 | 두두 캐릭터(원화 기반 입력 이미지 4장) | `assets/dudu3d/meshy_input/*.png` | 대구대학교 공식 캐릭터 두두 원화로 만든 3D 생성용 입력(정면·옆·뒤·인형풍 정면) | 캐릭터 권리는 대구대학교에 있다. 사용 허락은 사용자가 확인했다(2026-10-04, 서면 문서 없음) | 서면 허락, 공개 게시 범위 |
+| 두두 공식 참고 그림 3장 | `assets/dudu3d/references/original_dudu_2d.jpg`, `dudu_turnaround_front_side_back.jpg`, `dudu_official_sheet_poses.jpg` | 사용자가 제공한 두두 기본형 원화·정측후 도면·포즈 시트. 기본형은 기존보다 해상도가 높은 680×821판으로 교체했다 | 캐릭터 권리는 대구대학교에 있다. 저장소에 공개된 참고 자료다 | 서면 허락, 공개 게시 범위 |
 | 두두 3D 모델 | `public/assets/dudu/dudu.glb`(2.6MB) | Meshy Pro에서 **비공개(Private) 라이선스**로 생성하고, Blender·스크립트로 망토·스카프·흉장을 보정했다(`assets/dudu3d/README.md`) | 캐릭터 권리는 대학에 있다. Meshy 생성물 조건은 Private 플랜 약관을 따른다. Meshy FAQ는 비 Enterprise 데이터의 익명화 학습 사용 가능성을 안내한다 | 같음 |
 | 대구대학교 공식 흉장 | `assets/dudu3d/reference/daegu_university_emblem.jpg`, `public/assets/crossing/daegu_emblem.jpg` | 사용자가 준 공식 흉장 이미지. 두두 가슴(텍스처 투영)과 정문 기둥 장식에 쓴다 | 대학 상징이다. 허락 범위 안에서만 쓴다 | 같음 |
 | 대구대 정문 3D | `src/game/crossing/DaeguGate.tsx`(코드) | 사용자가 준 정문 사진 두 장을 **보고 코드로 만든 단순화 모형**이다. 사진 파일은 저장소에 넣지 않았다. 사진에는 언론사(매일신문, campusN) 표시가 있다 | 모형은 직접 만든 것이다. 교훈 "사랑 빛 자유 LOVE LIGHT FREEDOM"과 교명은 대학 표기를 옮겼다 | 교훈·교명 표기도 허락 범위에 넣어 확인 |
