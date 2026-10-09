@@ -2,7 +2,7 @@
 
 Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 Phase에서 아무것도 삭제하거나 변경하지 않았다.
 
-> 2026-10-04 갱신: legacy 모험(1·2·3번과 관련 placeholder)을 사용자 승인으로 삭제했다. 표는 감사 당시 기록이며 처리 열과 취소선으로 결과를 적었다.
+> 2026-10-04 갱신: legacy 모험(1·2·3번과 관련 placeholder)을 사용자 승인으로 삭제했다. 표는 감사 당시 기록이며 처리 열과 취소선으로 결과를 적었다. 2026-10-10에는 참조하지 않는 루트 jpg를 제거했고, 같은 그림의 제작용 참고본은 `assets/dudu3d/references/original_dudu_2d.jpg`에 남겼다.
 
 ## 1. legacy와 중복
 
@@ -32,7 +32,7 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 - `Therapist.password_hash`와 `password_salt`(`Account`와 중복)
 - ~~루트의 `main.py` stub(16바이트)~~ — 2026-10-04 사용자 승인으로 삭제
 - 루트의 agent 프롬프트 파일 4개 — 2026-10-04 `docs/history/prompts/`로 이동, 2026-10-05 저장소에서 삭제(요약은 `docs/WORK_HISTORY.md` 3절, 원문은 [정리 직전 버전](https://github.com/Riddlerio/s_project/tree/22eef9b993475537ec55859e1cca17dc15d02e73/docs/history/prompts)): `SPEECH_HERO_TASK.md`, `SPEECH_HERO_FINAL_RELIABILITY_DATASET_PRONUNCIATION_PROMPT.md`, `SPEECH_HERO_HOYA_ADAPTIVE_CHAT_FINAL_PROMPT.md`, `THERAPIST_WORKFLOW_PROMPT.md`
-- 참조되지 않는 jpg: `20190610.010190759320001i1.jpg`
+- 참조되지 않는 jpg: `20190610.010190759320001i1.jpg`(2026-10-10 저장소 루트에서 제거, 참고본은 `assets/dudu3d/references/original_dudu_2d.jpg`에 보존)
 
 ## 3. 시각 placeholder
 
@@ -64,4 +64,4 @@ Phase 0 감사 결과다(`origin/main` 6ee9c54). 여기 적은 항목은 이번 
 
 **시각 문제가 아니라 데이터 문제인 항목:** ActivitySession의 키보드 DEMO가 r4 라운드에서 `sustainSegmentsMs`를 만들어 낸다. Phase 1 확인 결과 이 값은 DEMO 회기에만 생기고, DEMO 회기는 임상 근거·계획·활동 제안에서 제외되며 화면에 DEMO로 표시된다.
 
-**에셋 IP:** 루트의 jpg는 대구대학교 백호 마스코트이고 대학 로고가 들어 있다. 호야 디자인에 참고할지, 사용 권한이 있는지는 Phase 3에서 사용자가 결정한다.
+**에셋 IP(감사 당시):** 루트의 jpg는 대구대학교 백호 마스코트이고 대학 로고가 들어 있었다. 현재 참고본과 사용 중인 자산의 권한·출처는 [자산·라이선스](../ASSET_LICENSES.md)에서 확인한다.
