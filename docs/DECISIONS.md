@@ -2,6 +2,8 @@
 
 작업 중에 정한 것을 한곳에 남긴다. **사용자 결정**은 확정이다. **임시 결정**은 작업자가 흐름을 끊지 않으려고 정한 것으로, 사용자 검토 뒤 확정하거나 되돌린다. 동결 경로 변경은 이 기록과 별개로 사전 승인이 필요하다(포괄 승인 없음, 2026-10-04).
 
+이 표는 당시 결정의 이력이다. 현재 구현 상태와 시연 전 작업은 [로드맵](ROADMAP.md)에서 확인한다.
+
 | 날짜 | 구분 | 무엇을 정했나 | 다른 선택지 | 관련 파일·커밋 | 되돌리는 방법 |
 |---|---|---|---|---|---|
 | 2026-10-04 | 사용자 결정 | Claude와 Codex가 작업을 나눠 병행한다. Codex는 치료사 데이터 화면·legacy 진행 그래프, Claude는 3D(Meshy)·seed 재작성·legacy 모험 제거·문서 정리 | Codex를 멈추고 Claude 단독 진행 | [작업 지시(원문)](https://github.com/Riddlerio/s_project/blob/22eef9b993475537ec55859e1cca17dc15d02e73/docs/handoff/CODEX_THERAPIST_DATA_TASK.md) | 분담표 수정 |
@@ -45,7 +47,7 @@
 | 2026-10-05 | Claude 결정(리듬 구현) | '딱 맞았어!' 범위는 카드 착지 앞 0.3초~뒤 0.4초다. 화면에만 보이고 저장하지 않는다(`onsetLatencyMs`도 0) | 저장해 지표로 쓰기 | `rhythm.ts`의 `timingKind` | 값 수정 |
 | 2026-10-05 | Claude 결정(리듬 구현) | 빠르기가 바뀌면 최근 결과 기록을 비운다(빨라짐·느려짐이 연달아 일어나지 않게) | 기록 유지 | `rhythm.ts`의 `nextBpm` | — |
 | 2026-10-05 | Claude 결정(리듬 구현) | 박 소리('똑')는 아이 박(4박) 전에만 내고, 듣는 동안에는 내지 않는다 | 계속 박 소리 | `src/child/DaeguCrossing.tsx` | — |
-| 2026-10-05 | 사용자 결정 | Codex 세션이 꺼져 Claude가 Codex의 미커밋 작업(아동별 박자 설정, 근거 문구)을 그대로 옮겨 넣는다. 이후 Codex 일은 `docs/CODEX_TASKS.md`의 번호로 지시한다 | Codex 복귀 대기 | PR #17, `docs/CODEX_TASKS.md` | — |
+| 2026-10-05 | 사용자 결정 | Codex 세션이 꺼져 Claude가 Codex의 미커밋 작업(아동별 박자 설정, 근거 문구)을 그대로 옮겨 넣는다. 이후 당시 [번호 작업 지시](https://github.com/Riddlerio/s_project/blob/575f8b27deac6dd1c1d72d9a75f793360ccd61a1/docs/CODEX_TASKS.md)로 지시한다 | Codex 복귀 대기 | PR #17, 완료 기록은 [작업 기록](WORK_HISTORY.md) | — |
 | 2026-10-05 | 사용자 결정 | 끝난 작업 문서 29개는 `docs/WORK_HISTORY.md` 하나로 합치고 지운다. 포스터 검토본은 `docs/poster/`, 두두 참고 그림은 `assets/dudu3d/references/`로 옮긴다 | 그대로 두기 | PR #17 | 정리 직전 버전(`22eef9b`)에서 되살리기 |
 | 2026-10-05 | 확인 필요 | 이름 'Speech Hero' 중복: 미국 Flint Rehabilitation의 실어증 앱 이름도 **Speech Hero**다(메트로놈 타이밍 판정, [NCT04471935](https://clinicaltrials.gov/study/NCT04471935)). 포스터·공개 전에 확인이 필요하다. | 이름 바꾸기 | — | — |
 | 2026-10-06 | 사용자 결정 | 건너기 판정을 아주 살짝 너그럽게: 시작 바람 소리 70→60ms(3프레임), 시작 앞부분 봐주기 40→60ms. 뒤 모음 80ms·잡음 대비 15dB는 그대로 | 그대로 두기 | `games/evaluation.py`, `crossingFlow.ts`, `onsetPipeline.ts`, `MIC_MEASUREMENT` 6절 | 값을 70/40으로 되돌림 |

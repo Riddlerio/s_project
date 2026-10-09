@@ -121,7 +121,7 @@ npm.cmd audit
 
 **main 병합 예외(사용자 결정, 2026-10-05):** 6절의 수동 검증(실제 마이크·아이폰·실제 LLM) 전에 'CI 통과, 실제 마이크 미확인'으로 표시해 main에 병합한다. 수동 검증은 리허설에서 하고, 결과와 수정은 다음 PR로 올린다.
 
-**회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 [OK](리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.
+**회귀(6절 명령, 2026-10-05):** 백엔드 pytest 445개 통과, `npm test` 243개(33파일) 통과, typecheck·build(dist 자격 증명 검사 포함) 통과, `smoke_api.py` 3항목 OK(리허설 DB 서버 대상), `git diff --check` 통과, `npm audit` 취약점 0개. 실제 마이크·휴대폰·실제 LLM은 미실행.
 
 ## 9. Phase 4 변경 기록 (2026-10-05, 아동 화면 '네 차례'·접근성)
 
@@ -142,7 +142,7 @@ npm.cmd audit
   - 프레임 콜백(캡처 → 파이프라인 → 인식기 → 제출)의 코드와 순서, `CALIBRATION_MS`는 바꾸지 않았다.
 - Space 처리기: 입력 칸에서 누른 Space는 띄어쓰기로 둔다. Space·pointer 처리기 자체는 유지했다.
 - DEMO 누르고 말하기는 '네 차례!' 뒤에만 받는다.
-- 측정 기준이 하나 바뀌었다. 게임 4종의 `onsetLatencyMs`는 듣기가 열린 때부터 잰다(`DECISIONS_PENDING.md` 2026-10-05).
+- 측정 기준이 하나 바뀌었다. 게임 4종의 `onsetLatencyMs`는 듣기가 열린 때부터 잰다([결정 기록](../DECISIONS.md), 2026-10-05).
 
 **`src/tiger/**`(SAFE_WITH_INTERFACE_CONSTRAINTS)**
 - 귀 쫑긋(`duduPerk.ts`)을 더했다. GLB는 머리 뼈 크기, 절차형은 귀 크기를 바꾼다.
@@ -175,7 +175,7 @@ npm.cmd audit
 
 ## 11. 치료사 화면 시각·빈 대화(2026-10-06, Codex)
 
-**승인:** 사용자가 `docs/CODEX_TASKS.md` 4번의 마무리와 1·2번 PR 작성을 요청했다.
+**승인:** 사용자가 [당시 번호 작업 지시](https://github.com/Riddlerio/s_project/blob/575f8b27deac6dd1c1d72d9a75f793360ccd61a1/docs/CODEX_TASKS.md) 4번의 마무리와 1·2번 PR 작성을 요청했다.
 
 **치료사 화면 시각**
 - 서버의 기존 회기·대화 응답은 시간대 없는 UTC 시각 형식을 유지한다. 응답 필드와 `therapist_planning` 계약은 바꾸지 않았다.
@@ -190,7 +190,7 @@ npm.cmd audit
 
 ## 12. 대구대 건너기 읽기 전용 집계 (2026-10-06, Codex)
 
-**승인:** 사용자가 `docs/CODEX_TASKS.md` 5번의 집계 API·프런트 타입·숙달 기준 등록을 요청했다.
+**승인:** 사용자가 [당시 번호 작업 지시](https://github.com/Riddlerio/s_project/blob/575f8b27deac6dd1c1d72d9a75f793360ccd61a1/docs/CODEX_TASKS.md) 5번의 집계 API·프런트 타입·숙달 기준 등록을 요청했다.
 
 - 새 경로 `GET /api/therapist/children/{child_id}/crossing-analytics`는 `require_therapist`와 `owned_child`를 거친다. 다른 치료사의 아동은 404다. 기존 경로·응답·인증 규칙은 유지한다.
 - 기존 회기·관찰·마지막 치료사 결정을 조회만 한다. 새 표·열·마이그레이션은 없고, 저장된 관찰·결정·게임 설정을 변경하지 않는다.

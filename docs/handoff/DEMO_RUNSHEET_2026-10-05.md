@@ -1,6 +1,6 @@
-# 시연 진행표 (2026-10-05 작성, 2026-10-06 갱신)
+# 시연 진행표 (2026-10-05 작성, 2026-10-10 안내 갱신)
 
-> 상태: **2026-10-06 갱신.**
+> 상태: 사용자는 시연이 아직 예정 또는 연기된 상태라고 확인했다. 아래 자동 점검 수치는 2026-10-06 기록이며, 문서 정리 기준 main(575f8b2)에서의 실제 기기 전체 리허설은 아직 기록되지 않았다.
 > - **자동 점검(10/6, 휴대폰 폭 390px):** 시연 계정 로그인 → 대화(마이크 모드) → 리듬게임 건너기 10줄 → 마무리 → 치료사 기록(최근 세션 → 회기 상세 → 아동 화면의 건너기 분석·설계 근거)을 헤드리스 Chrome으로 처음부터 끝까지 돌렸다.
 >   - 마이크 대신 '사!' 녹음 파일을 넣었다. 건너기는 서버 판정으로 11번 시도(성공 10, 다시 1)에 도착했다.
 >   - 두두 말은 모두 녹음 파일로 재생됐다.
@@ -19,13 +19,33 @@
 - **소리:** 두두가 말할 때는 마이크가 쉬지만, 스피커를 너무 크게 하면 효과음이 다음 말에 섞일 수 있다. 중간 음량으로 맞춘다.
 - **점검 화면:** `/voice-mic-check.html`에서 두두 목소리를 고르고, '사' 5번·'스' 5번을 말해 본다. '결과 복사' 값은 판정 기준을 맞출 때 쓴다.
 - **시연 계정(리허설 DB 전용):** 아동 `DEMO-CROSSING` / 치료사 `demo-showcase`, 비밀번호는 둘 다 `speechhero`다. 아동 별명은 '두두친구'로, 두두가 "두두친구야", "역시 두두친구야!"라고 부른다.
-- **리허설 DB 만들기와 오늘 기록 지우기:** `SEED_DEMO_DATA=true`인 상태에서 아래를 실행한다. 실제 DB에는 실행을 거부한다.
+- **리허설 DB 만들기와 오늘 기록 지우기:** 새 PC에서는 의존성을 [빠른 시작](../../README.md#빠른-시작)대로 설치한 뒤, 저장소 루트에서 아래를 실행한다. `provision`은 새 DB 파일에 처음 한 번만 사용한다. 실제 DB에는 실행을 거부한다.
   ```powershell
-  backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py provision --database C:\speechhero\rehearsal.db    # 처음 한 번(저장소 밖 경로)
-  backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py reset-today --include-mic --database C:\speechhero\rehearsal.db   # 리허설 사이마다(마이크 회기 포함)
+  New-Item -ItemType Directory -Force C:\speechhero | Out-Null
+  $env:SEED_DEMO_DATA = 'true'
+  backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py provision --database C:\speechhero\rehearsal.db
   ```
-  서버는 `DATABASE_URL=sqlite:///<같은 경로>.db`, `SEED_DEMO_DATA=true`로 띄운다. 초기화 전에는 진행 중인 리허설을 멈춘다.
+  다른 PowerShell 창에서 저장소 루트의 `backend`로 이동해 같은 DB로 서버를 연다.
+  ```powershell
+  cd backend
+  $env:SEED_DEMO_DATA = 'true'
+  $env:COOKIE_SECURE = 'false'
+  $env:DATABASE_URL = 'sqlite:///C:/speechhero/rehearsal.db'
+  .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  ```
+  리허설 사이에는 서버를 끄고 저장소 루트에서 아래 명령으로 오늘 기록만 지운다.
+  ```powershell
+  $env:SEED_DEMO_DATA = 'true'
+  backend\.venv\Scripts\python.exe backend\scripts\demo_rehearsal.py reset-today --include-mic --database C:\speechhero\rehearsal.db
+  ```
   `--include-mic`이 없으면 DEMO 모드(누르고 말하기) 회기만 지운다. 시연은 마이크로 하므로 붙인다. 시연 전용 샘플 아동의 오늘 기록만 지우며, 임상 검증한 기록이 있으면 거부한다.
+
+### 시연 당일 최종 확인
+
+- 노트북·아이폰 충전, 알림·절전 방해 금지, 스피커 음량과 마이크 권한을 확인한다.
+- 현장 와이파이에서 기기 간 접속과 인터넷을 확인하고, 차단되면 핫스팟 연결을 시험한다.
+- 전체 흐름 백업 영상을 기기에 저장해 오프라인 재생을 확인한다.
+- 리허설 DB를 위 명령으로 초기화하고, 발표에 사용할 커밋·버전과 대본을 확인한다.
 
 ## 2. 시연 순서 (약 10~12분)
 
@@ -52,7 +72,17 @@
 
 ## 4. 휴대폰 검사 (임시)
 
-- 휴대폰 마이크는 `https://` 주소에서만 켜진다. PC에서 `node scripts/serve-phone.mjs <인증서 폴더>`로 임시 HTTPS 서버(자체 서명 인증서, 포트 5183)를 띄운다. 인증서 만드는 법은 [앞으로 할 일](../NEXT_STEPS.md) 2-4절에 있다. 인증서는 저장소에 넣지 않는다.
+- 휴대폰 마이크는 `https://` 주소에서만 켜진다. 인증서는 저장소 밖에 만들고, PC에서 임시 HTTPS 서버(포트 5183)를 띄운다.
+- Windows PowerShell에서 Git for Windows의 OpenSSL을 사용할 수 있다면, 저장소 루트에서 다음 순서로 실행한다. 백엔드는 8000번 포트에서 먼저 실행한다.
+
+  ```powershell
+  New-Item -ItemType Directory -Force C:\speechhero\cert | Out-Null
+  & "C:\Program Files\Git\usr\bin\openssl.exe" req -x509 -newkey rsa:2048 -nodes -keyout C:\speechhero\cert\key.pem -out C:\speechhero\cert\cert.pem -days 30 -subj "/CN=speechhero-local"
+  node scripts\serve-phone.mjs C:\speechhero\cert
+  ipconfig
+  ```
+
+  키와 인증서는 Git에 넣지 않는다. `ipconfig`의 PC IPv4 주소를 아래 URL에 사용한다.
 - PC와 휴대폰을 **같은 와이파이**에 연결하고 `https://<PC의 IP>:5183/voice-mic-check.html`, `https://<PC의 IP>:5183/play`를 연다.
 - 처음에 "안전하지 않음" 경고가 나온다. Chrome은 `고급 → 계속`, Safari는 `이 웹사이트 방문`을 누른다.
 - PC에 Windows 방화벽 창이 뜨면 **개인 네트워크만** 허용한다. 검사가 끝나면 서버를 끈다.

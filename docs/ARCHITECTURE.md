@@ -1,35 +1,30 @@
-# Speech Hero 구조
+# Speech Hero 시스템 구조
 
 ## 시스템 흐름
 
-브라우저의 아동 화면은 DEMO 스크립트 또는 Web Speech API로 인식한 텍스트와 발성 시간 특성을 서버에 전달합니다. 서버는 발화를 분석하고 훈련 정책을 적용해 게임 이벤트를 반환합니다. 치료사 화면은 세션 지표, 분석과 결정 근거를 조회합니다.
+아동과 치료사 화면은 React 앱 하나에서 분리된 경로로 제공됩니다. 아동의 두두 대화는 Web Speech 인식 문장을, 대구대 건너기는 Web Audio의 음향 특징을 주로 사용합니다. FastAPI가 소유권·회기 상태·진행 규칙을 검사하고, 결과와 근거를 SQLite에 기록합니다. 치료사는 기록을 확인·교정하며 다음 회기 계획을 별도로 승인합니다.
 
 ```mermaid
 flowchart LR
-  A[아동 게임] --> B[음성 입력과 VAD]
-  B --> C[FastAPI Play API]
-  C --> D[정규화·G2P·정렬·점수]
-  D --> E[훈련 정책]
-  E --> F[게임 이벤트]
-  F --> A
-  E --> G[SQLite 세션·결정·분석]
-  G --> H[진행 지표·추천]
-  H --> I[치료사 대시보드]
-  I --> J[목표 버전·피드백 규칙]
-  J --> C
+  A[아동 화면] --> B[Web Speech 또는 Web Audio]
+  B --> C[FastAPI 대화·활동·치료사 API]
+  C <--> D[(SQLite 회기·관찰·이벤트)]
+  C --> A
+  C <--> E[치료사 화면]
+  C --> F[계획 근거 계산·승인 기록]
+  F --> D
+  C -. 선택적 문장 생성 .-> G[OpenAI Responses]
 ```
 
 ## 주요 데이터
 
-`TrainingGoal`은 목표 버전을 보존합니다. `TrainingPlan`은 세션의 슬롯과 순서를 고정하고, `TrainingSession.runtime_state`는 현재 항목·시도·단계·XP를 기록합니다. `Utterance`와 `SpeechAnalysis`는 입력과 근사 분석을 분리합니다. `TrainingDecision`은 판단 근거를, `GameEvent`는 게임 동작과 치료사 설명을 저장합니다. `ProgressMetric`과 `AIRecommendation`은 세션 완료 후 생성됩니다.
+`TrainingGoal`은 장기 목표의 버전을 보존합니다. `TrainingPlan`은 실행 슬롯을, `TrainingSession.runtime_state`는 활동의 현재 위치·시도를 보존합니다. `HoyaChatSession`은 대화 회기를 따로 저장합니다. `Utterance`와 `SpeechAnalysis`는 제출 내용과 근사 분석을 나누고, `ClinicalObservation`과 치료사 결정은 자동 추정과 사람 확인을 구분합니다. `GameEvent`는 진행 사건을 기록합니다. `TherapistSessionPlan`은 다음 회기의 초안·승인·개정본이며 현재 아동 게임의 실행 계획과 자동 연결되지 않습니다.
 
 ## 정책과 이벤트
 
-같은 항목을 재시도하며 단서와 힌트를 제공하고, 연속 목표 재시도 후 낮은 단계에서 연습합니다. 강화 단계에서 연속 성공하면 원래 항목으로 복귀합니다. Magic Beam은 발성 시간만으로 성공을 판단하며 몬스터 타워의 연속 성공·재시도 횟수에는 영향을 주지 않습니다. 각 계획 슬롯의 ID는 고유합니다.
+서버는 대화 전략과 건너기 진행을 결정하고, 음향 측정은 임시 기준으로 success·retry·uncertain·no_speech를 구분합니다. 불확실·무발화·음질 불량을 아이의 실패로 집계하지 않습니다. 아동 화면의 점프·박 맞춤 칭찬은 진행 연출이며 임상 점수가 아닙니다. 치료사 화면에는 자동 추정의 이유와 자료 출처를 보여 주고, 확인·교정한 실제 비샘플 자료만 비교 집계에 사용합니다. 새 낱말 확인은 연습·라운드·숙달 집계에서 분리합니다.
 
-아동 게임 이벤트는 성공·재시도·단계 변화·보상을 표현합니다. 치료사 로그는 같은 이벤트를 한국어 관찰 문장으로 설명합니다. AI 점수와 대치 유형은 아동 응답에 포함하지 않습니다.
-
-## 5일 데모 추가(2026-10-05)
+## 두두 대화와 대구대 건너기
 
 - **대화 → 게임 전환:** 대화 턴 응답에 `nextActivity`(`"daegu_crossing"` 또는 `null`) 하나만 더했습니다. 서버가 목표 낱말 시도(`TARGET_OBSERVED`, 정확한 발음 아님) 횟수와 서버 시간으로 정하고(`hoya/transitions.py`), 아동 화면은 이 값이 오면 아래 '대구대 건너기' 버튼을 빛냅니다.
 - **대구대 건너기(`daegu_crossing`):** 브라우저의 `OnsetPipeline`이 소리 시작의 마찰 구간과 그 뒤 유성 구간을 재서 기존 음향 요약 필드로 보냅니다. 서버 `ONSET_FRICATION` 규칙이 success·retry·uncertain·no_speech를 정하고(`games/evaluation.py`), 진행(5라운드 × 2줄, 줄당 3번)은 `games/crossing.py`가 맡습니다. 두두의 점프·'딱 맞았어!' 같은 효과는 서버 결과를 따라가는 화면 연출이며 저장하지 않습니다. 관찰은 기존 관찰 생성기로 치료사 타임라인에 들어갑니다.
@@ -41,7 +36,7 @@ flowchart LR
 
 ### 대구대 건너기·대화 전환 API 약속 (2026-10-05 확정)
 
-Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 연결한다. 기존 네 게임과 아이 쪽 `GameKind` 타입은 이 계약 커밋에서 변경하지 않는다.
+화면 구현은 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`의 타입을 기준으로 연결한다. 아래 표는 2026-10-05부터 확장한 API 계약의 기록이다.
 
 | 대상 | 확정 필드·의미 |
 |---|---|
@@ -78,4 +73,4 @@ Claude는 `src/api/hoyaChat.ts`와 `src/api/daeguCrossing.ts`를 기준으로 �
 - 원본 음성은 저장하지 않습니다. 텍스트는 설정한 보존 기간 이후 시작 시 비웁니다.
 - 실제 음성 모드는 Web Speech API에 의존합니다. 임상 진단이나 실시간 음향 진단은 범위 밖입니다.
 
-상세 구현 범위와 남은 검증 항목은 `README.md`에 기록했습니다.
+상세 구현 범위와 남은 검증 항목은 [프로젝트 README](../README.md)에 기록했습니다.
