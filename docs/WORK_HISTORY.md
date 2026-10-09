@@ -90,6 +90,8 @@
 
 ## 4. 지운 문서의 내용이 간 곳
 
+> 이 절의 `docs/v2/`는 PR #34에서 정리한 **옛 폴더**다. 지금의 `docs/v2/`는 PR #35에서 새로 만든 [V2 기획 원문](v2/README.md) 폴더로, 서로 다르다.
+
 | 지운 문서 | 내용이 있는 곳 |
 |---|---|
 | `docs/history/`(기록 4개, 과제 명세 4개) | 이 파일 1~3절 |
@@ -99,9 +101,9 @@
 | `CODEX_DEMO_TASK_2026-10-05` | API 약속은 `docs/ARCHITECTURE.md`로 옮겼다. 승인 로그는 동결 계약 8절에서 원문을 링크한다 |
 | `DEMO_FLOW_PLAN_2026-10-05` | 이 파일 2절. 근거는 `docs/clinical/DAEGU_CROSSING_RATIONALE_2026-10-05.md`, 이름 중복 확인은 `docs/DECISIONS.md`로 옮겼다 |
 | `PHASE4_CHILD_SCREENS`, `RHYTHM_CROSSING`, `DEMO_UI_POLISH`(10/5) | 이 파일 2절. 수치는 `docs/audit/HEURISTIC_REGISTER.md`, 리허설 확인은 `docs/handoff/DEMO_RUNSHEET_2026-10-05.md`로 옮겼다 |
-| `docs/v2/VALIDATION_REPORT.md`, `docs/manual-mic-test.md`, `docs/research/2026-10-04_design_references.md` | 이 파일. 마이크 측정은 `MIC_MEASUREMENT` 문서에 있다 |
+| 옛 `docs/v2/VALIDATION_REPORT.md`, `docs/manual-mic-test.md`, `docs/research/2026-10-04_design_references.md` | 이 파일. 마이크 측정은 `MIC_MEASUREMENT` 문서에 있다 |
 | 인계 문서의 확인용 캡처 44장 | 위 원문 링크 |
 
 **옮겨서 남긴 문서**
-- `docs/v2/SPEECH_THERAPY_AI_CLINICAL_RATIONALE.md` → `docs/clinical/`. 데모에서 언어치료 설계를 설명할 때 쓴다.
+- 옛 `docs/v2/SPEECH_THERAPY_AI_CLINICAL_RATIONALE.md` → `docs/clinical/`. 데모에서 언어치료 설계를 설명할 때 쓴다.
 - `docs/research/2026-10-04_clinical_rationale_and_poster.md` → `docs/clinical/CLINICAL_RATIONALE_AND_POSTER_2026-10-04.md`. 포스터 문안에 쓴다.
