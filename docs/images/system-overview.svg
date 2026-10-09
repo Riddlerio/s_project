@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620" fill="#20364b" role="img" aria-labelledby="system-title system-desc">
+  <title id="system-title">Speech Hero 시스템 연결</title>
+  <desc id="system-desc">아동의 React 화면은 두두와 대화, 박자 연습, 최대 세 개의 새 낱말 확인, 마무리로 이어집니다. 새 낱말 확인에는 피드백이 없습니다. FastAPI 서버가 대화 정책, 고정 규칙에 따른 음향 근사, 회기 진행과 접근 권한을 관리합니다. 음향 근사는 학습 모델 판정이 아닙니다. SQLite에는 회기, 발화, 관찰, 검토 기록을 저장합니다. 치료사는 React 화면에서 근거를 검토하고 확인 또는 교정한 뒤 목표와 박자를 조정합니다. 선택적으로 사용하는 OpenAI Responses API는 서버와 연결되어 대화와 요약의 문장만 만듭니다. 원본 음성은 서버에 저장하지 않습니다.</desc>
+  <defs>
+    <marker id="system-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#347f91"/>
+    </marker>
+    <marker id="system-ai-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#8764ad"/>
+    </marker>
+    <style>
+      text { font-family: "Malgun Gothic", "맑은 고딕", "Noto Sans KR", system-ui, sans-serif; }
+      .heading { font-size: 32px; font-weight: 700; }
+      .sub { font-size: 20px; fill: #526675; }
+      .card-title { font-size: 26px; font-weight: 700; }
+      .body { font-size: 23px; font-weight: 600; }
+      .small { font-size: 19px; fill: #526675; }
+      .step { font-size: 18px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+      .line { fill: none; stroke: #347f91; stroke-width: 3; marker-start: url(#system-arrow); marker-end: url(#system-arrow); }
+      .ai-line { fill: none; stroke: #8764ad; stroke-width: 3; stroke-dasharray: 8 7; marker-start: url(#system-ai-arrow); marker-end: url(#system-ai-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="620" rx="20" fill="#fbfaf6"/>
+  <text x="36" y="50" class="heading">Speech Hero 시스템 연결</text>
+  <text x="36" y="84" class="sub">연습 기록을 서버가 관리하고, 치료사가 근거를 확인합니다.</text>
+
+  <rect x="36" y="124" width="306" height="314" rx="20" fill="#ffffff" stroke="#c4dbd8" stroke-width="2"/>
+  <rect x="36" y="124" width="306" height="72" rx="20" fill="#e6f3ee"/>
+  <rect x="36" y="170" width="306" height="26" fill="#e6f3ee"/>
+  <text x="60" y="157" class="card-title">아동 화면</text>
+  <text x="60" y="183" class="small">React · 브라우저</text>
+  <circle cx="73" cy="229" r="15" fill="#368577"/>
+  <text x="73" y="235" class="step">1</text>
+  <text x="102" y="237" class="body">두두와 대화</text>
+  <path d="M 73 249 V 257" stroke="#b7d4cc" stroke-width="3"/>
+  <circle cx="73" cy="279" r="15" fill="#368577"/>
+  <text x="73" y="285" class="step">2</text>
+  <text x="102" y="287" class="body">박자 연습</text>
+  <path d="M 73 299 V 307" stroke="#b7d4cc" stroke-width="3"/>
+  <circle cx="73" cy="329" r="15" fill="#368577"/>
+  <text x="73" y="335" class="step">3</text>
+  <text x="102" y="337" class="body">새 낱말 확인</text>
+  <text x="102" y="364" class="small">최대 3개 · 피드백 없음</text>
+  <path d="M 73 349 V 381" stroke="#b7d4cc" stroke-width="3"/>
+  <circle cx="73" cy="404" r="15" fill="#368577"/>
+  <text x="73" y="410" class="step">4</text>
+  <text x="102" y="412" class="body">마무리</text>
+
+  <path d="M 352 283 H 420" class="line"/>
+  <text x="386" y="264" class="small" text-anchor="middle">API</text>
+
+  <rect x="430" y="124" width="340" height="314" rx="20" fill="#ffffff" stroke="#b9cde5" stroke-width="2"/>
+  <rect x="430" y="124" width="340" height="72" rx="20" fill="#e8f0fc"/>
+  <rect x="430" y="170" width="340" height="26" fill="#e8f0fc"/>
+  <text x="456" y="157" class="card-title">서버</text>
+  <text x="456" y="183" class="small">FastAPI</text>
+  <rect x="456" y="214" width="288" height="44" rx="11" fill="#f2f6fc"/>
+  <text x="474" y="244" class="body">대화 정책</text>
+  <rect x="456" y="271" width="288" height="76" rx="11" fill="#f2f6fc"/>
+  <text x="474" y="301" class="body">음향 근사 · 고정 규칙</text>
+  <text x="474" y="329" class="small">ML 판정 아님</text>
+  <rect x="456" y="360" width="288" height="44" rx="11" fill="#f2f6fc"/>
+  <text x="474" y="390" class="body">회기 진행 · 접근 권한</text>
+
+  <path d="M 780 283 H 842" class="line"/>
+  <text x="811" y="264" class="small" text-anchor="middle">API</text>
+
+  <rect x="852" y="124" width="312" height="314" rx="20" fill="#ffffff" stroke="#c4dbd8" stroke-width="2"/>
+  <rect x="852" y="124" width="312" height="72" rx="20" fill="#e6f3ee"/>
+  <rect x="852" y="170" width="312" height="26" fill="#e6f3ee"/>
+  <text x="876" y="157" class="card-title">치료사 화면</text>
+  <text x="876" y="183" class="small">React · 브라우저</text>
+  <circle cx="889" cy="229" r="15" fill="#368577"/>
+  <text x="889" y="235" class="step">1</text>
+  <text x="918" y="237" class="body">근거 검토</text>
+  <path d="M 889 249 V 271" stroke="#b7d4cc" stroke-width="3"/>
+  <circle cx="889" cy="294" r="15" fill="#368577"/>
+  <text x="889" y="300" class="step">2</text>
+  <text x="918" y="302" class="body">확인 · 교정</text>
+  <path d="M 889 314 V 336" stroke="#b7d4cc" stroke-width="3"/>
+  <circle cx="889" cy="359" r="15" fill="#368577"/>
+  <text x="889" y="365" class="step">3</text>
+  <text x="918" y="367" class="body">목표 · 박자 조정</text>
+  <text x="876" y="412" class="small">검토 결과를 다음 회기에 반영</text>
+
+  <path d="M 600 448 V 470" class="line"/>
+  <rect x="430" y="480" width="340" height="88" rx="16" fill="#eaf3f5" stroke="#b9d3d8" stroke-width="2"/>
+  <text x="454" y="515" class="card-title">SQLite</text>
+  <text x="454" y="546" font-size="22">회기 · 발화 · 관찰 · 검토</text>
+
+  <path d="M 780 398 H 811 V 524 H 842" class="ai-line"/>
+  <rect x="852" y="480" width="312" height="88" rx="16" fill="#f6f0fb" stroke="#a48abe" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="876" y="510" font-size="23" font-weight="700" fill="#6c4c92">OpenAI Responses API</text>
+  <text x="876" y="544" font-size="21" fill="#6c4c92">선택 사용 · 대화·요약 문장만</text>
+
+  <rect x="36" y="480" width="354" height="88" rx="16" fill="#f2efe6"/>
+  <text x="56" y="515" font-size="21" font-weight="600">음성 입력은 브라우저에서 처리</text>
+  <text x="56" y="546" class="small">원본 음성은 서버에 저장하지 않음</text>
+
+  <path d="M 40 599 H 78" stroke="#347f91" stroke-width="3"/>
+  <text x="89" y="606" class="small">서비스 흐름</text>
+  <path d="M 250 599 H 288" stroke="#8764ad" stroke-width="3" stroke-dasharray="8 7"/>
+  <text x="299" y="606" class="small">선택적 문장 생성</text>
+</svg>
