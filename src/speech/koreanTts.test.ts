@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { KOREAN_TTS_RELEASE_DELAY_MS, KoreanTts } from './koreanTts'
+import { KOREAN_TTS_RELEASE_DELAY_MS, KoreanTts, ONLINE_VOICE_SILENCE_MS, SYNTHESIS_START_MS } from './koreanTts'
 
 function setup() {
   const utterances: SpeechSynthesisUtterance[] = []
@@ -201,11 +201,38 @@ describe('두두 음성 파일 재생', () => {
     expect(t.synthesis.speak).toHaveBeenCalledOnce()
   })
 
-  it('recorded: false면 파일이 있는 말도 브라우저 음성으로 해 대화 중 목소리가 바뀌지 않는다', () => {
-    const t = withClips(true)
-    t.tts.speak('안녕~ 만나서 반가워!', {}, { recorded: false })
-    expect(t.clips.play).not.toHaveBeenCalled()
-    expect(t.synthesis.speak).toHaveBeenCalledOnce()
-    expect(t.utterances[0].text).toBe('안녕~ 만나서 반가워!')
+  it('파일로 말할지 미리 알려 준다(박에 맞춰 부를 때 얼마나 먼저 말할지 정한다)', () => {
+    expect(withClips(true).tts.usesClip('사!')).toBe(true)
+    expect(withClips(false).tts.usesClip('사!')).toBe(false)
+  })
+
+  it('브라우저 음성이 말을 시작하기까지 걸린 시간을 재고, 한 번 늦어진 값에 크게 흔들리지 않는다', () => {
+    const t = withClips(false)
+    let now = 1000
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    expect(t.tts.synthesisStartMs).toBe(SYNTHESIS_START_MS)
+    t.tts.speak('두두 따라 해 봐.')
+    now += 600; t.utterances[0].onstart?.({} as SpeechSynthesisEvent)
+    expect(t.tts.synthesisStartMs).toBe(600)
+    t.tts.speak('사!')
+    now += 200; t.utterances[1].onstart?.({} as SpeechSynthesisEvent)
+    expect(t.tts.synthesisStartMs).toBe(400)
+    t.tts.speak('아주 늦은 말')
+    now += 9000; t.utterances[2].onstart?.({} as SpeechSynthesisEvent)
+    expect(t.tts.synthesisStartMs).toBe(600)
+    clock.mockRestore()
+  })
+
+  it('온라인 음성은 재생이 시작된 뒤의 앞 무음까지 더해 말소리가 들리는 때를 잰다', () => {
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const utterances: SpeechSynthesisUtterance[] = []
+    const tts = new KoreanTts({ synthesis: { cancel: vi.fn(), speak: vi.fn() }, clips: null,
+      voice: () => ({ voice: { name: 'Microsoft InJoon Online (Natural)', lang: 'ko-KR', localService: false } as SpeechSynthesisVoice, pitch: 1.15 }),
+      createUtterance: text => { const u = { text, onstart: null, onend: null, onerror: null } as unknown as SpeechSynthesisUtterance; utterances.push(u); return u } })
+    tts.speak('두두 따라 해 봐.')
+    now += 100; utterances[0].onstart?.({} as SpeechSynthesisEvent)
+    expect(tts.synthesisStartMs).toBe(100 + ONLINE_VOICE_SILENCE_MS)
+    clock.mockRestore()
   })
 })

@@ -358,6 +358,22 @@ def test_event_texts_for_crossing_are_korean_without_zero_score():
     assert therapist_text("TARGET_SUCCESS", {}, {"displayText": "사과"}, goal, NS(score=92)) == "목표 /ㅅ/ 성공 — 사과 (점수 92)"
 
 
+def test_every_saved_event_type_has_korean_therapist_text():
+    # 치료사 화면의 이벤트 기록은 한국어 문구만 보인다. 서버가 남기는 모든 사건 이름에 문구가 있어야 한다.
+    import re
+    from pathlib import Path
+    from app.analysis.translation import therapist_text
+    app_dir = Path(__file__).resolve().parents[1] / "app"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in app_dir.rglob("*.py"))
+    types = set(re.findall(r'"type": "([A-Z_]+)"', source))
+    assert {"SESSION_START", "STORY_CONTINUE", "TARGET_PRESENTED"} <= types
+    for event_type in sorted(types):
+        text = therapist_text(event_type, {})
+        assert text and not re.search(r"[A-Z]+_[A-Z]", text), (event_type, text)
+    assert therapist_text("STORY_CONTINUE", {"targetObserved": True}) == "이야기 이어 가기 · 목표 소리 관찰"
+    assert therapist_text("LEVEL_DOWN", {"toLevel": "syllable"}) == "난이도 하향: 음절"
+
+
 def finish_lap(client, headers, sid, current):
     for _ in range(10):
         current = send(client, headers, sid, current)

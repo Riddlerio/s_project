@@ -3,6 +3,16 @@ import { availableVoices, pickDuduVoice, readDuduVoiceSetting, type DuduVoiceSet
 
 /** 두두 음성이 끝난 뒤 스피커의 잔향이 입력에 섞이지 않도록 기다리는 초기값. */
 export const KOREAN_TTS_RELEASE_DELAY_MS = 300
+/** 브라우저 음성이 말을 시작하기까지 걸리는 시간(ms). 아직 재지 않았을 때 쓰는 값이다. */
+export const SYNTHESIS_START_MS = 250
+/**
+ * 온라인 음성(Edge 'Online (Natural)' 등)은 재생이 시작된(onstart) 뒤에도 소리 파일 앞의 무음이 이만큼 있다.
+ * 2026-10-10 InJoon 음성 파일 실측: 첫 자음까지 약 0.34초. 기기에 있는 음성은 0으로 본다.
+ */
+export const ONLINE_VOICE_SILENCE_MS = 340
+const MAX_SYNTHESIS_START_MS = 1500
+/** 시작 시간은 최근 몇 번의 중앙값을 쓴다(네트워크 음성이 한 번 늦어도 박이 크게 흔들리지 않게). */
+const START_SAMPLES = 5
 
 export type KoreanSpeechResult = 'ended' | 'error' | 'timeout' | 'cancelled' | 'unavailable'
 export interface KoreanSpeechHandle { cancel(): void; finished: Promise<KoreanSpeechResult> }
@@ -39,6 +49,7 @@ export class KoreanTts {
   private isBlocked = false
   private readonly synthesis: KoreanTtsOptions['synthesis']
   private readonly clips: ClipPlayer | null
+  private readonly starts: number[] = []
 
   constructor(private readonly options: KoreanTtsOptions = {}) {
     this.synthesis = options.synthesis === undefined
@@ -49,8 +60,17 @@ export class KoreanTts {
 
   get blocked(): boolean { return this.isBlocked }
 
-  /** recorded: false면 음성 파일이 있는 문장도 브라우저 음성으로 말한다(한 대화 안에서 목소리를 하나로 맞출 때). */
-  speak(text: string, events: KoreanSpeechEvents = {}, options: { rate?: number; recorded?: boolean } = {}): KoreanSpeechHandle {
+  /** 이 말을 음성 파일로 말하는지(아니면 브라우저 음성). 파일을 끈 탭에서는 늘 false다. */
+  usesClip(text: string): boolean { return !!this.clips?.plan(text) }
+
+  /** 브라우저 음성으로 말하라고 한 뒤 말소리가 들리기까지 걸린 시간(ms, 최근 5번의 중앙값). 박에 맞춰 부를 때 그만큼 먼저 말한다. */
+  get synthesisStartMs(): number {
+    if (!this.starts.length) return SYNTHESIS_START_MS
+    const sorted = [...this.starts].sort((a, b) => a - b), middle = sorted.length >> 1
+    return sorted.length % 2 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2)
+  }
+
+  speak(text: string, events: KoreanSpeechEvents = {}, options: { rate?: number } = {}): KoreanSpeechHandle {
     if (this.disposed) return { cancel() {}, finished: Promise.resolve('cancelled') }
     this.stopActive()
     this.setBlocked(true)
@@ -60,7 +80,7 @@ export class KoreanTts {
     this.active = playback
     const live = () => !this.disposed && this.active === playback && !playback.ending
     // 문장이 모두 두두 음성 파일로 있으면 파일을 재생한다. 못 틀면 같은 말을 브라우저 음성으로 한다.
-    const urls = options.recorded === false ? null : this.clips?.plan(text) ?? null
+    const urls = this.clips?.plan(text) ?? null
     if (urls && this.clips) {
       playback.safety = setTimeout(() => this.finish(playback, 'timeout', true), this.options.timeoutMs ?? Math.min(20000, 2000 + text.length * 300))
       playback.clip = this.clips.play(urls, {
@@ -92,7 +112,12 @@ export class KoreanTts {
           if (dudu.voice) utterance.voice = dudu.voice
           utterance.pitch = dudu.pitch
         }
-        utterance.onstart = () => { if (live()) events.onStart?.() }
+        const askedAt = performance.now()
+        utterance.onstart = () => {
+          if (!live()) return
+          this.noteStart(performance.now() - askedAt + (utterance.voice?.localService === false ? ONLINE_VOICE_SILENCE_MS : 0))
+          events.onStart?.()
+        }
         utterance.onend = () => this.finish(playback, 'ended')
         utterance.onerror = () => this.finish(playback, 'error', true)
         playback.safety = setTimeout(() => this.finish(playback, 'timeout', true),
@@ -100,6 +125,11 @@ export class KoreanTts {
         this.synthesis.speak(utterance)
       } catch { this.finish(playback, 'error', true) }
     }
+  }
+
+  private noteStart(ms: number): void {
+    this.starts.push(Math.round(Math.min(MAX_SYNTHESIS_START_MS + ONLINE_VOICE_SILENCE_MS, Math.max(0, ms))))
+    if (this.starts.length > START_SAMPLES) this.starts.shift()
   }
 
   cancel(): void { if (this.active) this.finish(this.active, 'cancelled', true) }

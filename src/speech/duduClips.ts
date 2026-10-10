@@ -30,6 +30,22 @@ export function clipPlan(text: string, clips: ReadonlyMap<string, string> = CLIP
   return ids.every((id): id is string => id !== undefined) ? ids.map(id => `${base}${id}.wav`) : null
 }
 
+// AI가 답을 만드는 대화를 하면 그 답은 음성 파일이 없어 브라우저 음성으로 말한다.
+// 그래서 이 탭에서는 게임·마무리 인사도 파일을 쓰지 않고 같은 브라우저 음성으로 말한다(2026-10-10 사용자 결정: 두두 목소리 하나).
+const CLIP_SOURCE_KEY = 'speechHero.duduVoiceSource'
+let clipsAllowed: boolean | null = null
+
+/** 대화를 시작할 때 서버 설정으로 정한다. false면 이 탭을 닫을 때까지 음성 파일을 쓰지 않는다(새로 고침해도 유지). */
+export function setDuduClipsAllowed(allowed: boolean): void {
+  clipsAllowed = allowed
+  try { if (allowed) sessionStorage.removeItem(CLIP_SOURCE_KEY); else sessionStorage.setItem(CLIP_SOURCE_KEY, 'browser') } catch { /* 저장할 수 없으면 이 화면 동안만 유지한다. */ }
+}
+
+export function duduClipsAllowed(): boolean {
+  if (clipsAllowed !== null) return clipsAllowed
+  try { return sessionStorage.getItem(CLIP_SOURCE_KEY) !== 'browser' } catch { return true }
+}
+
 export interface ClipHooks { onStart(): void; onEnd(): void; onError(): void }
 export interface ClipPlayer {
   plan(text: string): string[] | null
@@ -92,7 +108,7 @@ export function unlockDuduAudio(): void {
 export function browserClipPlayer(gapMs = CLIP_GAP_MS): ClipPlayer | null {
   if (typeof window === 'undefined' || typeof Audio === 'undefined') return null
   return {
-    plan: text => clipPlan(text),
+    plan: text => duduClipsAllowed() ? clipPlan(text) : null,
     play(urls, hooks) {
       const audio = audioElement()
       let index = 0, stopped = false, started = false

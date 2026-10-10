@@ -41,6 +41,7 @@ def test_chat_counts_exclude_processing_and_separate_sources(api):
     assert "successRate" not in result.text
     # 대화 기록은 연습 기회만 센다. 음성 인식이 틀린 발음을 표준 낱말로 고칠 수 있다는 이유를 치료사에게 알린다.
     assert "표준 낱말로 고쳐 적을 수 있어" in result.json()["limitation"]
+    assert "TARGET_OBSERVED" not in result.json()["limitation"]
     game = add_session(sessions, child, ["success"])
     assert client.get(f"/api/sessions/{game}/conversation-insights").json() == result.json()
 

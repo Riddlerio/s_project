@@ -17,7 +17,8 @@ def therapist_text(event_type, payload, item=None, goal=None, analysis=None):
         score = f" (점수 {analysis.score})" if analysis and analysis.score else ""
         return f"목표 {target} 성공 — {label}{score}"
     if event_type in ("LEVEL_DOWN", "LEVEL_UP"):
-        return f"난이도 {'하향' if event_type == 'LEVEL_DOWN' else '복귀'}: {payload.get('toLevel', '')}"
+        level = payload.get("toLevel", "")
+        return f"난이도 {'하향' if event_type == 'LEVEL_DOWN' else '복귀'}: {LEVEL_TEXT.get(level, level)}"
     if event_type == "HINT_REQUIRED":
         return f"단서 제공: {payload.get('cue', '')} · {payload.get('modelText', '')}"
     if event_type == "ROUND_START":
@@ -32,6 +33,8 @@ def therapist_text(event_type, payload, item=None, goal=None, analysis=None):
         return "새 낱말 확인 마침(피드백 없음)"
     if event_type == "SESSION_COMPLETE" and payload.get("lap"):
         return f"{payload['lap']}판 완료"
+    if event_type == "STORY_CONTINUE":
+        return "이야기 이어 가기 · 목표 소리 관찰" if payload.get("targetObserved") else "이야기 이어 가기"
     if event_type == "ROUND_CLEAR":
         return f"{payload['index']}라운드 마침" if payload.get("index") else "라운드 마침"
     return {"NO_SPEECH": "인식 결과 없음 — 재요청", "LISTEN_AGAIN": "판단 보류 — 다시 듣기(실패 아님)", "ITEM_ADVANCE": "다음 항목으로",
