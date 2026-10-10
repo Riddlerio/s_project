@@ -143,3 +143,27 @@ describe('두두 음성 재생기(오디오 하나를 다시 씀, iOS 대응)', 
     expect(broken.onError).toHaveBeenCalledOnce()
   })
 })
+
+describe('AI 대화를 한 탭의 두두 목소리', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules() })
+
+  it('AI가 답을 만드는 대화를 시작하면 이 탭에서는 게임·마무리도 음성 파일을 쓰지 않는다(새로 고침해도 유지)', async () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('sessionStorage', { getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value) }, removeItem: (key: string) => { store.delete(key) } })
+    vi.stubGlobal('window', {}); vi.stubGlobal('Audio', class {})
+    vi.resetModules()
+    const clips = await import('./duduClips')
+    const player = clips.browserClipPlayer()!
+    expect(player.plan('두두 따라 해 봐. 사!')).not.toBeNull()
+    clips.setDuduClipsAllowed(false)
+    expect(player.plan('두두 따라 해 봐. 사!')).toBeNull()
+
+    vi.resetModules()
+    const reloaded = await import('./duduClips')
+    expect(reloaded.duduClipsAllowed()).toBe(false)
+    // 대본 대화(AI 답 없음)를 다시 시작하면 음성 파일을 다시 쓴다.
+    reloaded.setDuduClipsAllowed(true)
+    expect(reloaded.browserClipPlayer()!.plan('두두 따라 해 봐. 사!')).not.toBeNull()
+  })
+})

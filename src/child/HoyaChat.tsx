@@ -9,7 +9,7 @@ import { MicUtterancePipeline } from '../speech/micUtterance'
 import { WebSpeechRecognizer } from '../speech/webSpeechRecognizer'
 import { HoyaChatController, type HoyaChatState } from './hoyaChatController'
 import { KoreanTts } from '../speech/koreanTts'
-import { unlockDuduAudio } from '../speech/duduClips'
+import { setDuduClipsAllowed, unlockDuduAudio } from '../speech/duduClips'
 import './duduDemo.css'
 import { playTurnChime, unlockFx, VoiceCredit } from './demoFx'
 import { TurnCue } from './turnCue'
@@ -127,9 +127,11 @@ export default function HoyaChat() {
     try {
       const started = await startHoyaChat(mode)
       if (!mounted.current || voice.current !== tts) return
+      // AI가 만든 답은 음성 파일이 없어 브라우저 음성으로 말한다. 인사·대체 문장과 이어지는 게임·마무리 인사도
+      // 같은 음성으로 말해 두두 목소리가 바뀌지 않게 한다.
+      setDuduClipsAllowed(!started.generatedReplies)
       const chat = new HoyaChatController({
-        // AI가 만든 답은 녹음 파일이 없어 브라우저 음성으로 말한다. 인사·대체 문장도 같은 음성으로 말해 대화 중 목소리가 바뀌지 않게 한다.
-        speak: (text, events) => tts.speak(text, events, { recorded: !started.generatedReplies }),
+        speak: (text, events) => tts.speak(text, events),
         // 같은 발화는 같은 요청 ID로만 재시도한다. 서버가 이미 끝낸 turn이면 저장된 답을 받는다.
         requestReply: request => sendHoyaTurn(started.sessionId, request),
         resync: () => getHoyaChat(started.sessionId).then(value => ({ nextTurnIndex: value.nextTurnIndex, active: value.status === 'active' })),

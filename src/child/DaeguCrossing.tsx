@@ -9,7 +9,7 @@ import {
 import { previewJudge, serverJudge, type CrossingJudge, type CrossingTurn } from '../game/crossing/crossingJudge'
 import { OnsetPipeline } from '../game/crossing/onsetPipeline'
 import {
-  bar, barMs, beatLeadMs, beatMs, COUNT_IN, DEFAULT_RHYTHM, nextBarStart, nextBeat, nextBpm, timingKind, type Bar, type RhythmSetting,
+  bar, barMs, beatLeadMs, beatMs, COUNT_IN, DEFAULT_BEAT_LEAD_MS, DEFAULT_RHYTHM, nextBarStart, nextBeat, nextBpm, timingKind, type Bar, type RhythmSetting,
 } from '../game/crossing/rhythm'
 import { ApiError } from '../api/client'
 import type { Acoustic } from '../shared/types'
@@ -258,7 +258,10 @@ export default function DaeguCrossing({ preview = false }: { preview?: boolean }
     at(b.beats[0], () => { setTurn('dudu'); setCard('here'); setCaption('두두가 먼저 할게. 잘 들어 봐!') })
     b.beats.forEach((time, i) => beatAt(time, i + 1))
     const word = callWord(next.text)
-    at(b.land - beatLeadMs(word) - CLIP_START_MS, () => {
+    // 음성 파일은 모음이 박에 오게 먼저 튼다. 브라우저 음성(AI 대화를 한 탭)은 최근에 말소리가 들리기까지 걸린 시간만큼 더 먼저 말한다.
+    const tts = voice.current
+    const lead = tts && !tts.usesClip(word) ? tts.synthesisStartMs + DEFAULT_BEAT_LEAD_MS : beatLeadMs(word) + CLIP_START_MS
+    at(b.land - lead, () => {
       if (pausedRef.current) return
       void voice.current?.speak(word, { onStart: () => setAction('TALKING') }, { rate: 0.85 })
     })
