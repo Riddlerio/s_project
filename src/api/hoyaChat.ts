@@ -1,7 +1,9 @@
 import { api } from './client'
 import { TurnRejectedError, type ChatReply, type TurnRequest } from '../child/hoyaChatController'
 
-export interface HoyaChatSession { sessionId: string; mode: 'real' | 'demo'; status: string; turnCount: number; nextTurnIndex: number; maxTurns: number; openingText: string; lastHoyaText: string | null }
+export interface HoyaChatSession { sessionId: string; mode: 'real' | 'demo'; status: string; turnCount: number; nextTurnIndex: number; maxTurns: number; openingText: string; lastHoyaText: string | null
+  /** AI가 두두의 답을 만드는 대화. 이때는 인사부터 끝까지 브라우저 음성 하나로 말한다. */
+  generatedReplies?: boolean }
 export interface HoyaChatTurnReply extends ChatReply { status: 'COMPLETED'; turnIndex: number; clientRequestId: string; nextActivity: 'daegu_crossing' | null }
 
 export const startHoyaChat = (mode: 'real' | 'demo') =>

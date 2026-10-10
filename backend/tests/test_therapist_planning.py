@@ -347,6 +347,39 @@ def test_invalid_llm_output_falls_back_to_template(api, bad):
     assert result["summary_source"] == "TEMPLATE" and result["rejection"] in {"FORBIDDEN_CLAIM", "UNGROUNDED_NUMBER"}
 
 
+@pytest.mark.parametrize("bad", [
+    {"evidence_points": ["verifiedN이 0으로, 검증된 자료가 없습니다."]},
+    {"observation_summary": "successRate와 retryRate는 아직 없습니다."},
+    {"limitations": ["INSUFFICIENT_DATA 상태라 해석이 어렵습니다."]},
+])
+def test_llm_output_with_internal_names_falls_back_to_template(api, bad):
+    """치료사 화면에 영문 키 이름이나 코드가 그대로 보이지 않게 한다."""
+    base = {"observation_summary": "요약입니다.", "evidence_points": [], "next_session_suggestion": "제안입니다.",
+            "limitations": []}
+    result, _fake, _child = _llm_run(api, SummaryOutput(**{**base, **bad}))
+    assert result["summary_source"] == "TEMPLATE" and result["rejection"] == "INTERNAL_NAME"
+
+
+def test_llm_context_sends_korean_labels_instead_of_codes(api):
+    good = SummaryOutput(observation_summary="최근 확인된 단어 단계 관찰을 정리했습니다.", evidence_points=[],
+                         next_session_suggestion="제안", limitations=[])
+    result, fake, _child = _llm_run(api, good)
+    assert result["summary_source"] == "LLM"
+    context = summary_module.build_context(result["goal"], result["metrics"], result["proposal"])
+
+    def values(item):
+        if isinstance(item, dict):
+            return [value for child in item.values() for value in values(child)]
+        if isinstance(item, list):
+            return [value for child in item for value in values(child)]
+        return [item] if isinstance(item, str) else []
+    # 단계·위치·단서·활동·제안 근거를 코드(word, initial, INSUFFICIENT_DATA…)가 아니라 화면 이름으로 보낸다.
+    assert not [value for value in values(context) if summary_module.IDENTIFIER.fullmatch(value)]
+    assert context["currentGoal"]["level"] == "단어" and context["proposal"]["activities"][0] == "두두와 대화"
+    # 지시문에 키 이름의 한국어 이름표를 준다.
+    assert "verifiedN: 치료사 확인 관찰" in fake.responses.calls[0]["instructions"]
+
+
 def test_template_summary_passes_its_own_validation(api):
     result, _fake, _child = _llm_run(api, None)
     assert result["summary_source"] == "TEMPLATE"

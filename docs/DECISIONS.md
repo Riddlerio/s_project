@@ -52,5 +52,6 @@
 | 2026-10-05 | 확인 필요 | 이름 'Speech Hero' 중복: 미국 Flint Rehabilitation의 실어증 앱 이름도 **Speech Hero**다(메트로놈 타이밍 판정, [NCT04471935](https://clinicaltrials.gov/study/NCT04471935)). 포스터·공개 전에 확인이 필요하다. | 이름 바꾸기 | — | — |
 | 2026-10-06 | 사용자 결정 | 건너기 판정을 아주 살짝 너그럽게: 시작 바람 소리 70→60ms(3프레임), 시작 앞부분 봐주기 40→60ms. 뒤 모음 80ms·잡음 대비 15dB는 그대로 | 그대로 두기 | `games/evaluation.py`, `crossingFlow.ts`, `onsetPipeline.ts`, `MIC_MEASUREMENT` 6절 | 값을 70/40으로 되돌림 |
 | 2026-10-06 | 사용자 결정 | 틀렸을 때 조언을 조금 더 자세히: 이유에 맞춘 입 모양 그림·짧은 안내를 제목 자리에 보이고, '바람 소리 먼저' 단서에도 낱말 시범을 붙인다. 두두 목소리는 기존 녹음만 쓴다(VOLI 남은 101자 보존) | 새 녹음 문장 | `src/game/crossing/retryTips.ts`, `src/child/RetryTip.tsx` | 도움말 카드 끄기 |
+| 2026-10-10 | 사용자 결정 | AI가 답을 만드는 두두 대화는 인사·대체 문장까지 브라우저 음성 하나로 말한다(대화 중 목소리가 바뀌지 않게). 게임·마무리는 VOLI 음성을 그대로 쓴다 | 대화도 VOLI 음성 우선(인사와 AI 답의 목소리가 다름) | `src/child/HoyaChat.tsx`, `src/speech/koreanTts.ts`, `backend/app/hoya/service.py`(`generatedReplies`) | `recorded` 옵션을 빼면 이전 동작 |
 
 새 항목은 아래에 이어 적는다. 기존 게임의 판정 기준값과 임상 파라미터는 바꾸지 않았다(새 게임 '대구대 건너기'의 기준값은 2026-10-05 실측으로 정했고 위에 기록했다). 임상 효과 주장은 쓰지 않는다.
