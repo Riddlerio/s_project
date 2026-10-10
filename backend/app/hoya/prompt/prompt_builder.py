@@ -7,11 +7,19 @@ import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import get_args
 
 from ..schemas import SpeechEvidence, Strategy
 
 SYSTEM_PROMPT_FILE = Path(__file__).with_name("system_prompt.md")
+
+# 이번 차례에 할 일. 전략 목록을 주고 고르게 하면 모델이 아동 말에 맞춰 전략을 바꾸므로, 정해진 전략 하나만 풀어 쓴다.
+STRATEGY_GUIDE: dict[str, str] = {
+    "CONTINUE_OR_EXPAND": "아동 말에 반응하고 같은 이야기를 이어 가거나 조금 넓힌다.",
+    "NATURAL_REELICITATION": "아동 말에 먼저 짧게 반응한 뒤, 지금 주제와 이어지는 질문 하나로 targetLexicon 낱말이 나올 기회를 만든다.",
+    "WAIT_OR_SIMPLIFY": "소리가 없었다. 재촉하지 않고 기다려 주거나 더 쉬운 질문을 한다.",
+    "SIMPLIFY": "잘 들리지 않은 일이 이어졌다. 고치라고 하지 않고 둘 중 하나를 고르는 쉬운 질문을 한다.",
+    "ALLOWED_CUE": "두두가 자기 문장에서 targetLexicon 낱말 하나를 먼저 들려준 뒤 질문한다. 따라 하라고 시키지 않는다.",
+}
 
 
 @lru_cache
@@ -40,10 +48,9 @@ def trusted_context(context: HoyaDialogueContext) -> dict:
         "childContext": {"ageBand": context.age_band},
         "therapyContext": {"targetPhoneme": context.target_phoneme, "wordPosition": context.word_position,
                            "level": context.level, "allowedCue": context.allowed_cue},
-        "conversationPolicy": {"strategy": context.strategy},
+        "conversationPolicy": {"strategy": context.strategy, "thisTurn": STRATEGY_GUIDE[context.strategy]},
         "speechEvidence": {"result": context.evidence},
         "targetLexicon": context.target_lexicon,
-        "allowedStrategies": list(get_args(Strategy)),
     }
 
 

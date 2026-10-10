@@ -153,6 +153,8 @@ def test_fake_openai_success_uses_sdk_without_network():
     (lambda request: httpx2.Response(503, json={"error": {"message": "busy"}}), "HTTP_503"),
     (lambda request: httpx2.Response(200, json=_response_body("이건 JSON이 아니야")), "INVALID_OUTPUT"),
     (lambda request: httpx2.Response(200, json=_response_body(output_json(strategy="HACK"))), "INVALID_OUTPUT"),
+    # 출력 schema가 서버 전략 하나만 허용하므로, 다른 전략을 적은 응답은 형식 오류로 걸러진다.
+    (lambda request: httpx2.Response(200, json=_response_body(output_json(strategy="CONTINUE_OR_EXPAND"))), "INVALID_OUTPUT"),
     (lambda request: httpx2.Response(200, json=_response_body(json.dumps({"text": "hi"}))), "INVALID_OUTPUT"),
 ])
 def test_provider_errors_fall_back_to_demo(handler, reason):
@@ -349,6 +351,32 @@ def test_openai_provider_sends_no_tools():
     run(OpenAIProvider("sk-test-not-real", "fake-model", client=Client()).reply(context(transcript=INJECTION)))
     assert "tools" not in calls[0] and "tool_choice" not in calls[0]
     assert calls[0]["instructions"] == system_prompt()
+
+
+@pytest.mark.parametrize("strategy", ["NATURAL_REELICITATION", "SIMPLIFY", "ALLOWED_CUE"])
+def test_openai_output_schema_allows_only_server_strategy(strategy):
+    """모델에게 전략을 고르게 하지 않는다. 서버가 정한 전략과 이번 차례 안내만 보내고, 출력 schema도 그 값 하나로 묶는다."""
+    calls = []
+
+    class Client:
+        class responses:
+            @staticmethod
+            async def parse(**kwargs):
+                calls.append(kwargs)
+
+                class Response:
+                    output_parsed = kwargs["text_format"](text="그랬구나!", strategy=strategy)
+                return Response()
+
+    output = run(OpenAIProvider("sk-test-not-real", "fake-model", client=Client()).reply(context(strategy=strategy)))
+    assert output.strategy == strategy
+    schema = calls[0]["text_format"].model_json_schema()
+    assert schema["properties"]["strategy"]["const"] == strategy
+    with pytest.raises(ValueError):
+        calls[0]["text_format"](text="그랬구나!", strategy="CONTINUE_OR_EXPAND")
+    trusted = json.loads(calls[0]["input"][0]["content"])
+    assert trusted["conversationPolicy"]["strategy"] == strategy and trusted["conversationPolicy"]["thisTurn"]
+    assert "allowedStrategies" not in trusted
 
 
 # ---------------------------------------------------------------- API 흐름과 보안
