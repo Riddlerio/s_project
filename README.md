@@ -139,6 +139,13 @@ $env:OPENAI_API_KEY = ''
 
 서버는 `backend/.env`도 읽으며 같은 이름의 OS 환경 변수가 우선합니다. `.env`, DB, 키·인증서는 커밋하지 않습니다.
 
+AI 대화와 치료사 요약을 켜려면 [backend/.env.example](backend/.env.example)을 `backend/.env`로 복사해 아래처럼 고칩니다.
+
+- AI: `HOYA_CHAT_ENABLED=true`, `THERAPIST_SUMMARY_ENABLED=true`, 두 모델 이름, `OPENAI_API_KEY`
+- 로컬 DEMO: 위 `$env:` 줄과 같은 `DATABASE_URL`, `SEED_DEMO_DATA=true`, `COOKIE_SECURE=false`
+
+권장 모델은 `gpt-5.4-mini`입니다. 기본 추론 단계가 `none`이라 대화 제한 시간(8초) 안에 답합니다. 서버는 위의 `$env:` 줄을 실행하지 않은 새 PowerShell 창에서 `cd backend` 뒤 `uvicorn` 줄만 실행합니다. `$env:` 값이 `.env`보다 우선하기 때문입니다. 백엔드 테스트는 `backend/.env`를 읽지 않으므로 거기 넣은 키로 실제 API를 부르지 않습니다.
+
 ### 3. 프런트엔드 실행
 
 다른 터미널에서 저장소 루트를 기준으로 실행합니다.
