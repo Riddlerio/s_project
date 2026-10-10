@@ -14,6 +14,13 @@ from .validator import ValidationFailure, validate_output
 log = logging.getLogger(__name__)
 
 
+def generates_replies(config: Settings) -> bool:
+    """외부 제공자가 두두의 답을 만들 설정인지. 그런 대화는 미리 녹음한 두두 음성 파일로 말할 수 없으므로,
+    아동 화면은 이 값을 보고 인사부터 끝까지 같은 브라우저 음성으로 말한다."""
+    return (config.hoya_chat_enabled and config.hoya_chat_provider == "openai"
+            and bool(config.openai_api_key.get_secret_value().strip()) and bool(config.hoya_chat_model.strip()))
+
+
 def select_provider(config: Settings) -> tuple[HoyaDialogueProvider | None, str | None]:
     """외부 제공자와, 쓸 수 없을 때의 사유를 돌려준다. None이면 DemoProvider만 쓴다."""
     if not config.hoya_chat_enabled:

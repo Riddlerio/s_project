@@ -128,7 +128,8 @@ export default function HoyaChat() {
       const started = await startHoyaChat(mode)
       if (!mounted.current || voice.current !== tts) return
       const chat = new HoyaChatController({
-        speak: (text, events) => tts.speak(text, events),
+        // AI가 만든 답은 녹음 파일이 없어 브라우저 음성으로 말한다. 인사·대체 문장도 같은 음성으로 말해 대화 중 목소리가 바뀌지 않게 한다.
+        speak: (text, events) => tts.speak(text, events, { recorded: !started.generatedReplies }),
         // 같은 발화는 같은 요청 ID로만 재시도한다. 서버가 이미 끝낸 turn이면 저장된 답을 받는다.
         requestReply: request => sendHoyaTurn(started.sessionId, request),
         resync: () => getHoyaChat(started.sessionId).then(value => ({ nextTurnIndex: value.nextTurnIndex, active: value.status === 'active' })),

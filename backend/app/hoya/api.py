@@ -23,7 +23,7 @@ from .policy import HoyaConversationPolicy, allowed_cue
 from .prompt.prompt_builder import HoyaDialogueContext
 from .providers.demo_provider import OPENING, opening_text
 from .schemas import RECENT_TURNS, HoyaChatStartInput, HoyaChatTurnInput, HoyaDialogueResponse
-from .service import HoyaDialogueService, select_provider
+from .service import HoyaDialogueService, generates_replies, select_provider
 from .transitions import NEXT_ACTIVITY, TRANSITION_TEXT, should_transition
 
 router = APIRouter(prefix="/api/hoya/chat")
@@ -52,7 +52,8 @@ def _public(session: HoyaChatSession, turns: list[HoyaChatTurn]) -> dict:
     done = [turn for turn in turns if turn.status == "COMPLETED"]
     return {"sessionId": session.id, "mode": session.mode, "status": session.status, "turnCount": len(done),
             "nextTurnIndex": (turns[-1].turn_index if turns else 0) + 1, "maxTurns": settings.hoya_chat_max_turns,
-            "openingText": session.summary_json.get("opening", OPENING), "lastHoyaText": done[-1].hoya_text if done else None}
+            "openingText": session.summary_json.get("opening", OPENING), "lastHoyaText": done[-1].hoya_text if done else None,
+            "generatedReplies": generates_replies(settings)}
 
 
 def _next_activity(session: HoyaChatSession, turn_index: int) -> str | None:

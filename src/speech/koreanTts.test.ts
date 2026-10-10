@@ -200,4 +200,12 @@ describe('두두 음성 파일 재생', () => {
     expect(t.clips.play).not.toHaveBeenCalled()
     expect(t.synthesis.speak).toHaveBeenCalledOnce()
   })
+
+  it('recorded: false면 파일이 있는 말도 브라우저 음성으로 해 대화 중 목소리가 바뀌지 않는다', () => {
+    const t = withClips(true)
+    t.tts.speak('안녕~ 만나서 반가워!', {}, { recorded: false })
+    expect(t.clips.play).not.toHaveBeenCalled()
+    expect(t.synthesis.speak).toHaveBeenCalledOnce()
+    expect(t.utterances[0].text).toBe('안녕~ 만나서 반가워!')
+  })
 })

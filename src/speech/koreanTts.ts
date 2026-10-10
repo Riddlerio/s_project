@@ -49,7 +49,8 @@ export class KoreanTts {
 
   get blocked(): boolean { return this.isBlocked }
 
-  speak(text: string, events: KoreanSpeechEvents = {}, options: { rate?: number } = {}): KoreanSpeechHandle {
+  /** recorded: false면 음성 파일이 있는 문장도 브라우저 음성으로 말한다(한 대화 안에서 목소리를 하나로 맞출 때). */
+  speak(text: string, events: KoreanSpeechEvents = {}, options: { rate?: number; recorded?: boolean } = {}): KoreanSpeechHandle {
     if (this.disposed) return { cancel() {}, finished: Promise.resolve('cancelled') }
     this.stopActive()
     this.setBlocked(true)
@@ -59,7 +60,7 @@ export class KoreanTts {
     this.active = playback
     const live = () => !this.disposed && this.active === playback && !playback.ending
     // 문장이 모두 두두 음성 파일로 있으면 파일을 재생한다. 못 틀면 같은 말을 브라우저 음성으로 한다.
-    const urls = this.clips?.plan(text) ?? null
+    const urls = options.recorded === false ? null : this.clips?.plan(text) ?? null
     if (urls && this.clips) {
       playback.safety = setTimeout(() => this.finish(playback, 'timeout', true), this.options.timeoutMs ?? Math.min(20000, 2000 + text.length * 300))
       playback.clip = this.clips.play(urls, {

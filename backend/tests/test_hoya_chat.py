@@ -538,6 +538,19 @@ def test_api_key_never_reaches_child_response(api, monkeypatch):
     assert "sk-live-secret" not in response.text and "sk-live-secret" not in json.dumps(started)
 
 
+def test_child_screen_knows_when_ai_makes_replies(api, monkeypatch):
+    """AI가 답을 만드는 대화면 아동 화면이 인사부터 같은 음성으로 말하도록 알린다. 키 값은 보내지 않는다."""
+    client, _ = api
+    headers = student_auth(client)
+    assert _start(client, headers)["generatedReplies"] is False
+    monkeypatch.setattr(api_module.settings, "hoya_chat_enabled", True)
+    monkeypatch.setattr(api_module.settings, "hoya_chat_model", "fake-model")
+    monkeypatch.setattr(api_module.settings, "openai_api_key", Settings(_env_file=None, openai_api_key="sk-live-secret").openai_api_key)
+    started = _start(client, headers)
+    assert started["generatedReplies"] is True and "sk-live-secret" not in json.dumps(started)
+    assert client.get(f"/api/hoya/chat/sessions/{started['sessionId']}", headers=headers).json()["generatedReplies"] is True
+
+
 # ---------------------------------------------------------------- 자료 수명
 
 def test_chat_text_retention(api):
